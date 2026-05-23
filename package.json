@@ -13,7 +13,17 @@
     "format:check": "prettier --check .",
     "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": [
+      "mise x -- pnpm exec eslint --max-warnings 0 --fix",
+      "mise x -- pnpm exec prettier --write"
+    ],
+    "*.{css,scss,html,json,md,yml,yaml}": [
+      "mise x -- pnpm exec prettier --write"
+    ]
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.25",
@@ -34,6 +44,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
     "postcss": "^8.5.15",
     "prettier": "^3.8.3",
     "tailwindcss": "^4.3.0",

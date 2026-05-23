@@ -1,0 +1,5 @@
+mise x -- pnpm lint-staged
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -q "^src-tauri/.*\\.rs$"; then
+  mise x -- cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+fi
