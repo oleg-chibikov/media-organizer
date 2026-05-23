@@ -7,6 +7,7 @@ interface FileTableProps {
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   movePlansByFileId: Record<string, MovePlan>;
+  selectedFolder: string | null;
 }
 
 const STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
@@ -27,13 +28,13 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
 };
 
 const COLUMNS = [
-  { key: "status", label: "Status", defaultWidth: 224, minWidth: 140 },
-  { key: "source", label: "Source File", defaultWidth: 320, minWidth: 220 },
-  { key: "kind", label: "Kind", defaultWidth: 128, minWidth: 96 },
-  { key: "originalName", label: "Original Name", defaultWidth: 192, minWidth: 140 },
-  { key: "metadataDate", label: "Metadata Date", defaultWidth: 176, minWidth: 140 },
-  { key: "destination", label: "Destination", defaultWidth: 320, minWidth: 220 },
-  { key: "notes", label: "Notes", defaultWidth: 224, minWidth: 160 }
+  { key: "status", label: "Status", defaultWidth: 180, minWidth: 140 },
+  { key: "source", label: "Source File", defaultWidth: 420, minWidth: 280 },
+  { key: "kind", label: "Kind", defaultWidth: 110, minWidth: 90 },
+  { key: "originalName", label: "Original Name", defaultWidth: 170, minWidth: 130 },
+  { key: "metadataDate", label: "Metadata Date", defaultWidth: 170, minWidth: 130 },
+  { key: "destination", label: "Destination", defaultWidth: 420, minWidth: 280 },
+  { key: "notes", label: "Notes", defaultWidth: 190, minWidth: 140 }
 ] as const;
 
 interface ActiveResize {
@@ -42,7 +43,12 @@ interface ActiveResize {
   startWidth: number;
 }
 
-export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTableProps) {
+export function FileTable({
+  rows,
+  metadataByFileId,
+  movePlansByFileId,
+  selectedFolder
+}: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const activeResizeRef = useRef<ActiveResize | null>(null);
   const [columnWidths, setColumnWidths] = useState<number[]>(() =>
@@ -154,6 +160,10 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
                 const destinationLabel =
                   movePlan?.destination_path ||
                   (metadata?.metadata_status === "ready" ? "planning..." : "-");
+                const relativeDestinationLabel = resolveRelativePath(
+                  destinationLabel,
+                  selectedFolder
+                );
 
                 const statusLabel = resolveStatusLabel(row, metadata, movePlan);
                 const notesLabel = resolveNotesLabel(metadata, movePlan);
@@ -188,7 +198,7 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
                       className="truncate px-3 py-2 font-mono text-xs text-slate-300"
                       title={destinationLabel}
                     >
-                      {destinationLabel}
+                      {relativeDestinationLabel}
                     </div>
                     <div className="truncate px-3 py-2" title={notesLabel}>
                       {notesLabel}
@@ -202,6 +212,24 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
       </div>
     </div>
   );
+}
+
+function resolveRelativePath(pathValue: string, basePath: string | null): string {
+  if (!basePath || pathValue === "-" || pathValue === "planning...") {
+    return pathValue;
+  }
+
+  const normalizedBase = normalizePath(basePath);
+  const normalizedPath = normalizePath(pathValue);
+  if (!normalizedPath.toLowerCase().startsWith(`${normalizedBase.toLowerCase()}/`)) {
+    return pathValue;
+  }
+
+  return normalizedPath.slice(normalizedBase.length + 1);
+}
+
+function normalizePath(pathValue: string): string {
+  return pathValue.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 function resolveStatusLabel(

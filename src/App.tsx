@@ -486,6 +486,7 @@ export default function App() {
           rows={rows}
           metadataByFileId={metadataByFileId}
           movePlansByFileId={movePlansByFileId}
+          selectedFolder={selectedFolder}
         />
       </main>
 
