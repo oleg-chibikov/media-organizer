@@ -20,6 +20,7 @@ export interface MetadataResult {
   chosen_date_source: string | null;
   date_kind: DateKind | null;
   raw_metadata_date: string | null;
+  device_name: string | null;
   metadata_status: MetadataStatus;
   error: string | null;
 }

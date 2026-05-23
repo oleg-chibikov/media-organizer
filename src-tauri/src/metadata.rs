@@ -13,7 +13,7 @@ use crate::models::{DateKind, FileKind};
 
 pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
 
-const EXIFTOOL_TAGS: [&str; 7] = [
+const EXIFTOOL_TAGS: [&str; 8] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -21,6 +21,7 @@ const EXIFTOOL_TAGS: [&str; 7] = [
     "-MediaCreateDate",
     "-TrackCreateDate",
     "-FileModifyDate",
+    "-Model",
 ];
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,7 @@ pub struct RawMetadataDates {
     pub media_create_date: Option<String>,
     pub track_create_date: Option<String>,
     pub file_modify_date: Option<String>,
+    pub device_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -373,6 +375,7 @@ pub fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDates>, St
                 media_create_date: read_tag(object, "MediaCreateDate"),
                 track_create_date: read_tag(object, "TrackCreateDate"),
                 file_modify_date: read_tag(object, "FileModifyDate"),
+                device_name: read_tag(object, "Model"),
             })
         })
         .collect()
@@ -580,6 +583,7 @@ mod tests {
             parsed.date_time_original.as_deref(),
             Some("2026:03:05 07:20:17")
         );
+        assert_eq!(parsed.device_name.as_deref(), None);
         assert_eq!(parsed.media_create_date, None);
     }
 
@@ -598,6 +602,7 @@ mod tests {
             media_create_date: None,
             track_create_date: None,
             file_modify_date: None,
+            device_name: None,
         }
     }
 

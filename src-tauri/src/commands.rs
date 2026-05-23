@@ -293,6 +293,7 @@ fn metadata_result_from_raw(
             chosen_date_source: Some(date.chosen_date_source),
             date_kind: Some(date.date_kind),
             raw_metadata_date: Some(date.raw_metadata_date),
+            device_name: raw_dates.device_name,
             metadata_status: MetadataStatus::Ready,
             error: restart_warning,
         };
@@ -304,6 +305,7 @@ fn metadata_result_from_raw(
         chosen_date_source: None,
         date_kind: None,
         raw_metadata_date: None,
+        device_name: raw_dates.device_name,
         metadata_status: MetadataStatus::NoDate,
         error: restart_warning,
     }
@@ -316,6 +318,7 @@ fn metadata_error_result(file_id: String, error: String) -> MetadataResult {
         chosen_date_source: None,
         date_kind: None,
         raw_metadata_date: None,
+        device_name: None,
         metadata_status: MetadataStatus::Error,
         error: Some(error),
     }

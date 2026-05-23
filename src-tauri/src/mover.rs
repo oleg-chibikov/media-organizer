@@ -455,6 +455,7 @@ mod tests {
             chosen_date_source: Some("DateTimeOriginal".to_string()),
             date_kind: Some(date_kind),
             raw_metadata_date: Some("2026:05:23 10:00:00".to_string()),
+            device_name: None,
             metadata_status: MetadataStatus::Ready,
             error: None,
         }

@@ -83,10 +83,17 @@ fn create_plan_for_file(
         .join(parsed_date.format("%d").to_string());
 
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
-    let stem_base = format!(
+    let mut stem_base = format!(
         "{} ({original_name})",
         parsed_date.format("%Y-%m-%d %H-%M-%S")
     );
+    if let Some(device_name) = metadata.device_name.as_deref() {
+        let sanitized_device_name = filename::sanitize_for_windows_filename(device_name);
+        if !sanitized_device_name.is_empty() {
+            stem_base.push_str(" - ");
+            stem_base.push_str(&sanitized_device_name);
+        }
+    }
 
     let extension = file.extension.clone();
     let (destination_path, destination_filename, conflict_status) =
@@ -187,6 +194,7 @@ mod tests {
             chosen_date_source: Some("DateTimeOriginal".to_string()),
             date_kind: None,
             raw_metadata_date: Some(chosen_date.to_string()),
+            device_name: Some("iPhone 15 Pro".to_string()),
             metadata_status: MetadataStatus::Ready,
             error: None,
         }
@@ -205,7 +213,7 @@ mod tests {
         assert!(plan.destination_dir.ends_with(r"Processed\2026\03\05"));
         assert_eq!(
             plan.destination_filename,
-            "2026-03-05 07-20-17 (IMG_1001).mp4"
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
         );
     }
 
@@ -220,7 +228,7 @@ mod tests {
             .join("05");
         std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
         std::fs::write(
-            destination_dir.join("2026-03-05 07-20-17 (IMG_1001).mp4"),
+            destination_dir.join("2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"),
             b"existing",
         )
         .expect("existing file should be created");
@@ -234,14 +242,14 @@ mod tests {
 
         assert_eq!(
             plan.destination_filename,
-            "2026-03-05 07-20-17 (IMG_1001) - 2.mp4"
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro - 2.mp4"
         );
     }
 
     #[test]
     fn applies_suffix_for_duplicate_in_same_run() {
         let destination_dir = Path::new(r"C:\todo\Processed\2026\03\05");
-        let stem_base = "2026-03-05 07-20-17 (IMG_1001)";
+        let stem_base = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro";
         let mut reserved = HashSet::new();
 
         let (_, filename_one, _) =
@@ -249,8 +257,14 @@ mod tests {
         let (_, filename_two, _) =
             allocate_destination_path(destination_dir, stem_base, "mp4", &mut reserved);
 
-        assert_eq!(filename_one, "2026-03-05 07-20-17 (IMG_1001).mp4");
-        assert_eq!(filename_two, "2026-03-05 07-20-17 (IMG_1001) - 2.mp4");
+        assert_eq!(
+            filename_one,
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
+        );
+        assert_eq!(
+            filename_two,
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro - 2.mp4"
+        );
     }
 
     #[test]

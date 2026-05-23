@@ -54,6 +54,7 @@ pub struct MetadataResult {
     pub chosen_date_source: Option<String>,
     pub date_kind: Option<DateKind>,
     pub raw_metadata_date: Option<String>,
+    pub device_name: Option<String>,
     pub metadata_status: MetadataStatus,
     pub error: Option<String>,
 }
