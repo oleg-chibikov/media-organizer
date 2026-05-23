@@ -157,6 +157,7 @@ export function FileTable({
     .join(" ");
 
   const tableMinWidth = table.getTotalSize();
+  const tableWidth = `max(100%, ${tableMinWidth}px)`;
 
   const rowVirtualizer = useVirtualizer({
     count: tableRows.length,
@@ -246,9 +247,9 @@ export function FileTable({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-x-auto">
-        <div className="flex h-full flex-col" style={{ minWidth: `${tableMinWidth}px` }}>
+        <div className="flex h-full w-full flex-col" style={{ width: tableWidth }}>
           <div
-            className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
+            className="grid w-full border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
             style={{ gridTemplateColumns }}
           >
             {table.getHeaderGroups().map((headerGroup) =>
@@ -296,7 +297,7 @@ export function FileTable({
                 return (
                   <div
                     key={row.id}
-                    className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
+                    className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
                     style={{
                       gridTemplateColumns,
                       transform: `translateY(${virtualRow.start}px)`,
@@ -341,13 +342,13 @@ function resolveColumnData(
       return {
         value: row.relative_path,
         title: row.relative_path,
-        className: "px-3 py-2 font-mono text-xs"
+        className: "truncate px-3 py-2 font-mono text-xs"
       };
     case "destination":
       return {
         value: relativeDestinationLabel,
         title: destinationLabel,
-        className: "px-3 py-2 font-mono text-xs text-slate-300"
+        className: "truncate px-3 py-2 font-mono text-xs text-slate-300"
       };
     case "status":
       return { value: statusLabel, title: statusLabel, className: "truncate px-3 py-2" };
