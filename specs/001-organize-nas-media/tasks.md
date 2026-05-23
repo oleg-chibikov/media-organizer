@@ -57,6 +57,7 @@
 - [x] T034 Replace the simple file list with a virtualized table.
 - [x] T035 Add stable columns for status, source file, kind, original name, metadata date, destination, and issue.
 - [x] T036 Verify the table remains responsive with a generated large row set.
+- [x] T101 Add resizable table columns and hover tooltips for visible cell values.
 
 ## Phase 6: Filename Parser
 

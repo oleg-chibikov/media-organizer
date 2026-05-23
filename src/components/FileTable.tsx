@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import type { FileRecord, MetadataResult, MovePlan } from "../lib/types";
 
 interface FileTableProps {
@@ -25,8 +26,37 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
   FileModifyDate: "File modified time (fallback)"
 };
 
+const COLUMNS = [
+  { key: "status", label: "Status", defaultWidth: 224, minWidth: 140 },
+  { key: "source", label: "Source File", defaultWidth: 320, minWidth: 220 },
+  { key: "kind", label: "Kind", defaultWidth: 128, minWidth: 96 },
+  { key: "originalName", label: "Original Name", defaultWidth: 192, minWidth: 140 },
+  { key: "metadataDate", label: "Metadata Date", defaultWidth: 176, minWidth: 140 },
+  { key: "destination", label: "Destination", defaultWidth: 320, minWidth: 220 },
+  { key: "notes", label: "Notes", defaultWidth: 224, minWidth: 160 }
+] as const;
+
+interface ActiveResize {
+  columnIndex: number;
+  startX: number;
+  startWidth: number;
+}
+
 export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
+  const activeResizeRef = useRef<ActiveResize | null>(null);
+  const [columnWidths, setColumnWidths] = useState<number[]>(() =>
+    COLUMNS.map((column) => column.defaultWidth)
+  );
+  const gridTemplateColumns = useMemo(
+    () => columnWidths.map((width) => `${width}px`).join(" "),
+    [columnWidths]
+  );
+  const tableMinWidth = useMemo(
+    () => columnWidths.reduce((total, width) => total + width, 0),
+    [columnWidths]
+  );
+
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
@@ -34,20 +64,86 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
     overscan: 20
   });
 
+  const handleResizeStart = useCallback(
+    (columnIndex: number) => (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      activeResizeRef.current = {
+        columnIndex,
+        startX: event.clientX,
+        startWidth: columnWidths[columnIndex]
+      };
+      document.body.classList.add("cursor-col-resize", "select-none");
+    },
+    [columnWidths]
+  );
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const activeResize = activeResizeRef.current;
+      if (!activeResize) {
+        return;
+      }
+
+      const column = COLUMNS[activeResize.columnIndex];
+      const nextWidth = Math.max(
+        column.minWidth,
+        activeResize.startWidth + (event.clientX - activeResize.startX)
+      );
+
+      setColumnWidths((previous) => {
+        if (previous[activeResize.columnIndex] === nextWidth) {
+          return previous;
+        }
+
+        const next = [...previous];
+        next[activeResize.columnIndex] = nextWidth;
+        return next;
+      });
+    };
+
+    const stopResizing = () => {
+      if (!activeResizeRef.current) {
+        return;
+      }
+
+      activeResizeRef.current = null;
+      document.body.classList.remove("cursor-col-resize", "select-none");
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResizing);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      document.body.classList.remove("cursor-col-resize", "select-none");
+    };
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
-      <div className="grid grid-cols-[14rem_minmax(0,1fr)_8rem_12rem_11rem_minmax(0,1fr)_14rem] border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400">
-        <div className="px-3 py-2">Status</div>
-        <div className="px-3 py-2">Source File</div>
-        <div className="px-3 py-2">Kind</div>
-        <div className="px-3 py-2">Original Name</div>
-        <div className="px-3 py-2">Metadata Date</div>
-        <div className="px-3 py-2">Destination</div>
-        <div className="px-3 py-2">Notes</div>
+      <div
+        className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
+        style={{ gridTemplateColumns, minWidth: `${tableMinWidth}px` }}
+      >
+        {COLUMNS.map((column, columnIndex) => (
+          <div key={column.key} className="relative px-3 py-2">
+            <span className="truncate">{column.label}</span>
+            <button
+              type="button"
+              aria-label={`Resize ${column.label} column`}
+              className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
+              onPointerDown={handleResizeStart(columnIndex)}
+            />
+          </div>
+        ))}
       </div>
 
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
-        <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+        <div
+          className="relative"
+          style={{ height: `${rowVirtualizer.getTotalSize()}px`, minWidth: `${tableMinWidth}px` }}
+        >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const row = rows[virtualRow.index];
             const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
@@ -67,21 +163,38 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
             return (
               <div
                 key={row.id}
-                className={`absolute left-0 top-0 grid w-full grid-cols-[14rem_minmax(0,1fr)_8rem_12rem_11rem_minmax(0,1fr)_14rem] border-t border-slate-800 text-sm ${isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
+                className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
                 style={{
+                  gridTemplateColumns,
                   transform: `translateY(${virtualRow.start}px)`,
-                  height: `${virtualRow.size}px`
+                  height: `${virtualRow.size}px`,
+                  minWidth: `${tableMinWidth}px`
                 }}
               >
-                <div className="truncate px-3 py-2">{statusLabel}</div>
-                <div className="truncate px-3 py-2 font-mono text-xs">{row.relative_path}</div>
-                <div className="truncate px-3 py-2">{row.kind}</div>
-                <div className="truncate px-3 py-2">{row.original_name}</div>
-                <div className="truncate px-3 py-2">{metadataDateLabel}</div>
-                <div className="truncate px-3 py-2 font-mono text-xs text-slate-300">
+                <div className="truncate px-3 py-2" title={statusLabel}>
+                  {statusLabel}
+                </div>
+                <div className="truncate px-3 py-2 font-mono text-xs" title={row.relative_path}>
+                  {row.relative_path}
+                </div>
+                <div className="truncate px-3 py-2" title={row.kind}>
+                  {row.kind}
+                </div>
+                <div className="truncate px-3 py-2" title={row.original_name}>
+                  {row.original_name}
+                </div>
+                <div className="truncate px-3 py-2" title={metadataDateLabel}>
+                  {metadataDateLabel}
+                </div>
+                <div
+                  className="truncate px-3 py-2 font-mono text-xs text-slate-300"
+                  title={destinationLabel}
+                >
                   {destinationLabel}
                 </div>
-                <div className="truncate px-3 py-2">{notesLabel}</div>
+                <div className="truncate px-3 py-2" title={notesLabel}>
+                  {notesLabel}
+                </div>
               </div>
             );
           })}
