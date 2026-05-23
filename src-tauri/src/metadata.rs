@@ -13,7 +13,7 @@ use crate::models::{DateKind, FileKind};
 
 pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
 
-const EXIFTOOL_TAGS: [&str; 8] = [
+const EXIFTOOL_TAGS: [&str; 11] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -21,7 +21,10 @@ const EXIFTOOL_TAGS: [&str; 8] = [
     "-MediaCreateDate",
     "-TrackCreateDate",
     "-FileModifyDate",
+    "-Make",
     "-Model",
+    "-DeviceModelName",
+    "-CameraModelName",
 ];
 
 #[derive(Debug, Clone)]
@@ -375,10 +378,26 @@ pub fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDates>, St
                 media_create_date: read_tag(object, "MediaCreateDate"),
                 track_create_date: read_tag(object, "TrackCreateDate"),
                 file_modify_date: read_tag(object, "FileModifyDate"),
-                device_name: read_tag(object, "Model"),
+                device_name: read_first_available_tag(
+                    object,
+                    &["Model", "DeviceModelName", "CameraModelName", "Make"],
+                ),
             })
         })
         .collect()
+}
+
+fn read_first_available_tag(
+    object: &serde_json::Map<String, serde_json::Value>,
+    keys: &[&str],
+) -> Option<String> {
+    for key in keys {
+        if let Some(value) = read_tag(object, key) {
+            return Some(value);
+        }
+    }
+
+    None
 }
 
 pub fn select_metadata_date(
@@ -585,6 +604,22 @@ mod tests {
         );
         assert_eq!(parsed.device_name.as_deref(), None);
         assert_eq!(parsed.media_create_date, None);
+    }
+
+    #[test]
+    fn parses_device_name_from_video_fallback_tags() {
+        let json = r#"[{
+            "SourceFile": "C:/todo/example.mp4",
+            "MediaCreateDate": "2026:03:05 07:20:17",
+            "DeviceModelName": "Pixel 8 Pro"
+        }]"#;
+
+        let parsed = parse_exiftool_json(json).expect("json should parse");
+        assert_eq!(parsed.device_name.as_deref(), Some("Pixel 8 Pro"));
+        assert_eq!(
+            parsed.media_create_date.as_deref(),
+            Some("2026:03:05 07:20:17")
+        );
     }
 
     #[test]
