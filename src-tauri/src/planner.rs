@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use chrono::NaiveDateTime;
+use chrono::{Datelike, NaiveDateTime};
 
 use crate::events;
 use crate::filename;
@@ -79,8 +79,8 @@ fn create_plan_for_file(
     let destination_dir = selected_folder
         .join("Processed")
         .join(parsed_date.format("%Y").to_string())
-        .join(parsed_date.format("%m").to_string())
-        .join(parsed_date.format("%d").to_string());
+        .join(parsed_date.month().to_string())
+        .join(parsed_date.day().to_string());
 
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let mut stem_base = format!(
@@ -210,7 +210,7 @@ mod tests {
             create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
                 .expect("plan should be created");
 
-        assert!(plan.destination_dir.ends_with(r"Processed\2026\03\05"));
+        assert!(plan.destination_dir.ends_with(r"Processed\2026\3\5"));
         assert_eq!(
             plan.destination_filename,
             "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
@@ -224,8 +224,8 @@ mod tests {
             .path()
             .join("Processed")
             .join("2026")
-            .join("03")
-            .join("05");
+            .join("3")
+            .join("5");
         std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
         std::fs::write(
             destination_dir.join("2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"),
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn applies_suffix_for_duplicate_in_same_run() {
-        let destination_dir = Path::new(r"C:\todo\Processed\2026\03\05");
+        let destination_dir = Path::new(r"C:\todo\Processed\2026\3\5");
         let stem_base = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro";
         let mut reserved = HashSet::new();
 
@@ -293,8 +293,8 @@ mod tests {
             .path()
             .join("Processed")
             .join("2026")
-            .join("03")
-            .join("05");
+            .join("3")
+            .join("5");
         assert!(
             !destination_dir.exists(),
             "planner dry-run must not create filesystem directories"

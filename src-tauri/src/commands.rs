@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -400,6 +400,7 @@ pub fn execute_move_plan(
         let mut copied = 0u64;
         let mut skipped = 0u64;
         let mut failed = 0u64;
+        let mut moved_source_directories = Vec::new();
         let mut log_file = Some(log_file);
 
         for result in prepared
@@ -420,7 +421,15 @@ pub fn execute_move_plan(
         }
 
         for operation in rechecked.ready {
+            let source_parent = Path::new(&operation.source_path)
+                .parent()
+                .map(Path::to_path_buf);
             let result = mover::execute_move_with_rename(&operation);
+            if matches!(result.result_status, MoveResultStatus::Moved) {
+                if let Some(parent) = source_parent {
+                    moved_source_directories.push(parent);
+                }
+            }
             append_move_result_to_log(
                 &mut log_file,
                 &result,
@@ -431,6 +440,8 @@ pub fn execute_move_plan(
             count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
+
+        cleanup_empty_source_directories(&selected_folder, &moved_source_directories);
 
         let _ = events::emit_move_finished(
             &app,
@@ -642,8 +653,116 @@ fn count_move_result(
     }
 }
 
+fn cleanup_empty_source_directories(selected_root: &Path, source_directories: &[PathBuf]) {
+    let mut visited = HashSet::new();
+
+    for directory in source_directories {
+        let key = normalized_path_string(directory);
+        if visited.insert(key) {
+            prune_empty_directory_chain(selected_root, directory);
+        }
+    }
+}
+
+fn prune_empty_directory_chain(selected_root: &Path, start_directory: &Path) {
+    let mut current = start_directory.to_path_buf();
+
+    loop {
+        if paths_equal_case_insensitive(&current, selected_root)
+            || !path_is_within_case_insensitive(&current, selected_root)
+        {
+            break;
+        }
+
+        if !current.is_dir() {
+            break;
+        }
+
+        let is_empty = match fs::read_dir(&current) {
+            Ok(mut entries) => entries.next().is_none(),
+            Err(_) => false,
+        };
+
+        if !is_empty {
+            break;
+        }
+
+        if fs::remove_dir(&current).is_err() {
+            break;
+        }
+
+        let Some(parent) = current.parent() else {
+            break;
+        };
+        current = parent.to_path_buf();
+    }
+}
+
+fn path_is_within_case_insensitive(candidate: &Path, parent: &Path) -> bool {
+    let candidate = normalized_path_string(candidate);
+    let parent = normalized_path_string(parent);
+
+    candidate == parent || candidate.starts_with(&format!("{parent}/"))
+}
+
+fn paths_equal_case_insensitive(left: &Path, right: &Path) -> bool {
+    normalized_path_string(left) == normalized_path_string(right)
+}
+
+fn normalized_path_string(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_ascii_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::cleanup_empty_source_directories;
+
+    #[test]
+    fn removes_empty_source_directory_chain_after_moves() {
+        let temp = tempdir().expect("temp dir");
+        let selected_root = temp.path();
+        let nested = selected_root.join("a").join("b");
+        fs::create_dir_all(&nested).expect("create nested source dirs");
+
+        cleanup_empty_source_directories(selected_root, &[nested.clone()]);
+
+        assert!(!nested.exists());
+        assert!(!selected_root.join("a").exists());
+        assert!(selected_root.exists());
+    }
+
+    #[test]
+    fn stops_pruning_when_parent_contains_files() {
+        let temp = tempdir().expect("temp dir");
+        let selected_root = temp.path();
+        let parent = selected_root.join("a");
+        let nested = parent.join("b");
+        fs::create_dir_all(&nested).expect("create nested source dirs");
+        fs::write(parent.join("keep.txt"), b"keep").expect("write retained file");
+
+        cleanup_empty_source_directories(selected_root, &[nested.clone()]);
+
+        assert!(!nested.exists());
+        assert!(parent.exists());
+    }
+
+    #[test]
+    fn never_removes_selected_root() {
+        let temp = tempdir().expect("temp dir");
+        let selected_root = temp.path();
+
+        cleanup_empty_source_directories(selected_root, &[selected_root.to_path_buf()]);
+
+        assert!(selected_root.exists());
+    }
+
     #[cfg(target_os = "windows")]
     mod windows {
         use std::path::Path;
