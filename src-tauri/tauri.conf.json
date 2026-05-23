@@ -29,6 +29,14 @@
     "publisher": "Media Organizer",
     "shortDescription": "Organize NAS media TODO folder.",
     "icon": ["icons/icon.ico"],
-    "externalBin": ["binaries/exiftool"]
+    "externalBin": ["binaries/exiftool"],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

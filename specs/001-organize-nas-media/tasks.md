@@ -137,7 +137,7 @@
 ## Phase 13: Packaging
 
 - [x] T091 Add app icon and Windows metadata.
-- [ ] T092 Configure Tauri NSIS installer.
+- [x] T092 Configure Tauri NSIS installer.
 - [ ] T093 Configure WebView2 bootstrapper handling.
 - [ ] T094 Verify ExifTool sidecar is included in production build.
 - [ ] T095 Build installer `.exe`.
