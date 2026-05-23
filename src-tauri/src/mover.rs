@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::models::{
-    FileKind, FileRecord, MovePlan, MoveResult, MoveResultStatus, MoveStrategy, PlanStatus,
-    ScanStatus,
+    ConflictStatus, DateKind, FileKind, FileRecord, MetadataResult, MoveConfirmationSummary,
+    MovePlan, MoveResult, MoveResultStatus, MoveStrategy, PlanStatus, ScanStatus,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +100,68 @@ pub fn prepare_move_operations(files: &[FileRecord], plans: &[MovePlan]) -> Prep
     }
 }
 
+pub fn build_move_confirmation_summary(
+    files: &[FileRecord],
+    metadata_results: &[MetadataResult],
+    plans: &[MovePlan],
+) -> MoveConfirmationSummary {
+    let prepared = prepare_move_operations(files, plans);
+    let file_by_id: HashMap<&str, &FileRecord> = files.iter().map(|file| (file.id.as_str(), file)).collect();
+    let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
+        .iter()
+        .map(|metadata| (metadata.file_id.as_str(), metadata))
+        .collect();
+
+    let mut blocked_no_date = 0u64;
+    let mut blocked_conflict = 0u64;
+    let mut plan_errors = 0u64;
+    let mut suffix_applied = 0u64;
+    let mut fallback_warnings = 0u64;
+    let mut photos_ready = 0u64;
+    let mut videos_ready = 0u64;
+
+    for plan in plans {
+        match plan.plan_status {
+            PlanStatus::BlockedNoDate => blocked_no_date += 1,
+            PlanStatus::BlockedConflict => blocked_conflict += 1,
+            PlanStatus::Error => plan_errors += 1,
+            PlanStatus::Ready => {}
+        }
+
+        if matches!(plan.conflict_status, ConflictStatus::SuffixApplied) {
+            suffix_applied += 1;
+        }
+    }
+
+    for operation in &prepared.operations {
+        if let Some(file) = file_by_id.get(operation.file_id.as_str()) {
+            match file.kind {
+                FileKind::Photo => photos_ready += 1,
+                FileKind::Video => videos_ready += 1,
+                _ => {}
+            }
+        }
+        if let Some(metadata) = metadata_by_id.get(operation.file_id.as_str()) {
+            if matches!(metadata.date_kind, Some(DateKind::Fallback)) {
+                fallback_warnings += 1;
+            }
+        }
+    }
+
+    MoveConfirmationSummary {
+        total_plans: plans.len() as u64,
+        ready_operations: prepared.operations.len() as u64,
+        skipped_operations: prepared.skipped.len() as u64,
+        blocked_no_date,
+        blocked_conflict,
+        plan_errors,
+        suffix_applied,
+        fallback_warnings,
+        photos_ready,
+        videos_ready,
+    }
+}
+
 fn skipped_result(
     file_id: &str,
     source_path: &str,
@@ -118,7 +180,7 @@ fn skipped_result(
 
 #[cfg(test)]
 mod tests {
-    use crate::models::{ConflictStatus, MovePlan};
+    use crate::models::{ConflictStatus, DateKind, MetadataResult, MetadataStatus, MovePlan};
 
     use super::*;
 
@@ -191,5 +253,59 @@ mod tests {
         assert_eq!(prepared.operations.len(), 0);
         assert_eq!(prepared.skipped.len(), 1);
         assert_eq!(prepared.skipped[0].file_id, "note");
+    }
+
+    fn ready_metadata(file_id: &str, date_kind: DateKind) -> MetadataResult {
+        MetadataResult {
+            file_id: file_id.to_string(),
+            chosen_date: Some("2026-05-23T10:00:00+10:00".to_string()),
+            chosen_date_source: Some("DateTimeOriginal".to_string()),
+            date_kind: Some(date_kind),
+            raw_metadata_date: Some("2026:05:23 10:00:00".to_string()),
+            metadata_status: MetadataStatus::Ready,
+            error: None,
+        }
+    }
+
+    #[test]
+    fn builds_confirmation_summary_for_ready_and_blocked_items() {
+        let files = vec![
+            file_record("photo_1", FileKind::Photo),
+            file_record("video_1", FileKind::Video),
+        ];
+        let mut blocked = ready_plan("video_1", r"C:\todo\Processed\2026\05\23\video_1.jpg");
+        blocked.plan_status = PlanStatus::BlockedNoDate;
+        let plans = vec![
+            ready_plan("photo_1", r"C:\todo\Processed\2026\05\23\photo_1.jpg"),
+            blocked,
+        ];
+        let metadata = vec![
+            ready_metadata("photo_1", DateKind::Fallback),
+            ready_metadata("video_1", DateKind::TimezoneAware),
+        ];
+
+        let summary = build_move_confirmation_summary(&files, &metadata, &plans);
+
+        assert_eq!(summary.total_plans, 2);
+        assert_eq!(summary.ready_operations, 1);
+        assert_eq!(summary.skipped_operations, 1);
+        assert_eq!(summary.blocked_no_date, 1);
+        assert_eq!(summary.photos_ready, 1);
+        assert_eq!(summary.videos_ready, 0);
+        assert_eq!(summary.fallback_warnings, 1);
+    }
+
+    #[test]
+    fn counts_suffix_applied_conflicts() {
+        let files = vec![file_record("photo_1", FileKind::Photo)];
+        let mut plan = ready_plan("photo_1", r"C:\todo\Processed\2026\05\23\photo_1 - 2.jpg");
+        plan.conflict_status = ConflictStatus::SuffixApplied;
+        let metadata = vec![ready_metadata("photo_1", DateKind::TimezoneAware)];
+
+        let summary = build_move_confirmation_summary(&files, &metadata, &[plan]);
+
+        assert_eq!(summary.suffix_applied, 1);
+        assert_eq!(summary.ready_operations, 1);
+        assert_eq!(summary.skipped_operations, 0);
     }
 }

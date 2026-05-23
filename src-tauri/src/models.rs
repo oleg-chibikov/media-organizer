@@ -155,3 +155,17 @@ pub struct PlanFinishedEvent {
     pub planned: u64,
     pub errors: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoveConfirmationSummary {
+    pub total_plans: u64,
+    pub ready_operations: u64,
+    pub skipped_operations: u64,
+    pub blocked_no_date: u64,
+    pub blocked_conflict: u64,
+    pub plan_errors: u64,
+    pub suffix_applied: u64,
+    pub fallback_warnings: u64,
+    pub photos_ready: u64,
+    pub videos_ready: u64,
+}

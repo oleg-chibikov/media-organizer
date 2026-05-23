@@ -13,8 +13,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     metadata,
-    models::{FileKind, FileRecord, MetadataResult, MetadataStatus},
-    planner, scanner,
+    models::{FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary, MovePlan},
+    mover, planner, scanner,
 };
 use tauri_plugin_dialog::DialogExt;
 
@@ -257,6 +257,15 @@ pub fn create_move_plan(
     });
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_move_confirmation_summary(
+    files: Vec<FileRecord>,
+    metadata_results: Vec<MetadataResult>,
+    plans: Vec<MovePlan>,
+) -> MoveConfirmationSummary {
+    mover::build_move_confirmation_summary(&files, &metadata_results, &plans)
 }
 
 fn select_metadata_worker(state: &AppState) -> Arc<Mutex<metadata::ExifToolWorkerManager>> {

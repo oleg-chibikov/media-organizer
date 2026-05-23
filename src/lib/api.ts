@@ -4,6 +4,8 @@ import type {
   FileKind,
   FileRecord,
   MetadataResult,
+  MoveConfirmationSummary,
+  MovePlan,
   PlanErrorEvent,
   PlanFileEvent,
   PlanFinishedEvent,
@@ -64,6 +66,17 @@ export const createMovePlan = (
     selectedPath,
     files,
     metadataResults
+  });
+
+export const getMoveConfirmationSummary = (
+  files: FileRecord[],
+  metadataResults: MetadataResult[],
+  plans: MovePlan[]
+) =>
+  invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", {
+    files,
+    metadataResults,
+    plans
   });
 
 export interface ScanListeners {

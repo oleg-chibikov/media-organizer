@@ -8,11 +8,18 @@ import {
   cancelScan,
   chooseFolder,
   createMovePlan,
+  getMoveConfirmationSummary,
   healthCheck,
   readMetadataForFile,
   startScan
 } from "./lib/api";
-import type { FileRecord, MetadataResult, MovePlan, ScanFinishedEvent } from "./lib/types";
+import type {
+  FileRecord,
+  MetadataResult,
+  MoveConfirmationSummary,
+  MovePlan,
+  ScanFinishedEvent
+} from "./lib/types";
 
 const METADATA_CONCURRENCY = 2;
 const METADATA_QUEUE_CAPACITY = 256;
@@ -41,6 +48,11 @@ export default function App() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
   const [planCompleted, setPlanCompleted] = useState(false);
+  const [confirmationSummary, setConfirmationSummary] = useState<MoveConfirmationSummary | null>(
+    null
+  );
+  const [isBuildingConfirmation, setIsBuildingConfirmation] = useState(false);
+  const [executionConfirmed, setExecutionConfirmed] = useState(false);
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -50,6 +62,7 @@ export default function App() {
   const rowByIdRef = useRef<Map<string, FileRecord>>(new Map());
   const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
   const lastPlanRequestKeyRef = useRef<string>("");
+  const lastConfirmationRequestKeyRef = useRef<string>("");
 
   const pumpMetadataQueue = useCallback(() => {
     while (
@@ -126,7 +139,11 @@ export default function App() {
         setIsPlanning(false);
         setPlanErrors(0);
         setPlanCompleted(false);
+        setConfirmationSummary(null);
+        setIsBuildingConfirmation(false);
+        setExecutionConfirmed(false);
         lastPlanRequestKeyRef.current = "";
+        lastConfirmationRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
         queuedMetadataIdsRef.current = new Set();
         metadataQueueRef.current = [];
@@ -323,6 +340,57 @@ export default function App() {
     );
   }, [isScanning, isLoadingMetadata, metadataByFileId, rows, selectedFolder]);
 
+  useEffect(() => {
+    if (!planCompleted || isPlanning || rows.length === 0) {
+      return;
+    }
+
+    const plans = Object.values(movePlansByFileId);
+    if (plans.length === 0) {
+      return;
+    }
+
+    const requestKey = plans
+      .map((plan) => `${plan.file_id}:${plan.plan_status}:${plan.conflict_status}`)
+      .join("|");
+
+    if (requestKey === lastConfirmationRequestKeyRef.current) {
+      return;
+    }
+    lastConfirmationRequestKeyRef.current = requestKey;
+
+    setIsBuildingConfirmation(true);
+    setExecutionConfirmed(false);
+    void getMoveConfirmationSummary(rows, Object.values(metadataByFileId), plans)
+      .then((summary) => {
+        setConfirmationSummary(summary);
+      })
+      .catch((error: unknown) => {
+        setConfirmationSummary(null);
+        setFolderError(`Failed to build confirmation summary: ${String(error)}`);
+      })
+      .finally(() => {
+        setIsBuildingConfirmation(false);
+      });
+  }, [isPlanning, metadataByFileId, movePlansByFileId, planCompleted, rows]);
+
+  const handleConfirmExecution = () => {
+    if (!confirmationSummary) {
+      return;
+    }
+
+    const message =
+      `Ready operations: ${confirmationSummary.ready_operations}\n` +
+      `Skipped operations: ${confirmationSummary.skipped_operations}\n` +
+      `Fallback warnings: ${confirmationSummary.fallback_warnings}\n` +
+      `Suffix-applied destinations: ${confirmationSummary.suffix_applied}\n\n` +
+      "Proceed when move execution is available?";
+
+    if (window.confirm(message)) {
+      setExecutionConfirmed(true);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       <Toolbar
@@ -340,6 +408,38 @@ export default function App() {
           movePlansByFileId={movePlansByFileId}
         />
       </main>
+
+      <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-semibold text-slate-200">Execution Summary</span>
+          {isBuildingConfirmation ? <span className="text-slate-400">Building summary...</span> : null}
+          {confirmationSummary ? (
+            <>
+              <span>Ready: {confirmationSummary.ready_operations}</span>
+              <span>Skipped: {confirmationSummary.skipped_operations}</span>
+              <span>Warnings: {confirmationSummary.fallback_warnings}</span>
+              <span>Suffixes: {confirmationSummary.suffix_applied}</span>
+            </>
+          ) : (
+            <span className="text-slate-500">No move summary yet</span>
+          )}
+          <button
+            className="ml-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+            disabled={
+              !confirmationSummary ||
+              confirmationSummary.ready_operations === 0 ||
+              isBuildingConfirmation
+            }
+            onClick={handleConfirmExecution}
+            type="button"
+          >
+            Confirm Execution
+          </button>
+        </div>
+        {executionConfirmed ? (
+          <p className="mt-1 text-emerald-400">Execution explicitly confirmed.</p>
+        ) : null}
+      </section>
 
       <StatusBar
         discovered={discovered}

@@ -49,6 +49,19 @@ export interface MoveResult {
   error: string | null;
 }
 
+export interface MoveConfirmationSummary {
+  total_plans: number;
+  ready_operations: number;
+  skipped_operations: number;
+  blocked_no_date: number;
+  blocked_conflict: number;
+  plan_errors: number;
+  suffix_applied: number;
+  fallback_warnings: number;
+  photos_ready: number;
+  videos_ready: number;
+}
+
 export interface PlanFileEvent {
   plan: MovePlan;
 }
