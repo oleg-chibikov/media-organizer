@@ -1,0 +1,13 @@
+[tools]
+rust = "stable"
+node = "latest"
+pnpm = "latest"
+
+[tasks.versions]
+description = "Show the active project tool versions"
+run = [
+  "rustc --version",
+  "cargo --version",
+  "node --version",
+  "pnpm --version"
+]
