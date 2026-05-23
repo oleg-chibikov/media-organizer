@@ -322,6 +322,7 @@ export function FileTable({
                 const row = table.getRowModel().rows[virtualRow.index];
                 const sourceRecord = rows[virtualRow.index];
                 const metadata = metadataByFileId[sourceRecord.id];
+                const movePlan = movePlansByFileId[sourceRecord.id];
                 const moveResult = moveResultsByFileId[sourceRecord.id];
                 const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
                 const isFallbackWarning = metadata?.date_kind === "fallback";
@@ -339,19 +340,38 @@ export function FileTable({
                       transform: `translateY(${virtualRow.start}px)`,
                       height: `${virtualRow.size}px`
                     }}
-                    onDoubleClick={() => {
-                      void revealFileInExplorer(sourceRecord.source_path).catch(
-                        (error: unknown) => {
-                          console.error("Failed to reveal file in explorer", error);
-                        }
-                      );
-                    }}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <div key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </div>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const isSourceCell = cell.column.id === "source";
+                      const isDestinationCell = cell.column.id === "destination";
+                      const destinationPath =
+                        moveResult?.attempted_destination_path ?? movePlan?.destination_path;
+                      const revealPath = isSourceCell
+                        ? sourceRecord.source_path
+                        : isDestinationCell
+                          ? destinationPath
+                          : null;
+
+                      return (
+                        <div
+                          key={cell.id}
+                          className={
+                            isSourceCell || isDestinationCell ? "cursor-pointer" : undefined
+                          }
+                          onDoubleClick={() => {
+                            if (!revealPath) {
+                              return;
+                            }
+
+                            void revealFileInExplorer(revealPath).catch((error: unknown) => {
+                              console.error("Failed to reveal file in explorer", error);
+                            });
+                          }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
