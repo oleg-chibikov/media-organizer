@@ -585,9 +585,6 @@ export default function App() {
       }
 
       if (metadataQueueRef.current.length >= metadataQueueCapacity) {
-        setFolderError(
-          `Metadata queue reached capacity (${metadataQueueCapacity}). Remaining files will wait.`
-        );
         break;
       }
 
