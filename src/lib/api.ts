@@ -5,6 +5,8 @@ import type {
   FileRecord,
   MetadataResult,
   MoveConfirmationSummary,
+  MoveFileEvent,
+  MoveFinishedEvent,
   MovePlan,
   PlanErrorEvent,
   PlanFileEvent,
@@ -45,6 +47,11 @@ export const PLAN_EVENTS = {
   finished: "plan:finished"
 } as const;
 
+export const MOVE_EVENTS = {
+  file: "move:file",
+  finished: "move:finished"
+} as const;
+
 export const healthCheck = () => invokeCommand<string>("health_check");
 export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
@@ -79,6 +86,12 @@ export const getMoveConfirmationSummary = (
     plans
   });
 
+export const executeMovePlan = (files: FileRecord[], plans: MovePlan[]) =>
+  invokeCommand<void>("execute_move_plan", {
+    files,
+    plans
+  });
+
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;
   onFile: (payload: ScanFileEvent) => void;
@@ -91,6 +104,11 @@ export interface PlanListeners {
   onFile: (payload: PlanFileEvent) => void;
   onError: (payload: PlanErrorEvent) => void;
   onFinished: (payload: PlanFinishedEvent) => void;
+}
+
+export interface MoveListeners {
+  onFile: (payload: MoveFileEvent) => void;
+  onFinished: (payload: MoveFinishedEvent) => void;
 }
 
 export async function attachScanListeners(handlers: ScanListeners): Promise<UnlistenFn[]> {
@@ -114,6 +132,17 @@ export async function attachPlanListeners(handlers: PlanListeners): Promise<Unli
     listen<PlanFileEvent>(PLAN_EVENTS.file, (event) => handlers.onFile(event.payload)),
     listen<PlanErrorEvent>(PLAN_EVENTS.error, (event) => handlers.onError(event.payload)),
     listen<PlanFinishedEvent>(PLAN_EVENTS.finished, (event) => handlers.onFinished(event.payload))
+  ]);
+
+  return listeners;
+}
+
+export async function attachMoveListeners(handlers: MoveListeners): Promise<UnlistenFn[]> {
+  ensureTauriRuntime();
+
+  const listeners = await Promise.all([
+    listen<MoveFileEvent>(MOVE_EVENTS.file, (event) => handlers.onFile(event.payload)),
+    listen<MoveFinishedEvent>(MOVE_EVENTS.finished, (event) => handlers.onFinished(event.payload))
   ]);
 
   return listeners;

@@ -1,8 +1,8 @@
 use tauri::{AppHandle, Emitter};
 
 use crate::models::{
-    PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent, ScanFileEvent,
-    ScanFinishedEvent, ScanStartedEvent,
+    MoveFileEvent, MoveFinishedEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
+    ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -13,6 +13,8 @@ pub const SCAN_FINISHED: &str = "scan:finished";
 pub const PLAN_FILE: &str = "plan:file";
 pub const PLAN_ERROR: &str = "plan:error";
 pub const PLAN_FINISHED: &str = "plan:finished";
+pub const MOVE_FILE: &str = "move:file";
+pub const MOVE_FINISHED: &str = "move:finished";
 
 pub fn emit_scan_started(app: &AppHandle, payload: ScanStartedEvent) -> Result<(), String> {
     app.emit(SCAN_STARTED, payload).map_err(|e| e.to_string())
@@ -44,4 +46,12 @@ pub fn emit_plan_error(app: &AppHandle, payload: PlanErrorEvent) -> Result<(), S
 
 pub fn emit_plan_finished(app: &AppHandle, payload: PlanFinishedEvent) -> Result<(), String> {
     app.emit(PLAN_FINISHED, payload).map_err(|e| e.to_string())
+}
+
+pub fn emit_move_file(app: &AppHandle, payload: MoveFileEvent) -> Result<(), String> {
+    app.emit(MOVE_FILE, payload).map_err(|e| e.to_string())
+}
+
+pub fn emit_move_finished(app: &AppHandle, payload: MoveFinishedEvent) -> Result<(), String> {
+    app.emit(MOVE_FINISHED, payload).map_err(|e| e.to_string())
 }

@@ -7,6 +7,11 @@ interface StatusBarProps {
   planCompleted: boolean;
   completed: boolean;
   cancelled: boolean;
+  isExecutingMoves: boolean;
+  moveCompleted: boolean;
+  moved: number;
+  moveSkipped: number;
+  moveFailed: number;
 }
 
 export function StatusBar({
@@ -17,17 +22,26 @@ export function StatusBar({
   isPlanning,
   planCompleted,
   completed,
-  cancelled
+  cancelled,
+  isExecutingMoves,
+  moveCompleted,
+  moved,
+  moveSkipped,
+  moveFailed
 }: StatusBarProps) {
   const statusLabel = cancelled
     ? "Scan cancelled"
-    : isPlanning
-      ? "Planning destinations"
-      : planCompleted
-        ? "Plan completed"
-        : completed
-          ? "Scan completed"
-          : "Idle";
+    : isExecutingMoves
+      ? "Executing moves"
+      : moveCompleted
+        ? "Move completed"
+        : isPlanning
+          ? "Planning destinations"
+          : planCompleted
+            ? "Plan completed"
+            : completed
+              ? "Scan completed"
+              : "Idle";
 
   return (
     <footer className="flex items-center gap-4 border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
@@ -35,6 +49,9 @@ export function StatusBar({
       <span>Skipped: {skipped}</span>
       <span>Errors: {errors}</span>
       <span>Plan Errors: {planErrors}</span>
+      <span>Moved: {moved}</span>
+      <span>Move Skipped: {moveSkipped}</span>
+      <span>Move Failed: {moveFailed}</span>
       <span className="ml-auto">{statusLabel}</span>
     </footer>
   );

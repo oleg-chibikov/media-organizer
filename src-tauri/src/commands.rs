@@ -12,9 +12,10 @@ use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    metadata,
+    events, metadata,
     models::{
-        FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary, MovePlan,
+        FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary,
+        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus,
     },
     mover, planner, scanner,
 };
@@ -270,6 +271,43 @@ pub fn get_move_confirmation_summary(
     mover::build_move_confirmation_summary(&files, &metadata_results, &plans)
 }
 
+#[tauri::command]
+pub fn execute_move_plan(
+    files: Vec<FileRecord>,
+    plans: Vec<MovePlan>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn(async move {
+        let prepared = mover::prepare_move_operations(&files, &plans);
+        let rechecked = mover::recheck_destination_conflicts(prepared.operations);
+        let mut moved = 0u64;
+        let mut skipped = 0u64;
+        let mut failed = 0u64;
+
+        for result in prepared.skipped.into_iter().chain(rechecked.skipped) {
+            count_move_result(&result, &mut moved, &mut skipped, &mut failed);
+            let _ = events::emit_move_file(&app, MoveFileEvent { result });
+        }
+
+        for operation in rechecked.ready {
+            let result = mover::execute_move_with_rename(&operation);
+            count_move_result(&result, &mut moved, &mut skipped, &mut failed);
+            let _ = events::emit_move_file(&app, MoveFileEvent { result });
+        }
+
+        let _ = events::emit_move_finished(
+            &app,
+            MoveFinishedEvent {
+                moved,
+                skipped,
+                failed,
+            },
+        );
+    });
+
+    Ok(())
+}
+
 fn select_metadata_worker(state: &AppState) -> Arc<Mutex<metadata::ExifToolWorkerManager>> {
     let index = state.metadata_next_worker.fetch_add(1, Ordering::Relaxed);
     let slot = index % state.metadata_workers.len();
@@ -307,5 +345,13 @@ fn read_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
     {
         Some(value) => value.clamp(min, max),
         None => default,
+    }
+}
+
+fn count_move_result(result: &MoveResult, moved: &mut u64, skipped: &mut u64, failed: &mut u64) {
+    match result.result_status {
+        MoveResultStatus::Moved => *moved += 1,
+        MoveResultStatus::Skipped => *skipped += 1,
+        MoveResultStatus::Failed => *failed += 1,
     }
 }

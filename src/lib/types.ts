@@ -76,6 +76,16 @@ export interface PlanFinishedEvent {
   errors: number;
 }
 
+export interface MoveFileEvent {
+  result: MoveResult;
+}
+
+export interface MoveFinishedEvent {
+  moved: number;
+  skipped: number;
+  failed: number;
+}
+
 export interface ScanStartedEvent {
   root: string;
 }

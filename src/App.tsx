@@ -3,11 +3,13 @@ import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import {
+  attachMoveListeners,
   attachPlanListeners,
   attachScanListeners,
   cancelScan,
   chooseFolder,
   createMovePlan,
+  executeMovePlan,
   getMoveConfirmationSummary,
   healthCheck,
   readMetadataForFile,
@@ -53,6 +55,11 @@ export default function App() {
   );
   const [isBuildingConfirmation, setIsBuildingConfirmation] = useState(false);
   const [executionConfirmed, setExecutionConfirmed] = useState(false);
+  const [isExecutingMoves, setIsExecutingMoves] = useState(false);
+  const [moveCompleted, setMoveCompleted] = useState(false);
+  const [movedCount, setMovedCount] = useState(0);
+  const [moveSkippedCount, setMoveSkippedCount] = useState(0);
+  const [moveFailedCount, setMoveFailedCount] = useState(0);
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -142,6 +149,11 @@ export default function App() {
         setConfirmationSummary(null);
         setIsBuildingConfirmation(false);
         setExecutionConfirmed(false);
+        setIsExecutingMoves(false);
+        setMoveCompleted(false);
+        setMovedCount(0);
+        setMoveSkippedCount(0);
+        setMoveFailedCount(0);
         lastPlanRequestKeyRef.current = "";
         lastConfirmationRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
@@ -189,6 +201,55 @@ export default function App() {
       .catch((error: unknown) => {
         if (!disposed) {
           setFolderError(`Failed to attach scan listeners: ${String(error)}`);
+        }
+      });
+
+    return () => {
+      disposed = true;
+      for (const unlisten of unsubs) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let unsubs: (() => void)[] = [];
+    let disposed = false;
+    void attachMoveListeners({
+      onFile: ({ result }) => {
+        if (result.result_status === "moved") {
+          setMovedCount((count) => count + 1);
+          return;
+        }
+        if (result.result_status === "skipped") {
+          setMoveSkippedCount((count) => count + 1);
+          return;
+        }
+        setMoveFailedCount((count) => count + 1);
+        if (result.error) {
+          setFolderError(`Move error: ${result.error}`);
+        }
+      },
+      onFinished: ({ moved, skipped, failed }) => {
+        setIsExecutingMoves(false);
+        setMoveCompleted(true);
+        setMovedCount(moved);
+        setMoveSkippedCount(skipped);
+        setMoveFailedCount(failed);
+      }
+    })
+      .then((listeners) => {
+        if (disposed) {
+          for (const unlisten of listeners) {
+            unlisten();
+          }
+          return;
+        }
+        unsubs = listeners;
+      })
+      .catch((error: unknown) => {
+        if (!disposed) {
+          setFolderError(`Failed to attach move listeners: ${String(error)}`);
         }
       });
 
@@ -384,10 +445,19 @@ export default function App() {
       `Skipped operations: ${confirmationSummary.skipped_operations}\n` +
       `Fallback warnings: ${confirmationSummary.fallback_warnings}\n` +
       `Suffix-applied destinations: ${confirmationSummary.suffix_applied}\n\n` +
-      "Proceed when move execution is available?";
+      "Proceed with move execution now?";
 
     if (window.confirm(message)) {
       setExecutionConfirmed(true);
+      setIsExecutingMoves(true);
+      setMoveCompleted(false);
+      setMovedCount(0);
+      setMoveSkippedCount(0);
+      setMoveFailedCount(0);
+      void executeMovePlan(rows, Object.values(movePlansByFileId)).catch((error: unknown) => {
+        setIsExecutingMoves(false);
+        setFolderError(`Failed to execute move plan: ${String(error)}`);
+      });
     }
   };
 
@@ -412,7 +482,9 @@ export default function App() {
       <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-slate-200">Execution Summary</span>
-          {isBuildingConfirmation ? <span className="text-slate-400">Building summary...</span> : null}
+          {isBuildingConfirmation ? (
+            <span className="text-slate-400">Building summary...</span>
+          ) : null}
           {confirmationSummary ? (
             <>
               <span>Ready: {confirmationSummary.ready_operations}</span>
@@ -428,12 +500,13 @@ export default function App() {
             disabled={
               !confirmationSummary ||
               confirmationSummary.ready_operations === 0 ||
-              isBuildingConfirmation
+              isBuildingConfirmation ||
+              isExecutingMoves
             }
             onClick={handleConfirmExecution}
             type="button"
           >
-            Confirm Execution
+            {isExecutingMoves ? "Executing..." : "Confirm & Execute"}
           </button>
         </div>
         {executionConfirmed ? (
@@ -450,6 +523,11 @@ export default function App() {
         planCompleted={planCompleted}
         completed={completed}
         cancelled={cancelled}
+        isExecutingMoves={isExecutingMoves}
+        moveCompleted={moveCompleted}
+        moved={movedCount}
+        moveSkipped={moveSkippedCount}
+        moveFailed={moveFailedCount}
       />
 
       <div className="border-t border-slate-800 px-3 py-1 text-xs text-slate-500">

@@ -156,6 +156,18 @@ pub struct PlanFinishedEvent {
     pub errors: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct MoveFileEvent {
+    pub result: MoveResult,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MoveFinishedEvent {
+    pub moved: u64,
+    pub skipped: u64,
+    pub failed: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoveConfirmationSummary {
     pub total_plans: u64,
