@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
@@ -10,7 +10,6 @@ import {
   chooseFolder,
   createMovePlan,
   executeMovePlan,
-  getMoveConfirmationSummary,
   healthCheck,
   readMetadataForFile,
   startScan
@@ -60,10 +59,6 @@ export default function App() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
   const [planCompleted, setPlanCompleted] = useState(false);
-  const [confirmationSummary, setConfirmationSummary] = useState<MoveConfirmationSummary | null>(
-    null
-  );
-  const [isBuildingConfirmation, setIsBuildingConfirmation] = useState(false);
   const [executionConfirmed, setExecutionConfirmed] = useState(false);
   const [isMoveDispatchPaused, setIsMoveDispatchPaused] = useState(false);
   const [isExecutingMoves, setIsExecutingMoves] = useState(false);
@@ -81,7 +76,6 @@ export default function App() {
   const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
   const plannedMetadataSignatureByFileIdRef = useRef<Map<string, string>>(new Map());
   const activePlanRequestsRef = useRef(0);
-  const lastConfirmationRequestKeyRef = useRef<string>("");
   const queuedMoveIdsRef = useRef<Set<string>>(new Set());
   const moveQueueRef = useRef<string[]>([]);
   const inflightMoveIdsRef = useRef<Set<string>>(new Set());
@@ -96,6 +90,68 @@ export default function App() {
     return !isMoveResultTerminal(moveResultsByFileId[plan.file_id]);
   }).length;
   const hasPendingExecutableItems = pendingExecutableCount > 0;
+  const confirmationSummary = useMemo<MoveConfirmationSummary>(() => {
+    const plans = Object.values(movePlansByFileId);
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+
+    let readyOperations = 0;
+    let blockedNoDate = 0;
+    let blockedConflict = 0;
+    let planErrorsCount = 0;
+    let suffixApplied = 0;
+    let fallbackWarnings = 0;
+    let photosReady = 0;
+    let videosReady = 0;
+
+    for (const plan of plans) {
+      if (plan.plan_status === "ready") {
+        readyOperations += 1;
+        if (plan.conflict_status === "suffix_applied") {
+          suffixApplied += 1;
+        }
+
+        const metadata = metadataByFileId[plan.file_id];
+        if (metadata?.date_kind === "fallback") {
+          fallbackWarnings += 1;
+        }
+
+        const row = rowsById.get(plan.file_id);
+        if (row?.kind === "photo") {
+          photosReady += 1;
+        } else if (row?.kind === "video") {
+          videosReady += 1;
+        }
+        continue;
+      }
+
+      if (plan.plan_status === "blocked_no_date") {
+        blockedNoDate += 1;
+        continue;
+      }
+
+      if (plan.plan_status === "blocked_conflict") {
+        blockedConflict += 1;
+        continue;
+      }
+
+      if (plan.plan_status === "error") {
+        planErrorsCount += 1;
+      }
+    }
+
+    return {
+      total_plans: plans.length,
+      ready_operations: readyOperations,
+      skipped_operations: plans.length - readyOperations,
+      blocked_no_date: blockedNoDate,
+      blocked_conflict: blockedConflict,
+      plan_errors: planErrorsCount,
+      suffix_applied: suffixApplied,
+      fallback_warnings: fallbackWarnings,
+      photos_ready: photosReady,
+      videos_ready: videosReady
+    };
+  }, [metadataByFileId, movePlansByFileId, rows]);
 
   const pumpMetadataQueue = useCallback(() => {
     while (
@@ -252,8 +308,6 @@ export default function App() {
         setIsPlanning(false);
         setPlanErrors(0);
         setPlanCompleted(false);
-        setConfirmationSummary(null);
-        setIsBuildingConfirmation(false);
         setExecutionConfirmed(false);
         setIsMoveDispatchPaused(false);
         setIsExecutingMoves(false);
@@ -261,7 +315,6 @@ export default function App() {
         setMovedCount(0);
         setMoveSkippedCount(0);
         setMoveFailedCount(0);
-        lastConfirmationRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
         queuedMetadataIdsRef.current = new Set();
         metadataQueueRef.current = [];
@@ -551,41 +604,8 @@ export default function App() {
     }
   }, [enqueueReadyMovePlans, executionConfirmed]);
 
-  useEffect(() => {
-    if (!planCompleted || isPlanning || rows.length === 0) {
-      return;
-    }
-
-    const plans = Object.values(movePlansByFileId);
-    if (plans.length === 0) {
-      return;
-    }
-
-    const requestKey = plans
-      .map((plan) => `${plan.file_id}:${plan.plan_status}:${plan.conflict_status}`)
-      .join("|");
-
-    if (requestKey === lastConfirmationRequestKeyRef.current) {
-      return;
-    }
-    lastConfirmationRequestKeyRef.current = requestKey;
-
-    setIsBuildingConfirmation(true);
-    void getMoveConfirmationSummary(rows, Object.values(metadataByFileId), plans)
-      .then((summary) => {
-        setConfirmationSummary(summary);
-      })
-      .catch((error: unknown) => {
-        setConfirmationSummary(null);
-        setFolderError(`Failed to build confirmation summary: ${String(error)}`);
-      })
-      .finally(() => {
-        setIsBuildingConfirmation(false);
-      });
-  }, [isPlanning, metadataByFileId, movePlansByFileId, planCompleted, rows]);
-
   const handleConfirmExecution = () => {
-    if (!confirmationSummary || pendingExecutableCount === 0 || executionConfirmed) {
+    if (pendingExecutableCount === 0 || executionConfirmed) {
       return;
     }
 
@@ -676,10 +696,7 @@ export default function App() {
       <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-slate-200">Execution Summary</span>
-          {isBuildingConfirmation ? (
-            <span className="text-slate-400">Building summary...</span>
-          ) : null}
-          {confirmationSummary ? (
+          {confirmationSummary.total_plans > 0 ? (
             <>
               <span>Ready: {confirmationSummary.ready_operations}</span>
               <span>Skipped: {confirmationSummary.skipped_operations}</span>
@@ -694,7 +711,7 @@ export default function App() {
             disabled={
               executionConfirmed
                 ? moveCompleted && !hasPendingExecutableItems
-                : !confirmationSummary || !hasPendingExecutableItems || isBuildingConfirmation
+                : !hasPendingExecutableItems
             }
             onClick={handleExecutionAction}
             type="button"
