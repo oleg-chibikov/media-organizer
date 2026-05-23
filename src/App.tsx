@@ -95,6 +95,7 @@ export default function App() {
     }
     return !isMoveResultTerminal(moveResultsByFileId[plan.file_id]);
   }).length;
+  const hasPendingExecutableItems = pendingExecutableCount > 0;
 
   const pumpMetadataQueue = useCallback(() => {
     while (
@@ -644,6 +645,14 @@ export default function App() {
     });
   };
 
+  const handleExecutionAction = () => {
+    if (executionConfirmed) {
+      handleToggleMoveDispatchPause();
+      return;
+    }
+    handleConfirmExecution();
+  };
+
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       <Toolbar
@@ -683,28 +692,18 @@ export default function App() {
           <button
             className="ml-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700"
             disabled={
-              !confirmationSummary ||
-              pendingExecutableCount === 0 ||
-              isBuildingConfirmation ||
-              isExecutingMoves ||
               executionConfirmed
+                ? moveCompleted && !hasPendingExecutableItems
+                : !confirmationSummary || !hasPendingExecutableItems || isBuildingConfirmation
             }
-            onClick={handleConfirmExecution}
+            onClick={handleExecutionAction}
             type="button"
           >
-            {executionConfirmed
-              ? "Execution Requested"
-              : isExecutingMoves
-                ? "Executing..."
-                : "Confirm & Execute"}
-          </button>
-          <button
-            className="rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-            disabled={!executionConfirmed || moveCompleted}
-            onClick={handleToggleMoveDispatchPause}
-            type="button"
-          >
-            {isMoveDispatchPaused ? "Resume Dispatch" : "Pause Dispatch"}
+            {!executionConfirmed
+              ? "Confirm & Execute"
+              : isMoveDispatchPaused
+                ? "Resume Dispatch"
+                : "Pause Dispatch"}
           </button>
         </div>
         {executionConfirmed ? (

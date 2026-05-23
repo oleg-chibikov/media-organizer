@@ -22,14 +22,15 @@ export function Toolbar({
       >
         Choose Folder
       </button>
-      <button
-        className="rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700"
-        disabled={!isScanning}
-        onClick={onCancelScan}
-        type="button"
-      >
-        Cancel
-      </button>
+      {isScanning ? (
+        <button
+          className="rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+          onClick={onCancelScan}
+          type="button"
+        >
+          Stop Scan
+        </button>
+      ) : null}
 
       <div className="ml-2 min-w-0 flex-1 text-sm text-slate-300">
         {selectedFolder ? (
