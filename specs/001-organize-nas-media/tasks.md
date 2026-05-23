@@ -63,7 +63,7 @@
 - [x] T037 Add Rust `filename.rs`.
 - [x] T038 Parse parenthesized original names from renamed files.
 - [x] T039 Parse full filename stems when no original-name parentheses exist.
-- [ ] T040 Preserve original file extension.
+- [x] T040 Preserve original file extension.
 - [x] T041 Sanitize destination filename components for Windows path safety.
 - [x] T042 Add Rust tests for filenames with parentheses, no parentheses, multiple parentheses, and invalid characters.
 - [x] T043 Display parsed original name in the UI for scanned media files.

@@ -151,11 +151,11 @@ fn build_file_record(root: &Path, absolute_path: &Path, kind: FileKind, status: 
         .and_then(|value| value.to_str())
         .unwrap_or_default()
         .to_string();
-    let stem = absolute_path
-        .file_stem()
+    let file_name = absolute_path
+        .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
-    let original_name = filename::parse_original_name(stem);
+    let original_name = filename::parse_original_name(file_name);
 
     FileRecord {
         id,
