@@ -119,8 +119,8 @@
 - [x] T078 Add explicit confirmation summary before execution.
 - [x] T079 Recheck destination conflicts immediately before moving.
 - [x] T080 Use atomic rename when possible.
-- [ ] T081 Fall back to copy-verify-remove on cross-device/NAS rename failure.
-- [ ] T082 Verify destination existence and size before deleting source.
+- [x] T081 Fall back to copy-verify-remove on cross-device/NAS rename failure.
+- [x] T082 Verify destination existence and size before deleting source.
 - [ ] T083 Never overwrite existing files.
 - [ ] T084 Emit move progress events.
 - [ ] T085 Add Rust tests for conflict recheck and copy-verify-remove.

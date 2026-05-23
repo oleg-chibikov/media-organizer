@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    fs, io,
     path::Path,
 };
 
@@ -195,6 +195,15 @@ pub fn recheck_destination_conflicts(operations: Vec<MoveOperation>) -> Rechecke
 }
 
 pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
+    execute_move_with_rename_internal(operation, |source, destination| {
+        fs::rename(source, destination)
+    })
+}
+
+fn execute_move_with_rename_internal<F>(operation: &MoveOperation, rename_fn: F) -> MoveResult
+where
+    F: Fn(&Path, &Path) -> io::Result<()>,
+{
     let source = Path::new(&operation.source_path);
     let destination = Path::new(&operation.destination_path);
 
@@ -233,7 +242,7 @@ pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
         }
     }
 
-    match fs::rename(source, destination) {
+    match rename_fn(source, destination) {
         Ok(()) => MoveResult {
             file_id: operation.file_id.clone(),
             attempted_source_path: operation.source_path.clone(),
@@ -242,15 +251,105 @@ pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
             result_status: MoveResultStatus::Moved,
             error: None,
         },
-        Err(error) => MoveResult {
+        Err(error) => {
+            if should_fallback_to_copy_remove(&error) {
+                return execute_copy_verify_remove(operation, source, destination);
+            }
+
+            MoveResult {
+                file_id: operation.file_id.clone(),
+                attempted_source_path: operation.source_path.clone(),
+                attempted_destination_path: operation.destination_path.clone(),
+                move_strategy: MoveStrategy::Rename,
+                result_status: MoveResultStatus::Failed,
+                error: Some(format!("Atomic rename failed: {error}")),
+            }
+        }
+    }
+}
+
+fn should_fallback_to_copy_remove(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::CrossesDevices || error.raw_os_error() == Some(17)
+}
+
+fn execute_copy_verify_remove(
+    operation: &MoveOperation,
+    source: &Path,
+    destination: &Path,
+) -> MoveResult {
+    if destination.exists() {
+        return skipped_result(
+            &operation.file_id,
+            &operation.source_path,
+            &operation.destination_path,
+            "Destination already exists. Refusing to overwrite.",
+        );
+    }
+
+    if let Err(error) = fs::copy(source, destination) {
+        return MoveResult {
             file_id: operation.file_id.clone(),
             attempted_source_path: operation.source_path.clone(),
             attempted_destination_path: operation.destination_path.clone(),
-            move_strategy: MoveStrategy::Rename,
+            move_strategy: MoveStrategy::CopyRemove,
             result_status: MoveResultStatus::Failed,
-            error: Some(format!("Atomic rename failed: {error}")),
-        },
+            error: Some(format!("Copy fallback failed: {error}")),
+        };
     }
+
+    if let Err(error) = verify_destination_matches_source(source, destination) {
+        return MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::CopyRemove,
+            result_status: MoveResultStatus::Failed,
+            error: Some(error),
+        };
+    }
+
+    if let Err(error) = fs::remove_file(source) {
+        return MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::CopyRemove,
+            result_status: MoveResultStatus::Failed,
+            error: Some(format!(
+                "Copy fallback verification passed but source deletion failed: {error}"
+            )),
+        };
+    }
+
+    MoveResult {
+        file_id: operation.file_id.clone(),
+        attempted_source_path: operation.source_path.clone(),
+        attempted_destination_path: operation.destination_path.clone(),
+        move_strategy: MoveStrategy::CopyRemove,
+        result_status: MoveResultStatus::Moved,
+        error: None,
+    }
+}
+
+fn verify_destination_matches_source(source: &Path, destination: &Path) -> Result<(), String> {
+    if !destination.exists() {
+        return Err("Destination copy is missing after copy step.".to_string());
+    }
+
+    let source_size = fs::metadata(source)
+        .map_err(|error| format!("Failed to read source metadata for verification: {error}"))?
+        .len();
+    let destination_size = fs::metadata(destination)
+        .map_err(|error| format!("Failed to read destination metadata for verification: {error}"))?
+        .len();
+
+    if source_size != destination_size {
+        return Err(format!(
+            "Destination copy size mismatch: source={source_size} bytes, destination={destination_size} bytes."
+        ));
+    }
+
+    Ok(())
 }
 
 fn skipped_result(
@@ -493,5 +592,44 @@ mod tests {
             fs::read(&destination).expect("read destination"),
             b"existing"
         );
+    }
+
+    #[test]
+    fn falls_back_to_copy_remove_when_rename_reports_cross_device() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("Processed\\2026\\05\\23\\destination.jpg");
+        fs::write(&source, b"source").expect("write source");
+
+        let operation = MoveOperation {
+            file_id: "photo_1".to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            destination_path: destination.to_string_lossy().to_string(),
+        };
+
+        let result = execute_move_with_rename_internal(&operation, |_src, _dest| {
+            Err(io::Error::from_raw_os_error(17))
+        });
+
+        assert!(matches!(result.move_strategy, MoveStrategy::CopyRemove));
+        assert!(matches!(result.result_status, MoveResultStatus::Moved));
+        assert!(!source.exists());
+        assert!(destination.exists());
+        assert_eq!(fs::read(&destination).expect("read destination"), b"source");
+    }
+
+    #[test]
+    fn verification_fails_when_destination_size_differs() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("destination.jpg");
+        fs::write(&source, b"123456").expect("write source");
+        fs::write(&destination, b"123").expect("write destination");
+
+        let verify = verify_destination_matches_source(&source, &destination);
+
+        assert!(verify.is_err());
+        let error_message = verify.expect_err("expected verify failure");
+        assert!(error_message.contains("size mismatch"));
     }
 }
