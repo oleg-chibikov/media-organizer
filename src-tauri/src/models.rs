@@ -88,6 +88,7 @@ pub struct MovePlan {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum MoveStrategy {
     Rename,
     CopyRemove,
@@ -96,6 +97,7 @@ pub enum MoveStrategy {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum MoveResultStatus {
     Moved,
     Skipped,
@@ -103,6 +105,7 @@ pub enum MoveResultStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct MoveResult {
     pub file_id: String,
     pub attempted_source_path: String,

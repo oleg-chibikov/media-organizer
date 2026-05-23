@@ -17,18 +17,14 @@ const TAURI_RUNTIME_ERROR =
   "Tauri runtime is unavailable. Start the app with Tauri (for example `mise x -- pnpm tauri dev`), not plain `vite`/web dev mode.";
 
 function ensureTauriRuntime(): void {
-  const tauriInternals = (window as Window & { __TAURI_INTERNALS__?: unknown })
-    .__TAURI_INTERNALS__;
+  const tauriInternals = (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
 
   if (!tauriInternals) {
     throw new Error(TAURI_RUNTIME_ERROR);
   }
 }
 
-function invokeCommand<T>(
-  command: string,
-  args?: Record<string, unknown>
-): Promise<T> {
+function invokeCommand<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   ensureTauriRuntime();
   return invoke<T>(command, args);
 }
@@ -52,11 +48,7 @@ export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
   invokeCommand<void>("start_scan", { selectedPath });
 export const cancelScan = () => invokeCommand<void>("cancel_scan");
-export const readMetadataForFile = (
-  fileId: string,
-  sourcePath: string,
-  fileKind: FileKind
-) =>
+export const readMetadataForFile = (fileId: string, sourcePath: string, fileKind: FileKind) =>
   invokeCommand<MetadataResult>("read_metadata_for_file", {
     fileId,
     sourcePath,
@@ -88,47 +80,27 @@ export interface PlanListeners {
   onFinished: (payload: PlanFinishedEvent) => void;
 }
 
-export async function attachScanListeners(
-  handlers: ScanListeners
-): Promise<UnlistenFn[]> {
+export async function attachScanListeners(handlers: ScanListeners): Promise<UnlistenFn[]> {
   ensureTauriRuntime();
 
   const listeners = await Promise.all([
-    listen<ScanStartedEvent>(SCAN_EVENTS.started, (event) =>
-      handlers.onStarted(event.payload)
-    ),
-    listen<ScanFileEvent>(SCAN_EVENTS.file, (event) =>
-      handlers.onFile(event.payload)
-    ),
-    listen<ScanFileEvent>(SCAN_EVENTS.skipped, (event) =>
-      handlers.onSkipped(event.payload)
-    ),
-    listen<ScanErrorEvent>(SCAN_EVENTS.error, (event) =>
-      handlers.onError(event.payload)
-    ),
-    listen<ScanFinishedEvent>(SCAN_EVENTS.finished, (event) =>
-      handlers.onFinished(event.payload)
-    )
+    listen<ScanStartedEvent>(SCAN_EVENTS.started, (event) => handlers.onStarted(event.payload)),
+    listen<ScanFileEvent>(SCAN_EVENTS.file, (event) => handlers.onFile(event.payload)),
+    listen<ScanFileEvent>(SCAN_EVENTS.skipped, (event) => handlers.onSkipped(event.payload)),
+    listen<ScanErrorEvent>(SCAN_EVENTS.error, (event) => handlers.onError(event.payload)),
+    listen<ScanFinishedEvent>(SCAN_EVENTS.finished, (event) => handlers.onFinished(event.payload))
   ]);
 
   return listeners;
 }
 
-export async function attachPlanListeners(
-  handlers: PlanListeners
-): Promise<UnlistenFn[]> {
+export async function attachPlanListeners(handlers: PlanListeners): Promise<UnlistenFn[]> {
   ensureTauriRuntime();
 
   const listeners = await Promise.all([
-    listen<PlanFileEvent>(PLAN_EVENTS.file, (event) =>
-      handlers.onFile(event.payload)
-    ),
-    listen<PlanErrorEvent>(PLAN_EVENTS.error, (event) =>
-      handlers.onError(event.payload)
-    ),
-    listen<PlanFinishedEvent>(PLAN_EVENTS.finished, (event) =>
-      handlers.onFinished(event.payload)
-    )
+    listen<PlanFileEvent>(PLAN_EVENTS.file, (event) => handlers.onFile(event.payload)),
+    listen<PlanErrorEvent>(PLAN_EVENTS.error, (event) => handlers.onError(event.payload)),
+    listen<PlanFinishedEvent>(PLAN_EVENTS.finished, (event) => handlers.onFinished(event.payload))
   ]);
 
   return listeners;

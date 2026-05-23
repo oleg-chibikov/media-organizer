@@ -37,17 +37,14 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
       </div>
 
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
-        <div
-          className="relative w-full"
-          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-        >
+        <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const row = rows[virtualRow.index];
             const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
             const metadata = metadataByFileId[row.id];
             const movePlan = movePlansByFileId[row.id];
             const metadataDateLabel = metadata
-              ? metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date"
+              ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
               : "pending";
             const destinationLabel =
               movePlan?.destination_path ||

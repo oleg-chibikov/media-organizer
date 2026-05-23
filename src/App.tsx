@@ -12,12 +12,7 @@ import {
   readMetadataForFile,
   startScan
 } from "./lib/api";
-import type {
-  FileRecord,
-  MetadataResult,
-  MovePlan,
-  ScanFinishedEvent
-} from "./lib/types";
+import type { FileRecord, MetadataResult, MovePlan, ScanFinishedEvent } from "./lib/types";
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -37,12 +32,8 @@ export default function App() {
   const [completed, setCompleted] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [rows, setRows] = useState<FileRecord[]>([]);
-  const [metadataByFileId, setMetadataByFileId] = useState<
-    Record<string, MetadataResult>
-  >({});
-  const [movePlansByFileId, setMovePlansByFileId] = useState<
-    Record<string, MovePlan>
-  >({});
+  const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
+  const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
@@ -240,9 +231,7 @@ export default function App() {
       return;
     }
 
-    const mediaRows = rows.filter(
-      (row) => row.kind === "photo" || row.kind === "video"
-    );
+    const mediaRows = rows.filter((row) => row.kind === "photo" || row.kind === "video");
     if (mediaRows.length === 0) {
       return;
     }

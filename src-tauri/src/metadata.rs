@@ -213,10 +213,7 @@ fn parse_timezone_unknown_as_local(raw: &str) -> Option<NaiveDateTime> {
     None
 }
 
-fn read_tag(
-    object: &serde_json::Map<String, serde_json::Value>,
-    key: &str,
-) -> Option<String> {
+fn read_tag(object: &serde_json::Map<String, serde_json::Value>, key: &str) -> Option<String> {
     object
         .get(key)
         .and_then(|value| value.as_str())

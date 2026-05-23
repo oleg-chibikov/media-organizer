@@ -83,7 +83,10 @@ fn create_plan_for_file(
         .join(parsed_date.format("%d").to_string());
 
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
-    let stem_base = format!("{} ({original_name})", parsed_date.format("%Y-%m-%d %H-%M-%S"));
+    let stem_base = format!(
+        "{} ({original_name})",
+        parsed_date.format("%Y-%m-%d %H-%M-%S")
+    );
 
     let extension = file.extension.clone();
     let (destination_path, destination_filename, conflict_status) =
@@ -195,8 +198,9 @@ mod tests {
         let file = file_record("IMG_1001", "mp4");
         let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
 
-        let plan = create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
-            .expect("plan should be created");
+        let plan =
+            create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
+                .expect("plan should be created");
 
         assert!(plan.destination_dir.ends_with(r"Processed\2026\03\05"));
         assert_eq!(
@@ -208,7 +212,12 @@ mod tests {
     #[test]
     fn applies_suffix_for_existing_destination_file() {
         let temp_dir = tempfile::tempdir().expect("temp dir should be created");
-        let destination_dir = temp_dir.path().join("Processed").join("2026").join("03").join("05");
+        let destination_dir = temp_dir
+            .path()
+            .join("Processed")
+            .join("2026")
+            .join("03")
+            .join("05");
         std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
         std::fs::write(
             destination_dir.join("2026-03-05 07-20-17 (IMG_1001).mp4"),
@@ -249,8 +258,7 @@ mod tests {
         let mut reserved = HashSet::new();
         let file = file_record("IMG_1001", "jpg");
 
-        let plan =
-            create_plan_for_file(Path::new(r"C:\todo"), &file, None, &mut reserved).unwrap();
+        let plan = create_plan_for_file(Path::new(r"C:\todo"), &file, None, &mut reserved).unwrap();
 
         assert!(matches!(plan.plan_status, PlanStatus::BlockedNoDate));
         assert!(plan.destination_path.is_empty());
@@ -267,7 +275,12 @@ mod tests {
             .expect("plan should be created");
 
         assert!(matches!(plan.plan_status, PlanStatus::Ready));
-        let destination_dir = temp_dir.path().join("Processed").join("2026").join("03").join("05");
+        let destination_dir = temp_dir
+            .path()
+            .join("Processed")
+            .join("2026")
+            .join("03")
+            .join("05");
         assert!(
             !destination_dir.exists(),
             "planner dry-run must not create filesystem directories"

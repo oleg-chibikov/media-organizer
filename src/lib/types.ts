@@ -1,9 +1,5 @@
 export type FileKind = "photo" | "video" | "unsupported" | "unknown";
-export type ScanStatus =
-  | "discovered"
-  | "skipped_processed"
-  | "skipped_unsupported"
-  | "scan_error";
+export type ScanStatus = "discovered" | "skipped_processed" | "skipped_unsupported" | "scan_error";
 
 export interface FileRecord {
   id: string;
@@ -16,12 +12,7 @@ export interface FileRecord {
 }
 
 export type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
-export type MetadataStatus =
-  | "pending"
-  | "ready"
-  | "no_date"
-  | "error"
-  | "exiftool_restarted";
+export type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
 
 export interface MetadataResult {
   file_id: string;

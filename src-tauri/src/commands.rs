@@ -7,8 +7,7 @@ use std::{
 use crate::{
     metadata,
     models::{FileKind, FileRecord, MetadataResult, MetadataStatus},
-    planner,
-    scanner,
+    planner, scanner,
 };
 use tauri_plugin_dialog::DialogExt;
 use tokio_util::sync::CancellationToken;

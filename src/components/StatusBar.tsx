@@ -35,9 +35,7 @@ export function StatusBar({
       <span>Skipped: {skipped}</span>
       <span>Errors: {errors}</span>
       <span>Plan Errors: {planErrors}</span>
-      <span className="ml-auto">
-        {statusLabel}
-      </span>
+      <span className="ml-auto">{statusLabel}</span>
     </footer>
   );
 }

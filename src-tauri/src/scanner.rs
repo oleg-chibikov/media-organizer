@@ -4,17 +4,14 @@ use tokio_util::sync::CancellationToken;
 use walkdir::WalkDir;
 
 use crate::{
-    events,
-    filename,
+    events, filename,
     models::{
         FileKind, FileRecord, ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
         ScanStatus,
     },
 };
 
-const PHOTO_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp",
-];
+const PHOTO_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "webp"];
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "mov", "m4v", "avi", "mts", "m2ts"];
 const EXPLICIT_UNSUPPORTED_EXTENSIONS: &[&str] = &["txt", "json", "aae", "xmp"];
 
@@ -37,14 +34,12 @@ pub fn is_in_processed(root: &Path, candidate: &Path) -> bool {
         return false;
     };
 
-    relative
-        .components()
-        .any(|component| {
-            component
-                .as_os_str()
-                .to_string_lossy()
-                .eq_ignore_ascii_case("Processed")
-        })
+    relative.components().any(|component| {
+        component
+            .as_os_str()
+            .to_string_lossy()
+            .eq_ignore_ascii_case("Processed")
+    })
 }
 
 pub fn scan_folder(
@@ -118,12 +113,8 @@ pub fn scan_folder(
             let _ = events::emit_scan_file(&app, ScanFileEvent { record });
         } else {
             skipped += 1;
-            let record = build_file_record(
-                &root,
-                &absolute_path,
-                kind,
-                ScanStatus::SkippedUnsupported,
-            );
+            let record =
+                build_file_record(&root, &absolute_path, kind, ScanStatus::SkippedUnsupported);
             let _ = events::emit_scan_skipped(&app, ScanFileEvent { record });
         }
     }
@@ -139,7 +130,12 @@ pub fn scan_folder(
     )
 }
 
-fn build_file_record(root: &Path, absolute_path: &Path, kind: FileKind, status: ScanStatus) -> FileRecord {
+fn build_file_record(
+    root: &Path,
+    absolute_path: &Path,
+    kind: FileKind,
+    status: ScanStatus,
+) -> FileRecord {
     let relative_path = absolute_path
         .strip_prefix(root)
         .map(|value| value.to_string_lossy().to_string())
@@ -200,6 +196,9 @@ mod tests {
             root,
             Path::new(r"C:\todo\nested\processed\image.jpg")
         ));
-        assert!(!is_in_processed(root, Path::new(r"C:\todo\nested\inbox\image.jpg")));
+        assert!(!is_in_processed(
+            root,
+            Path::new(r"C:\todo\nested\inbox\image.jpg")
+        ));
     }
 }
