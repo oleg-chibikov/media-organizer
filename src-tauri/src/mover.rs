@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs,
     path::Path,
 };
 
@@ -191,6 +192,65 @@ pub fn recheck_destination_conflicts(operations: Vec<MoveOperation>) -> Rechecke
     }
 
     RecheckedMoves { ready, skipped }
+}
+
+pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
+    let source = Path::new(&operation.source_path);
+    let destination = Path::new(&operation.destination_path);
+
+    if destination.exists() {
+        return skipped_result(
+            &operation.file_id,
+            &operation.source_path,
+            &operation.destination_path,
+            "Destination already exists. Refusing to overwrite.",
+        );
+    }
+
+    if !source.exists() {
+        return MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::Rename,
+            result_status: MoveResultStatus::Failed,
+            error: Some("Source file no longer exists at execution time.".to_string()),
+        };
+    }
+
+    if let Some(parent) = destination.parent() {
+        if let Err(error) = fs::create_dir_all(parent) {
+            return MoveResult {
+                file_id: operation.file_id.clone(),
+                attempted_source_path: operation.source_path.clone(),
+                attempted_destination_path: operation.destination_path.clone(),
+                move_strategy: MoveStrategy::Rename,
+                result_status: MoveResultStatus::Failed,
+                error: Some(format!(
+                    "Failed to create destination directory before rename: {error}"
+                )),
+            };
+        }
+    }
+
+    match fs::rename(source, destination) {
+        Ok(()) => MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::Rename,
+            result_status: MoveResultStatus::Moved,
+            error: None,
+        },
+        Err(error) => MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::Rename,
+            result_status: MoveResultStatus::Failed,
+            error: Some(format!("Atomic rename failed: {error}")),
+        },
+    }
 }
 
 fn skipped_result(
@@ -386,5 +446,52 @@ mod tests {
         assert_eq!(rechecked.ready.len(), 1);
         assert_eq!(rechecked.skipped.len(), 0);
         assert_eq!(rechecked.ready[0].file_id, "photo_1");
+    }
+
+    #[test]
+    fn rename_move_succeeds_and_removes_source() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("Processed\\2026\\05\\23\\destination.jpg");
+        fs::write(&source, b"source").expect("write source");
+
+        let operation = MoveOperation {
+            file_id: "photo_1".to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            destination_path: destination.to_string_lossy().to_string(),
+        };
+
+        let result = execute_move_with_rename(&operation);
+
+        assert!(matches!(result.move_strategy, MoveStrategy::Rename));
+        assert!(matches!(result.result_status, MoveResultStatus::Moved));
+        assert!(!source.exists());
+        assert!(destination.exists());
+        assert_eq!(fs::read(&destination).expect("read destination"), b"source");
+    }
+
+    #[test]
+    fn rename_move_refuses_to_overwrite_existing_destination() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("destination.jpg");
+        fs::write(&source, b"source").expect("write source");
+        fs::write(&destination, b"existing").expect("write destination");
+
+        let operation = MoveOperation {
+            file_id: "photo_1".to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            destination_path: destination.to_string_lossy().to_string(),
+        };
+
+        let result = execute_move_with_rename(&operation);
+
+        assert!(matches!(result.move_strategy, MoveStrategy::NotAttempted));
+        assert!(matches!(result.result_status, MoveResultStatus::Skipped));
+        assert!(source.exists());
+        assert_eq!(
+            fs::read(&destination).expect("read destination"),
+            b"existing"
+        );
     }
 }
