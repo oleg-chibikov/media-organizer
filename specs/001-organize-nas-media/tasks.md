@@ -6,10 +6,10 @@
 
 ## Phase 0: Development Environment
 
-- [ ] T001 Verify `mise` works in this repo with `mise install`.
-- [ ] T002 Verify Rust target is `x86_64-pc-windows-msvc`.
-- [ ] T003 Verify Microsoft C++ Build Tools are available.
-- [ ] T004 Verify Node and pnpm are available through mise.
+- [x] T001 Verify `mise` works in this repo with `mise install`.
+- [x] T002 Verify Rust target is `x86_64-pc-windows-msvc`.
+- [x] T003 Verify Microsoft C++ Build Tools are available.
+- [x] T004 Verify Node and pnpm are available through mise.
 
 ## Phase 1: Scaffold Runnable App
 
@@ -17,9 +17,9 @@
 - [x] T006 Keep existing `PLAN.md`, `mise.toml`, and `specs/` files intact during scaffold.
 - [x] T007 Install and configure Tailwind CSS for the React/Vite frontend.
 - [x] T008 Add base app shell with toolbar, status bar, and empty file table area styled with Tailwind utilities.
-- [ ] T009 Verify the desktop app launches in dev mode.
-- [ ] T010 Verify the frontend production build succeeds.
-- [ ] T011 Verify the Rust backend compiles.
+- [x] T009 Verify the desktop app launches in dev mode.
+- [x] T010 Verify the frontend production build succeeds.
+- [x] T011 Verify the Rust backend compiles.
 
 ## Phase 2: Shared Types And IPC Skeleton
 
@@ -27,7 +27,7 @@
 - [x] T013 Add TypeScript types matching the Rust IPC/event payloads.
 - [x] T014 Add Rust `commands.rs` and `events.rs` modules.
 - [x] T015 Add a simple health-check command from React to Rust.
-- [ ] T016 Verify React can invoke Rust and render the health-check result.
+- [x] T016 Verify React can invoke Rust and render the health-check result.
 
 ## Phase 3: Folder Selection
 
@@ -56,7 +56,7 @@
 - [x] T033 Install and configure `@tanstack/react-virtual`.
 - [x] T034 Replace the simple file list with a virtualized table.
 - [x] T035 Add stable columns for status, source file, kind, original name, metadata date, destination, and issue.
-- [ ] T036 Verify the table remains responsive with a generated large row set.
+- [x] T036 Verify the table remains responsive with a generated large row set.
 
 ## Phase 6: Filename Parser
 
