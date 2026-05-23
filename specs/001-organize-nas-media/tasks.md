@@ -138,7 +138,7 @@
 
 - [x] T091 Add app icon and Windows metadata.
 - [x] T092 Configure Tauri NSIS installer.
-- [ ] T093 Configure WebView2 bootstrapper handling.
+- [x] T093 Configure WebView2 bootstrapper handling.
 - [ ] T094 Verify ExifTool sidecar is included in production build.
 - [ ] T095 Build installer `.exe`.
 - [ ] T096 Smoke-test installed app on a clean Windows user profile.
