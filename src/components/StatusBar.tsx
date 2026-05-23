@@ -37,7 +37,7 @@ export function StatusBar({
         ? "Move completed"
         : isPlanning
           ? "Planning destinations"
-          : planCompleted
+          : completed && planCompleted
             ? "Plan completed"
             : completed
               ? "Scan completed"
