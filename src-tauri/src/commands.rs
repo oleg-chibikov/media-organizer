@@ -16,8 +16,9 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     events, logging, metadata,
     models::{
-        FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary,
-        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
+        FileKind, FileRecord, MetadataReadRequest, MetadataResult, MetadataStatus,
+        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult,
+        MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -147,34 +148,78 @@ pub async fn read_metadata_for_file(
     source_path: String,
     file_kind: FileKind,
 ) -> Result<MetadataResult, String> {
-    let source = PathBuf::from(&source_path);
-    if !source.exists() {
-        return Ok(MetadataResult {
-            file_id,
-            chosen_date: None,
-            chosen_date_source: None,
-            date_kind: None,
-            raw_metadata_date: None,
-            metadata_status: MetadataStatus::Error,
-            error: Some("File no longer exists on disk.".to_string()),
-        });
+    let request = MetadataReadRequest {
+        file_id: file_id.clone(),
+        source_path,
+        file_kind,
+    };
+    let mut results = read_metadata_batch_internal(app, &state, vec![request]).await?;
+    Ok(results.pop().unwrap_or_else(|| {
+        metadata_error_result(file_id, "Metadata worker returned no result.".to_string())
+    }))
+}
+
+#[tauri::command]
+pub async fn read_metadata_for_files(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    requests: Vec<MetadataReadRequest>,
+) -> Result<Vec<MetadataResult>, String> {
+    read_metadata_batch_internal(app, &state, requests).await
+}
+
+async fn read_metadata_batch_internal(
+    app: tauri::AppHandle,
+    state: &tauri::State<'_, AppState>,
+    requests: Vec<MetadataReadRequest>,
+) -> Result<Vec<MetadataResult>, String> {
+    if requests.is_empty() {
+        return Ok(Vec::new());
     }
 
-    let queued = state.metadata_waiting.fetch_add(1, Ordering::SeqCst) + 1;
+    let request_count = requests.len();
+    let queued = state
+        .metadata_waiting
+        .fetch_add(request_count, Ordering::SeqCst)
+        + request_count;
     if queued > state.metadata_queue_capacity {
-        state.metadata_waiting.fetch_sub(1, Ordering::SeqCst);
-        return Ok(MetadataResult {
-            file_id,
-            chosen_date: None,
-            chosen_date_source: None,
-            date_kind: None,
-            raw_metadata_date: None,
-            metadata_status: MetadataStatus::Error,
-            error: Some(format!(
-                "Metadata queue is full (capacity {}). Try again shortly.",
-                state.metadata_queue_capacity
-            )),
-        });
+        state
+            .metadata_waiting
+            .fetch_sub(request_count, Ordering::SeqCst);
+        return Ok(requests
+            .into_iter()
+            .map(|request| {
+                metadata_error_result(
+                    request.file_id,
+                    format!(
+                        "Metadata queue is full (capacity {}). Try again shortly.",
+                        state.metadata_queue_capacity
+                    ),
+                )
+            })
+            .collect());
+    }
+
+    let mut results: Vec<Option<MetadataResult>> = vec![None; request_count];
+    let mut pending_requests: Vec<(usize, MetadataReadRequest, PathBuf)> = Vec::new();
+
+    for (index, request) in requests.into_iter().enumerate() {
+        let source = PathBuf::from(&request.source_path);
+        if source.exists() {
+            pending_requests.push((index, request, source));
+        } else {
+            results[index] = Some(metadata_error_result(
+                request.file_id,
+                "File no longer exists on disk.".to_string(),
+            ));
+        }
+    }
+
+    if pending_requests.is_empty() {
+        state
+            .metadata_waiting
+            .fetch_sub(request_count, Ordering::SeqCst);
+        return Ok(unwrap_metadata_results(results));
     }
 
     let permit = state
@@ -183,79 +228,116 @@ pub async fn read_metadata_for_file(
         .acquire_owned()
         .await
         .map_err(|_| "Metadata queue is unavailable.".to_string())?;
-    state.metadata_waiting.fetch_sub(1, Ordering::SeqCst);
+    state
+        .metadata_waiting
+        .fetch_sub(request_count, Ordering::SeqCst);
 
-    let worker = select_metadata_worker(&state);
-    let timeout = state.metadata_timeout;
-    let source_for_worker = source.clone();
+    let worker = select_metadata_worker(state);
+    let timeout = metadata_batch_timeout(state.metadata_timeout, pending_requests.len());
+    let source_paths: Vec<PathBuf> = pending_requests
+        .iter()
+        .map(|(_, _, source)| source.clone())
+        .collect();
     let app_for_worker = app.clone();
 
     let read_result = tauri::async_runtime::spawn_blocking(move || {
         let mut manager = worker
             .lock()
             .map_err(|_| "Failed to lock ExifTool worker state.".to_string())?;
-        manager.read_metadata(&app_for_worker, &source_for_worker, timeout)
+        manager.read_metadata_batch(&app_for_worker, &source_paths, timeout)
     })
     .await
     .map_err(|error| format!("Metadata worker task failed: {error}"))?;
 
     drop(permit);
 
-    let outcome = match read_result {
-        Ok(value) => value,
-        Err(error) => {
-            return Ok(MetadataResult {
-                file_id,
-                chosen_date: None,
-                chosen_date_source: None,
-                date_kind: None,
-                raw_metadata_date: None,
-                metadata_status: MetadataStatus::Error,
-                error: Some(error),
-            });
+    match read_result {
+        Ok(outcome) => {
+            for ((index, request, _), raw_dates) in
+                pending_requests.into_iter().zip(outcome.raw_dates)
+            {
+                results[index] = Some(metadata_result_from_raw(
+                    request,
+                    raw_dates,
+                    outcome.did_restart,
+                ));
+            }
         }
-    };
+        Err(error) => {
+            for (index, request, _) in pending_requests {
+                results[index] = Some(metadata_error_result(request.file_id, error.clone()));
+            }
+        }
+    }
 
-    let selection = match metadata::select_metadata_date(&file_kind, &outcome.raw_dates) {
+    Ok(unwrap_metadata_results(results))
+}
+
+fn metadata_result_from_raw(
+    request: MetadataReadRequest,
+    raw_dates: metadata::RawMetadataDates,
+    did_restart: bool,
+) -> MetadataResult {
+    let restart_warning = did_restart
+        .then(|| "ExifTool worker restarted after a previous crash or stall.".to_string());
+
+    let selection = match metadata::select_metadata_date(&request.file_kind, &raw_dates) {
         Ok(value) => value,
-        Err(error) => {
-            return Ok(MetadataResult {
-                file_id,
-                chosen_date: None,
-                chosen_date_source: None,
-                date_kind: None,
-                raw_metadata_date: None,
-                metadata_status: MetadataStatus::Error,
-                error: Some(error),
-            });
-        }
+        Err(error) => return metadata_error_result(request.file_id, error),
     };
 
     if let Some(date) = selection {
-        return Ok(MetadataResult {
-            file_id,
+        return MetadataResult {
+            file_id: request.file_id,
             chosen_date: Some(date.chosen_date),
             chosen_date_source: Some(date.chosen_date_source),
             date_kind: Some(date.date_kind),
             raw_metadata_date: Some(date.raw_metadata_date),
             metadata_status: MetadataStatus::Ready,
-            error: outcome
-                .did_restart
-                .then(|| "ExifTool worker restarted after a previous crash or stall.".to_string()),
-        });
+            error: restart_warning,
+        };
     }
 
-    Ok(MetadataResult {
-        file_id,
+    MetadataResult {
+        file_id: request.file_id,
         chosen_date: None,
         chosen_date_source: None,
         date_kind: None,
         raw_metadata_date: None,
         metadata_status: MetadataStatus::NoDate,
-        error: outcome
-            .did_restart
-            .then(|| "ExifTool worker restarted after a previous crash or stall.".to_string()),
-    })
+        error: restart_warning,
+    }
+}
+
+fn metadata_error_result(file_id: String, error: String) -> MetadataResult {
+    MetadataResult {
+        file_id,
+        chosen_date: None,
+        chosen_date_source: None,
+        date_kind: None,
+        raw_metadata_date: None,
+        metadata_status: MetadataStatus::Error,
+        error: Some(error),
+    }
+}
+
+fn metadata_batch_timeout(base_timeout: Duration, batch_size: usize) -> Duration {
+    let scaled = base_timeout.as_millis().saturating_mul(batch_size as u128);
+    Duration::from_millis(scaled.min(120_000) as u64)
+}
+
+fn unwrap_metadata_results(results: Vec<Option<MetadataResult>>) -> Vec<MetadataResult> {
+    results
+        .into_iter()
+        .map(|result| {
+            result.unwrap_or_else(|| {
+                metadata_error_result(
+                    String::new(),
+                    "Metadata worker did not produce a result.".to_string(),
+                )
+            })
+        })
+        .collect()
 }
 
 #[tauri::command]

@@ -58,6 +58,13 @@ pub struct MetadataResult {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetadataReadRequest {
+    pub file_id: String,
+    pub source_path: String,
+    pub file_kind: FileKind,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ProcessingConfig {
     pub metadata_concurrency: usize,

@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FileKind,
   FileRecord,
+  MetadataReadRequest,
   MetadataResult,
   MoveConfirmationSummary,
   MoveFileEvent,
@@ -65,6 +66,8 @@ export const readMetadataForFile = (fileId: string, sourcePath: string, fileKind
     sourcePath,
     fileKind
   });
+export const readMetadataForFiles = (requests: MetadataReadRequest[]) =>
+  invokeCommand<MetadataResult[]>("read_metadata_for_files", { requests });
 
 export const createMovePlan = (
   selectedPath: string,

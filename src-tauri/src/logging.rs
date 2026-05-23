@@ -56,6 +56,7 @@ pub fn open_processing_log_for_append(selected_root: &Path) -> Result<File, Stri
         })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_processing_log_record(
     source_path: impl Into<String>,
     destination_path: impl Into<String>,

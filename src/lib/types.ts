@@ -24,6 +24,12 @@ export interface MetadataResult {
   error: string | null;
 }
 
+export interface MetadataReadRequest {
+  file_id: string;
+  source_path: string;
+  file_kind: FileKind;
+}
+
 export interface ProcessingConfig {
   metadata_concurrency: number;
   metadata_queue_capacity: number;

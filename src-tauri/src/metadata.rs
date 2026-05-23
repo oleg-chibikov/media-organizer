@@ -1,6 +1,6 @@
 use std::{
     io::{BufRead, BufReader, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::{Child, ChildStdin, Command, Stdio},
     sync::mpsc::{self, Receiver},
     time::{Duration, Instant},
@@ -43,8 +43,8 @@ pub struct SelectedMetadataDate {
 }
 
 #[derive(Debug, Clone)]
-pub struct MetadataReadOutcome {
-    pub raw_dates: RawMetadataDates,
+pub struct MetadataBatchReadOutcome {
+    pub raw_dates: Vec<RawMetadataDates>,
     pub did_restart: bool,
 }
 
@@ -54,12 +54,19 @@ pub struct ExifToolWorkerManager {
 }
 
 impl ExifToolWorkerManager {
-    pub fn read_metadata(
+    pub fn read_metadata_batch(
         &mut self,
         app: &tauri::AppHandle,
-        source_path: &Path,
+        source_paths: &[PathBuf],
         timeout: Duration,
-    ) -> Result<MetadataReadOutcome, String> {
+    ) -> Result<MetadataBatchReadOutcome, String> {
+        if source_paths.is_empty() {
+            return Ok(MetadataBatchReadOutcome {
+                raw_dates: Vec::new(),
+                did_restart: false,
+            });
+        }
+
         let mut did_restart = false;
 
         for attempt in 0..=1 {
@@ -76,9 +83,9 @@ impl ExifToolWorkerManager {
                 return Err("ExifTool worker is unavailable.".to_string());
             };
 
-            match worker.read_metadata(source_path, timeout) {
+            match worker.read_metadata_batch(source_paths, timeout) {
                 Ok(raw_dates) => {
-                    return Ok(MetadataReadOutcome {
+                    return Ok(MetadataBatchReadOutcome {
                         raw_dates,
                         did_restart,
                     });
@@ -222,62 +229,67 @@ impl ExifToolWorker {
         }
     }
 
-    fn read_metadata(
+    fn read_metadata_batch(
         &mut self,
-        source_path: &Path,
+        source_paths: &[PathBuf],
         timeout: Duration,
-    ) -> Result<RawMetadataDates, WorkerError> {
+    ) -> Result<Vec<RawMetadataDates>, WorkerError> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
 
-        self.send_request(source_path, request_id)?;
+        self.send_request(source_paths, request_id)?;
 
         let deadline = Instant::now() + timeout;
-        loop {
-            let now = Instant::now();
-            if now >= deadline {
-                return Err(WorkerError::TimedOut(format!(
-                    "ExifTool request timed out after {}ms for {}",
-                    timeout.as_millis(),
-                    source_path.to_string_lossy()
-                )));
-            }
+        let now = Instant::now();
+        if now >= deadline {
+            return Err(WorkerError::TimedOut(format!(
+                "ExifTool request timed out after {}ms for {} file(s)",
+                timeout.as_millis(),
+                source_paths.len()
+            )));
+        }
 
-            let remaining = deadline.saturating_duration_since(now);
-            match self.reader_rx.recv_timeout(remaining) {
-                Ok(ReaderEvent::Ready {
-                    request_id: ready_id,
-                    payload,
-                }) => {
-                    if ready_id != request_id {
-                        return Err(WorkerError::Protocol(format!(
-                            "ExifTool response framing mismatch: expected {request_id}, got {ready_id}."
-                        )));
-                    }
-                    return parse_exiftool_json(&payload).map_err(WorkerError::Protocol);
-                }
-                Ok(ReaderEvent::Exited) => {
-                    return Err(WorkerError::Crashed(
-                        "ExifTool worker exited unexpectedly during metadata request.".to_string(),
-                    ));
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    return Err(WorkerError::TimedOut(format!(
-                        "ExifTool request timed out after {}ms for {}",
-                        timeout.as_millis(),
-                        source_path.to_string_lossy()
+        let remaining = deadline.saturating_duration_since(now);
+        match self.reader_rx.recv_timeout(remaining) {
+            Ok(ReaderEvent::Ready {
+                request_id: ready_id,
+                payload,
+            }) => {
+                if ready_id != request_id {
+                    return Err(WorkerError::Protocol(format!(
+                        "ExifTool response framing mismatch: expected {request_id}, got {ready_id}."
                     )));
                 }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(WorkerError::Crashed(
-                        "ExifTool worker output channel disconnected unexpectedly.".to_string(),
-                    ));
+                let raw_dates =
+                    parse_exiftool_json_batch(&payload).map_err(WorkerError::Protocol)?;
+                if raw_dates.len() != source_paths.len() {
+                    return Err(WorkerError::Protocol(format!(
+                        "ExifTool returned {} metadata results for {} requested files.",
+                        raw_dates.len(),
+                        source_paths.len()
+                    )));
                 }
+                Ok(raw_dates)
             }
+            Ok(ReaderEvent::Exited) => Err(WorkerError::Crashed(
+                "ExifTool worker exited unexpectedly during metadata request.".to_string(),
+            )),
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(WorkerError::TimedOut(format!(
+                "ExifTool request timed out after {}ms for {} file(s)",
+                timeout.as_millis(),
+                source_paths.len()
+            ))),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(WorkerError::Crashed(
+                "ExifTool worker output channel disconnected unexpectedly.".to_string(),
+            )),
         }
     }
 
-    fn send_request(&mut self, source_path: &Path, request_id: u64) -> Result<(), WorkerError> {
+    fn send_request(
+        &mut self,
+        source_paths: &[PathBuf],
+        request_id: u64,
+    ) -> Result<(), WorkerError> {
         self.stdin.write_all(b"-json\n").map_err(|error| {
             WorkerError::Crashed(format!("Failed to write ExifTool request: {error}"))
         })?;
@@ -290,11 +302,14 @@ impl ExifToolWorker {
                 })?;
         }
 
-        self.stdin
-            .write_all(format!("{}\n", source_path.to_string_lossy()).as_bytes())
-            .map_err(|error| {
-                WorkerError::Crashed(format!("Failed to write ExifTool source path: {error}"))
-            })?;
+        for source_path in source_paths {
+            self.stdin
+                .write_all(format!("{}\n", source_path.to_string_lossy()).as_bytes())
+                .map_err(|error| {
+                    WorkerError::Crashed(format!("Failed to write ExifTool source path: {error}"))
+                })?;
+        }
+
         self.stdin
             .write_all(format!("-execute{request_id}\n").as_bytes())
             .map_err(|error| {
@@ -331,25 +346,36 @@ fn parse_ready_marker(line: &str) -> Option<u64> {
         .and_then(|value| value.parse::<u64>().ok())
 }
 
+#[cfg(test)]
 pub fn parse_exiftool_json(json: &str) -> Result<RawMetadataDates, String> {
+    parse_exiftool_json_batch(json)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "ExifTool returned an empty JSON array.".to_string())
+}
+
+pub fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDates>, String> {
     let values: Vec<serde_json::Value> =
         serde_json::from_str(json).map_err(|error| format!("Invalid ExifTool JSON: {error}"))?;
-    let first = values
-        .first()
-        .ok_or_else(|| "ExifTool returned an empty JSON array.".to_string())?;
-    let object = first
-        .as_object()
-        .ok_or_else(|| "ExifTool JSON payload was not an object.".to_string())?;
 
-    Ok(RawMetadataDates {
-        sub_sec_date_time_original: read_tag(object, "SubSecDateTimeOriginal"),
-        date_time_original: read_tag(object, "DateTimeOriginal"),
-        create_date: read_tag(object, "CreateDate"),
-        modify_date: read_tag(object, "ModifyDate"),
-        media_create_date: read_tag(object, "MediaCreateDate"),
-        track_create_date: read_tag(object, "TrackCreateDate"),
-        file_modify_date: read_tag(object, "FileModifyDate"),
-    })
+    values
+        .iter()
+        .map(|value| {
+            let object = value.as_object().ok_or_else(|| {
+                "ExifTool JSON payload contained a non-object result.".to_string()
+            })?;
+
+            Ok(RawMetadataDates {
+                sub_sec_date_time_original: read_tag(object, "SubSecDateTimeOriginal"),
+                date_time_original: read_tag(object, "DateTimeOriginal"),
+                create_date: read_tag(object, "CreateDate"),
+                modify_date: read_tag(object, "ModifyDate"),
+                media_create_date: read_tag(object, "MediaCreateDate"),
+                track_create_date: read_tag(object, "TrackCreateDate"),
+                file_modify_date: read_tag(object, "FileModifyDate"),
+            })
+        })
+        .collect()
 }
 
 pub fn select_metadata_date(

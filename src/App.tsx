@@ -12,7 +12,7 @@ import {
   executeMovePlan,
   getProcessingConfig,
   healthCheck,
-  readMetadataForFile,
+  readMetadataForFiles,
   startScan
 } from "./lib/api";
 import type {
@@ -25,6 +25,7 @@ import type {
 } from "./lib/types";
 
 const MOVE_DISPATCH_CONCURRENCY = 1;
+const METADATA_BATCH_SIZE = 8;
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -157,29 +158,51 @@ export default function App() {
     };
   }, [metadataByFileId, movePlansByFileId, rows]);
 
-  const requestMovePlanForMetadata = useCallback(
-    (row: FileRecord, metadata: MetadataResult) => {
-      if (!selectedFolder || (row.kind !== "photo" && row.kind !== "video")) {
+  const requestMovePlansForMetadata = useCallback(
+    (rows: FileRecord[], metadataResults: MetadataResult[]) => {
+      if (!selectedFolder) {
         return;
       }
 
-      const nextSignature = metadataPlanningSignature(metadata);
-      const previousSignature = plannedMetadataSignatureByFileIdRef.current.get(row.id);
-      if (previousSignature === nextSignature) {
+      const rowsById = new Map(rows.map((row) => [row.id, row]));
+      const filesToPlan: FileRecord[] = [];
+      const metadataToPlan: MetadataResult[] = [];
+      const previousSignatures = new Map<string, string | undefined>();
+
+      for (const metadata of metadataResults) {
+        const row = rowsById.get(metadata.file_id);
+        if (!row || (row.kind !== "photo" && row.kind !== "video")) {
+          continue;
+        }
+
+        const nextSignature = metadataPlanningSignature(metadata);
+        const previousSignature = plannedMetadataSignatureByFileIdRef.current.get(row.id);
+        if (previousSignature === nextSignature) {
+          continue;
+        }
+
+        previousSignatures.set(row.id, previousSignature);
+        plannedMetadataSignatureByFileIdRef.current.set(row.id, nextSignature);
+        filesToPlan.push(row);
+        metadataToPlan.push(metadata);
+      }
+
+      if (filesToPlan.length === 0) {
         return;
       }
 
-      plannedMetadataSignatureByFileIdRef.current.set(row.id, nextSignature);
       activePlanRequestsRef.current += 1;
       setActivePlanRequests(activePlanRequestsRef.current);
 
-      void createMovePlan(selectedFolder, [row], [metadata]).catch((error: unknown) => {
+      void createMovePlan(selectedFolder, filesToPlan, metadataToPlan).catch((error: unknown) => {
         activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
         setActivePlanRequests(activePlanRequestsRef.current);
-        if (previousSignature === undefined) {
-          plannedMetadataSignatureByFileIdRef.current.delete(row.id);
-        } else {
-          plannedMetadataSignatureByFileIdRef.current.set(row.id, previousSignature);
+        for (const [fileId, previousSignature] of previousSignatures) {
+          if (previousSignature === undefined) {
+            plannedMetadataSignatureByFileIdRef.current.delete(fileId);
+          } else {
+            plannedMetadataSignatureByFileIdRef.current.set(fileId, previousSignature);
+          }
         }
         setFolderError(`Failed to create move plan: ${String(error)}`);
       });
@@ -192,31 +215,56 @@ export default function App() {
       activeMetadataRequestsRef.current < metadataConcurrency &&
       metadataQueueRef.current.length > 0
     ) {
-      const nextFileId = metadataQueueRef.current.shift();
-      if (!nextFileId) {
-        break;
+      const batchRows: FileRecord[] = [];
+
+      while (batchRows.length < METADATA_BATCH_SIZE && metadataQueueRef.current.length > 0) {
+        const nextFileId = metadataQueueRef.current.shift();
+        if (!nextFileId) {
+          break;
+        }
+
+        queuedMetadataIdsRef.current.delete(nextFileId);
+        const row = rowByIdRef.current.get(nextFileId);
+        if (!row) {
+          continue;
+        }
+
+        requestedMetadataIdsRef.current.add(nextFileId);
+        batchRows.push(row);
       }
 
-      queuedMetadataIdsRef.current.delete(nextFileId);
-      const row = rowByIdRef.current.get(nextFileId);
-      if (!row) {
+      if (batchRows.length === 0) {
         continue;
       }
 
       activeMetadataRequestsRef.current += 1;
       setActiveMetadataRequests(activeMetadataRequestsRef.current);
-      requestedMetadataIdsRef.current.add(nextFileId);
 
-      void readMetadataForFile(row.id, row.source_path, row.kind)
-        .then((result) => {
-          setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
-          requestMovePlanForMetadata(row, result);
-          if (result.metadata_status === "error" && result.error) {
-            setFolderError(result.error);
+      void readMetadataForFiles(
+        batchRows.map((row) => ({
+          file_id: row.id,
+          source_path: row.source_path,
+          file_kind: row.kind
+        }))
+      )
+        .then((results) => {
+          setMetadataByFileId((prev) => {
+            const next = { ...prev };
+            for (const result of results) {
+              next[result.file_id] = result;
+            }
+            return next;
+          });
+
+          for (const result of results) {
+            if (result.metadata_status === "error" && result.error) {
+              setFolderError(result.error);
+            }
           }
+          requestMovePlansForMetadata(batchRows, results);
         })
         .catch((error: unknown) => {
-          setFolderError(`Failed to read metadata: ${String(error)}`);
+          setFolderError(`Failed to read metadata batch: ${String(error)}`);
         })
         .finally(() => {
           activeMetadataRequestsRef.current -= 1;
@@ -224,7 +272,7 @@ export default function App() {
           pumpMetadataQueueRef.current();
         });
     }
-  }, [metadataConcurrency, requestMovePlanForMetadata]);
+  }, [metadataConcurrency, requestMovePlansForMetadata]);
 
   useEffect(() => {
     pumpMetadataQueueRef.current = pumpMetadataQueue;
