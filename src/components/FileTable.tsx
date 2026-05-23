@@ -43,7 +43,7 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
         <div className="px-3 py-2">Original Name</div>
         <div className="px-3 py-2">Metadata Date</div>
         <div className="px-3 py-2">Destination</div>
-        <div className="px-3 py-2">Issue</div>
+        <div className="px-3 py-2">Notes</div>
       </div>
 
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
@@ -61,7 +61,7 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
               (metadata?.metadata_status === "ready" ? "planning..." : "-");
 
             const statusLabel = resolveStatusLabel(row, metadata, movePlan);
-            const issueLabel = resolveIssueLabel(metadata, movePlan);
+            const notesLabel = resolveNotesLabel(metadata, movePlan);
             const isFallbackWarning = metadata?.date_kind === "fallback";
 
             return (
@@ -81,7 +81,7 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
                 <div className="truncate px-3 py-2 font-mono text-xs text-slate-300">
                   {destinationLabel}
                 </div>
-                <div className="truncate px-3 py-2">{issueLabel}</div>
+                <div className="truncate px-3 py-2">{notesLabel}</div>
               </div>
             );
           })}
@@ -125,7 +125,7 @@ function resolveStatusLabel(
   }
 }
 
-function resolveIssueLabel(
+function resolveNotesLabel(
   metadata: MetadataResult | undefined,
   movePlan: MovePlan | undefined
 ): string {
