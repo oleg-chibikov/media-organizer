@@ -200,7 +200,7 @@ export function FileTable({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-x-scroll">
         <div className="flex h-full flex-col" style={{ minWidth: `${tableMinWidth}px` }}>
           <div
             className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
