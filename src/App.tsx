@@ -72,6 +72,12 @@ export default function App() {
   const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
   const lastPlanRequestKeyRef = useRef<string>("");
   const lastConfirmationRequestKeyRef = useRef<string>("");
+  const pendingExecutableCount = Object.values(movePlansByFileId).filter((plan) => {
+    if (plan.plan_status !== "ready") {
+      return false;
+    }
+    return moveResultsByFileId[plan.file_id]?.result_status !== "moved";
+  }).length;
 
   const pumpMetadataQueue = useCallback(() => {
     while (
@@ -440,7 +446,7 @@ export default function App() {
   }, [isPlanning, metadataByFileId, movePlansByFileId, planCompleted, rows]);
 
   const handleConfirmExecution = () => {
-    if (!confirmationSummary) {
+    if (!confirmationSummary || pendingExecutableCount === 0 || isExecutingMoves) {
       return;
     }
 
@@ -516,7 +522,7 @@ export default function App() {
             className="ml-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700"
             disabled={
               !confirmationSummary ||
-              confirmationSummary.ready_operations === 0 ||
+              pendingExecutableCount === 0 ||
               isBuildingConfirmation ||
               isExecutingMoves
             }
