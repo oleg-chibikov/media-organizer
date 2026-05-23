@@ -87,7 +87,7 @@ Use `@tanstack/react-virtual` before the app is tested against large folders.
 
 `planner.rs` combines file records and metadata results into dry-run move plans, including destination path creation and conflict suffix assignment.
 
-`mover.rs` executes confirmed plans. It uses rename where possible and copy-verify-remove when rename fails because of cross-device/NAS behavior.
+`mover.rs` executes confirmed plans. It uses rename where possible and copy-verify-keep-source when rename fails because of cross-device/NAS behavior.
 
 `logging.rs` writes JSONL operation records.
 
@@ -218,7 +218,7 @@ Rust unit tests:
 - destination filename formatting
 - conflict suffix assignment
 - date priority selection
-- copy-verify-remove behavior with temporary directories
+- copy-verify-keep-source behavior with temporary directories
 
 Frontend tests:
 
@@ -245,6 +245,6 @@ The first milestone is a useful dry-run preview:
 ## Risks
 
 - `-stay_open` ExifTool IPC is technically tricky. Mitigation: prove one-shot first, then build persistent worker with tests and timeouts.
-- NAS moves can be cross-device. Mitigation: explicit fallback to copy-verify-remove in executor.
+- NAS moves can be cross-device. Mitigation: explicit fallback to copy-verify-keep-source in executor. The fallback never deletes the source file; users can remove originals after independent backup/verification.
 - Timezone-less EXIF dates can be ambiguous. Mitigation: treat as local wall time and show a visible timezone unknown state.
 - Large folders can overload the UI. Mitigation: stream events and virtualize rows from the start.

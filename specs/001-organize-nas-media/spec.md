@@ -61,7 +61,7 @@ As a user with a NAS folder containing unorganized photos and videos, I want to 
    - Given the user confirms the move plan
    - When the app moves files
    - Then no destination file is overwritten
-   - And cross-device NAS moves fall back from rename to copy-verify-remove
+   - And cross-device NAS moves fall back from rename to copy-verify-keep-source
    - And the app updates each row with success or failure
 
 9. **Processing log**
@@ -112,7 +112,7 @@ As a user with a NAS folder containing unorganized photos and videos, I want to 
 - **FR-018**: The app shall recheck destination conflicts immediately before each move.
 - **FR-019**: The app shall require explicit user confirmation before moving or renaming files.
 - **FR-020**: The app shall move files with atomic rename where possible.
-- **FR-021**: The app shall fall back to copy-verify-remove when rename fails because of cross-device or NAS filesystem behavior.
+- **FR-021**: The app shall fall back to copy-verify-keep-source when rename fails because of cross-device or NAS filesystem behavior.
 - **FR-022**: The app shall not delete a source file unless the destination copy succeeded and basic verification passed.
 - **FR-023**: The app shall update the UI lazily as scan, metadata, planning, and move statuses change.
 - **FR-024**: The app shall keep the UI responsive for large folders by virtualizing the file list.
@@ -166,7 +166,7 @@ As a user with a NAS folder containing unorganized photos and videos, I want to 
 - `file_id`: Associated file record.
 - `attempted_source_path`: Source used at execution time.
 - `attempted_destination_path`: Destination used at execution time.
-- `move_strategy`: `rename`, `copy_remove`, or `not_attempted`.
+- `move_strategy`: `rename`, `copy_keep_source`, or `not_attempted`.
 - `result_status`: `moved`, `skipped`, or `failed`.
 - `error`: Optional error message.
 

@@ -10,6 +10,7 @@ interface StatusBarProps {
   isExecutingMoves: boolean;
   moveCompleted: boolean;
   moved: number;
+  copied: number;
   moveSkipped: number;
   moveFailed: number;
 }
@@ -26,6 +27,7 @@ export function StatusBar({
   isExecutingMoves,
   moveCompleted,
   moved,
+  copied,
   moveSkipped,
   moveFailed
 }: StatusBarProps) {
@@ -52,6 +54,7 @@ export function StatusBar({
       <span>Errors: {errors}</span>
       <span>Plan Errors: {planErrors}</span>
       <span>Moved: {moved}</span>
+      <span>Copied: {copied}</span>
       <span>Move Skipped: {moveSkipped}</span>
       <span>Move Failed: {moveFailed}</span>
       <span className="ml-auto">{statusLabel}</span>

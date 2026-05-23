@@ -120,11 +120,11 @@
 - [x] T078 Add explicit confirmation summary before execution.
 - [x] T079 Recheck destination conflicts immediately before moving.
 - [x] T080 Use atomic rename when possible.
-- [x] T081 Fall back to copy-verify-remove on cross-device/NAS rename failure.
-- [x] T082 Verify destination existence and size before deleting source.
+- [x] T081 Fall back to copy-verify-keep-source on cross-device/NAS rename failure.
+- [x] T082 Verify destination existence, size, and bytes while keeping source intact.
 - [x] T083 Never overwrite existing files.
 - [x] T084 Emit move progress events.
-- [x] T085 Add Rust tests for conflict recheck and copy-verify-remove.
+- [x] T085 Add Rust tests for conflict recheck and copy-verify-keep-source.
 
 ## Phase 12: Processing Log
 
@@ -148,7 +148,7 @@
 - [ ] T097 Add README with development setup using mise.
 - [ ] T098 Add ExifTool sidecar setup instructions.
 - [ ] T099 Add user workflow documentation.
-- [ ] T100 Add safety notes about dry-run preview and copy-verify-remove behavior.
+- [x] T100 Add safety notes about dry-run preview and copy-verify-keep-source behavior.
 
 ## First Useful Delivery
 

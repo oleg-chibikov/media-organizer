@@ -106,7 +106,7 @@ pub struct MovePlan {
 #[allow(dead_code)]
 pub enum MoveStrategy {
     Rename,
-    CopyRemove,
+    CopyKeepSource,
     NotAttempted,
 }
 
@@ -115,6 +115,7 @@ pub enum MoveStrategy {
 #[allow(dead_code)]
 pub enum MoveResultStatus {
     Moved,
+    Copied,
     Skipped,
     Failed,
 }
@@ -179,6 +180,7 @@ pub struct MoveFileEvent {
 #[derive(Debug, Clone, Serialize)]
 pub struct MoveFinishedEvent {
     pub moved: u64,
+    pub copied: u64,
     pub skipped: u64,
     pub failed: u64,
 }

@@ -1,7 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs, io,
-    path::Path,
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Write},
+    path::{Component, Path, PathBuf},
 };
 
 use crate::models::{
@@ -24,6 +25,12 @@ pub struct PreparedMoves {
 
 #[derive(Debug, Clone, Default)]
 pub struct RecheckedMoves {
+    pub ready: Vec<MoveOperation>,
+    pub skipped: Vec<MoveResult>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SafetyCheckedMoves {
     pub ready: Vec<MoveOperation>,
     pub skipped: Vec<MoveResult>,
 }
@@ -110,6 +117,84 @@ pub fn prepare_move_operations(files: &[FileRecord], plans: &[MovePlan]) -> Prep
     }
 }
 
+pub fn validate_move_safety(
+    selected_root: &Path,
+    operations: Vec<MoveOperation>,
+) -> SafetyCheckedMoves {
+    let mut ready = Vec::new();
+    let mut skipped = Vec::new();
+    let processed_root = selected_root.join("Processed");
+
+    for operation in operations {
+        let source = Path::new(&operation.source_path);
+        let destination = Path::new(&operation.destination_path);
+
+        if has_parent_dir_component(source) || has_parent_dir_component(destination) {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Source and destination paths must not contain parent-directory traversal.",
+            ));
+            continue;
+        }
+
+        if paths_equal_case_insensitive(source, destination) {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Source and destination resolve to the same path.",
+            ));
+            continue;
+        }
+
+        if !path_is_within_case_insensitive(source, selected_root) {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Source file is outside the selected folder.",
+            ));
+            continue;
+        }
+
+        if path_is_within_case_insensitive(source, &processed_root) {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Source file is inside the Processed folder.",
+            ));
+            continue;
+        }
+
+        if !path_is_within_case_insensitive(destination, &processed_root) {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Destination file is outside the selected Processed folder.",
+            ));
+            continue;
+        }
+
+        if !source.is_file() {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Source path is not a regular file at execution time.",
+            ));
+            continue;
+        }
+
+        ready.push(operation);
+    }
+
+    SafetyCheckedMoves { ready, skipped }
+}
+
 pub fn build_move_confirmation_summary(
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
@@ -194,6 +279,29 @@ pub fn recheck_destination_conflicts(operations: Vec<MoveOperation>) -> Rechecke
     RecheckedMoves { ready, skipped }
 }
 
+fn has_parent_dir_component(path: &Path) -> bool {
+    path.components()
+        .any(|component| matches!(component, Component::ParentDir))
+}
+
+fn path_is_within_case_insensitive(candidate: &Path, parent: &Path) -> bool {
+    let candidate = normalized_path_string(candidate);
+    let parent = normalized_path_string(parent);
+
+    candidate == parent || candidate.starts_with(&format!("{parent}/"))
+}
+
+fn paths_equal_case_insensitive(left: &Path, right: &Path) -> bool {
+    normalized_path_string(left) == normalized_path_string(right)
+}
+
+fn normalized_path_string(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .trim_end_matches('/')
+        .to_ascii_lowercase()
+}
+
 pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
     execute_move_with_rename_internal(operation, |source, destination| {
         fs::rename(source, destination)
@@ -252,8 +360,8 @@ where
             error: None,
         },
         Err(error) => {
-            if should_fallback_to_copy_remove(&error) {
-                return execute_copy_verify_remove(operation, source, destination);
+            if should_fallback_to_copy_keep_source(&error) {
+                return execute_copy_verify_keep_source(operation, source, destination);
             }
 
             MoveResult {
@@ -268,11 +376,11 @@ where
     }
 }
 
-fn should_fallback_to_copy_remove(error: &io::Error) -> bool {
+fn should_fallback_to_copy_keep_source(error: &io::Error) -> bool {
     error.kind() == io::ErrorKind::CrossesDevices || error.raw_os_error() == Some(17)
 }
 
-fn execute_copy_verify_remove(
+fn execute_copy_verify_keep_source(
     operation: &MoveOperation,
     source: &Path,
     destination: &Path,
@@ -286,37 +394,80 @@ fn execute_copy_verify_remove(
         );
     }
 
-    if let Err(error) = fs::copy(source, destination) {
+    let (temp_destination, mut temp_file) = match reserve_temp_destination(destination) {
+        Ok(reserved) => reserved,
+        Err(error) => {
+            return MoveResult {
+                file_id: operation.file_id.clone(),
+                attempted_source_path: operation.source_path.clone(),
+                attempted_destination_path: operation.destination_path.clone(),
+                move_strategy: MoveStrategy::CopyKeepSource,
+                result_status: MoveResultStatus::Failed,
+                error: Some(format!("Failed to reserve temporary copy path: {error}")),
+            };
+        }
+    };
+
+    if let Err(error) = copy_without_overwrite(source, &mut temp_file) {
+        drop(temp_file);
+        let _ = fs::remove_file(&temp_destination);
         return MoveResult {
             file_id: operation.file_id.clone(),
             attempted_source_path: operation.source_path.clone(),
             attempted_destination_path: operation.destination_path.clone(),
-            move_strategy: MoveStrategy::CopyRemove,
+            move_strategy: MoveStrategy::CopyKeepSource,
             result_status: MoveResultStatus::Failed,
             error: Some(format!("Copy fallback failed: {error}")),
         };
     }
+
+    drop(temp_file);
+
+    if let Err(error) = verify_destination_matches_source(source, &temp_destination) {
+        let _ = fs::remove_file(&temp_destination);
+        return MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::CopyKeepSource,
+            result_status: MoveResultStatus::Failed,
+            error: Some(error),
+        };
+    }
+
+    if destination.exists() {
+        let _ = fs::remove_file(&temp_destination);
+        return skipped_result(
+            &operation.file_id,
+            &operation.source_path,
+            &operation.destination_path,
+            "Destination appeared during copy fallback. Refusing to overwrite.",
+        );
+    }
+
+    if let Err(error) = persist_verified_copy(&temp_destination, destination) {
+        let _ = fs::remove_file(&temp_destination);
+        return MoveResult {
+            file_id: operation.file_id.clone(),
+            attempted_source_path: operation.source_path.clone(),
+            attempted_destination_path: operation.destination_path.clone(),
+            move_strategy: MoveStrategy::CopyKeepSource,
+            result_status: MoveResultStatus::Failed,
+            error: Some(format!("Failed to persist verified copy fallback: {error}")),
+        };
+    }
+
+    let _ = fs::remove_file(&temp_destination);
 
     if let Err(error) = verify_destination_matches_source(source, destination) {
         return MoveResult {
             file_id: operation.file_id.clone(),
             attempted_source_path: operation.source_path.clone(),
             attempted_destination_path: operation.destination_path.clone(),
-            move_strategy: MoveStrategy::CopyRemove,
-            result_status: MoveResultStatus::Failed,
-            error: Some(error),
-        };
-    }
-
-    if let Err(error) = fs::remove_file(source) {
-        return MoveResult {
-            file_id: operation.file_id.clone(),
-            attempted_source_path: operation.source_path.clone(),
-            attempted_destination_path: operation.destination_path.clone(),
-            move_strategy: MoveStrategy::CopyRemove,
+            move_strategy: MoveStrategy::CopyKeepSource,
             result_status: MoveResultStatus::Failed,
             error: Some(format!(
-                "Copy fallback verification passed but source deletion failed: {error}"
+                "{error} Source file was kept; destination copy should be inspected."
             )),
         };
     }
@@ -325,8 +476,8 @@ fn execute_copy_verify_remove(
         file_id: operation.file_id.clone(),
         attempted_source_path: operation.source_path.clone(),
         attempted_destination_path: operation.destination_path.clone(),
-        move_strategy: MoveStrategy::CopyRemove,
-        result_status: MoveResultStatus::Moved,
+        move_strategy: MoveStrategy::CopyKeepSource,
+        result_status: MoveResultStatus::Copied,
         error: None,
     }
 }
@@ -349,7 +500,85 @@ fn verify_destination_matches_source(source: &Path, destination: &Path) -> Resul
         ));
     }
 
+    let mut source_file = File::open(source)
+        .map_err(|error| format!("Failed to open source for byte verification: {error}"))?;
+    let mut destination_file = File::open(destination)
+        .map_err(|error| format!("Failed to open destination for byte verification: {error}"))?;
+    let mut source_buffer = [0_u8; 64 * 1024];
+    let mut destination_buffer = [0_u8; 64 * 1024];
+
+    loop {
+        let source_read = source_file
+            .read(&mut source_buffer)
+            .map_err(|error| format!("Failed to read source for byte verification: {error}"))?;
+        let destination_read = destination_file
+            .read(&mut destination_buffer)
+            .map_err(|error| {
+                format!("Failed to read destination for byte verification: {error}")
+            })?;
+
+        if source_read != destination_read
+            || source_buffer[..source_read] != destination_buffer[..destination_read]
+        {
+            return Err("Destination copy content mismatch.".to_string());
+        }
+
+        if source_read == 0 {
+            break;
+        }
+    }
+
     Ok(())
+}
+
+fn reserve_temp_destination(destination: &Path) -> io::Result<(PathBuf, File)> {
+    let parent = destination
+        .parent()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "destination has no parent"))?;
+    let file_name = destination
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "destination has no file name")
+        })?;
+
+    for attempt in 0..1000_u32 {
+        let temp_name = format!(
+            ".{file_name}.media-organizer-copying-{}-{attempt}.tmp",
+            std::process::id()
+        );
+        let temp_path = parent.join(temp_name);
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "unable to allocate a unique temporary destination",
+    ))
+}
+
+fn copy_without_overwrite(source: &Path, destination_file: &mut File) -> io::Result<()> {
+    let mut source_file = File::open(source)?;
+    io::copy(&mut source_file, destination_file)?;
+    destination_file.flush()?;
+    destination_file.sync_all()?;
+    Ok(())
+}
+
+fn persist_verified_copy(temp_destination: &Path, destination: &Path) -> io::Result<()> {
+    let mut destination_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)?;
+    copy_without_overwrite(temp_destination, &mut destination_file)
 }
 
 fn skipped_result(
@@ -596,7 +825,7 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_copy_remove_when_rename_reports_cross_device() {
+    fn falls_back_to_copy_keep_source_when_rename_reports_cross_device() {
         let temp = tempdir().expect("temp dir");
         let source = temp.path().join("source.jpg");
         let destination = temp.path().join("Processed\\2026\\05\\23\\destination.jpg");
@@ -612,10 +841,11 @@ mod tests {
             Err(io::Error::from_raw_os_error(17))
         });
 
-        assert!(matches!(result.move_strategy, MoveStrategy::CopyRemove));
-        assert!(matches!(result.result_status, MoveResultStatus::Moved));
-        assert!(!source.exists());
+        assert!(matches!(result.move_strategy, MoveStrategy::CopyKeepSource));
+        assert!(matches!(result.result_status, MoveResultStatus::Copied));
+        assert!(source.exists());
         assert!(destination.exists());
+        assert_eq!(fs::read(&source).expect("read source"), b"source");
         assert_eq!(fs::read(&destination).expect("read destination"), b"source");
     }
 
@@ -632,5 +862,77 @@ mod tests {
         assert!(verify.is_err());
         let error_message = verify.expect_err("expected verify failure");
         assert!(error_message.contains("size mismatch"));
+    }
+
+    #[test]
+    fn verification_fails_when_destination_content_differs() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("destination.jpg");
+        fs::write(&source, b"123456").expect("write source");
+        fs::write(&destination, b"abcdef").expect("write destination");
+
+        let verify = verify_destination_matches_source(&source, &destination);
+
+        assert!(verify.is_err());
+        let error_message = verify.expect_err("expected verify failure");
+        assert!(error_message.contains("content mismatch"));
+    }
+
+    #[test]
+    fn safety_check_rejects_destination_outside_processed_folder() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("outside.jpg");
+        fs::write(&source, b"source").expect("write source");
+
+        let checked = validate_move_safety(
+            temp.path(),
+            vec![MoveOperation {
+                file_id: "photo_1".to_string(),
+                source_path: source.to_string_lossy().to_string(),
+                destination_path: destination.to_string_lossy().to_string(),
+            }],
+        );
+
+        assert_eq!(checked.ready.len(), 0);
+        assert_eq!(checked.skipped.len(), 1);
+        assert!(checked.skipped[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("outside the selected Processed folder"));
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn safety_check_rejects_source_inside_processed_folder() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("Processed").join("source.jpg");
+        let destination = temp
+            .path()
+            .join("Processed")
+            .join("2026")
+            .join("destination.jpg");
+        fs::create_dir_all(source.parent().expect("source parent")).expect("create parent");
+        fs::write(&source, b"source").expect("write source");
+
+        let checked = validate_move_safety(
+            temp.path(),
+            vec![MoveOperation {
+                file_id: "photo_1".to_string(),
+                source_path: source.to_string_lossy().to_string(),
+                destination_path: destination.to_string_lossy().to_string(),
+            }],
+        );
+
+        assert_eq!(checked.ready.len(), 0);
+        assert_eq!(checked.skipped.len(), 1);
+        assert!(checked.skipped[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("inside the Processed folder"));
+        assert!(source.exists());
     }
 }

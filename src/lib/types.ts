@@ -50,8 +50,8 @@ export interface MovePlan {
   plan_status: PlanStatus;
 }
 
-export type MoveStrategy = "rename" | "copy_remove" | "not_attempted";
-export type MoveResultStatus = "moved" | "skipped" | "failed";
+export type MoveStrategy = "rename" | "copy_keep_source" | "not_attempted";
+export type MoveResultStatus = "moved" | "copied" | "skipped" | "failed";
 
 export interface MoveResult {
   file_id: string;
@@ -95,6 +95,7 @@ export interface MoveFileEvent {
 
 export interface MoveFinishedEvent {
   moved: number;
+  copied: number;
   skipped: number;
   failed: number;
 }

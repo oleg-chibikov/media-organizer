@@ -384,7 +384,8 @@ pub fn execute_move_plan(
 
     tauri::async_runtime::spawn(async move {
         let prepared = mover::prepare_move_operations(&files, &plans);
-        let rechecked = mover::recheck_destination_conflicts(prepared.operations);
+        let safety_checked = mover::validate_move_safety(&selected_folder, prepared.operations);
+        let rechecked = mover::recheck_destination_conflicts(safety_checked.ready);
         let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
             .iter()
             .map(|metadata| (metadata.file_id.as_str(), metadata))
@@ -396,11 +397,17 @@ pub fn execute_move_plan(
         let files_by_id: HashMap<&str, &FileRecord> =
             files.iter().map(|file| (file.id.as_str(), file)).collect();
         let mut moved = 0u64;
+        let mut copied = 0u64;
         let mut skipped = 0u64;
         let mut failed = 0u64;
         let mut log_file = Some(log_file);
 
-        for result in prepared.skipped.into_iter().chain(rechecked.skipped) {
+        for result in prepared
+            .skipped
+            .into_iter()
+            .chain(safety_checked.skipped)
+            .chain(rechecked.skipped)
+        {
             append_move_result_to_log(
                 &mut log_file,
                 &result,
@@ -408,7 +415,7 @@ pub fn execute_move_plan(
                 &plans_by_id,
                 &files_by_id,
             );
-            count_move_result(&result, &mut moved, &mut skipped, &mut failed);
+            count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
@@ -421,7 +428,7 @@ pub fn execute_move_plan(
                 &plans_by_id,
                 &files_by_id,
             );
-            count_move_result(&result, &mut moved, &mut skipped, &mut failed);
+            count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
@@ -429,6 +436,7 @@ pub fn execute_move_plan(
             &app,
             MoveFinishedEvent {
                 moved,
+                copied,
                 skipped,
                 failed,
             },
@@ -500,11 +508,23 @@ fn validate_folder(selected_folder: &Path) -> Result<(), String> {
     if !selected_folder.is_dir() {
         return Err("Selected path is not a folder.".to_string());
     }
+    if path_contains_processed_segment(selected_folder) {
+        return Err("Selected folder must not be inside a Processed path.".to_string());
+    }
 
     fs::read_dir(selected_folder)
         .map_err(|error| format!("Selected folder is not readable: {error}"))?;
 
     Ok(())
+}
+
+fn path_contains_processed_segment(path: &Path) -> bool {
+    path.components().any(|component| {
+        component
+            .as_os_str()
+            .to_string_lossy()
+            .eq_ignore_ascii_case("Processed")
+    })
 }
 
 fn reveal_path_in_system_explorer(path: &Path) -> Result<(), String> {
@@ -592,9 +612,16 @@ fn read_env_u64(name: &str, default: u64, min: u64, max: u64) -> u64 {
     }
 }
 
-fn count_move_result(result: &MoveResult, moved: &mut u64, skipped: &mut u64, failed: &mut u64) {
+fn count_move_result(
+    result: &MoveResult,
+    moved: &mut u64,
+    copied: &mut u64,
+    skipped: &mut u64,
+    failed: &mut u64,
+) {
     match result.result_status {
         MoveResultStatus::Moved => *moved += 1,
+        MoveResultStatus::Copied => *copied += 1,
         MoveResultStatus::Skipped => *skipped += 1,
         MoveResultStatus::Failed => *failed += 1,
     }

@@ -326,13 +326,14 @@ export function FileTable({
                 const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
                 const isFallbackWarning = metadata?.date_kind === "fallback";
                 const isMoved = moveResult?.result_status === "moved";
+                const isCopied = moveResult?.result_status === "copied";
                 const isMoveError =
                   moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
 
                 return (
                   <div
                     key={row.id}
-                    className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
+                    className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
                     style={{
                       gridTemplateColumns,
                       transform: `translateY(${virtualRow.start}px)`,
@@ -441,6 +442,8 @@ function resolveStatusLabel(
     switch (moveResult.result_status) {
       case "moved":
         return "Moved";
+      case "copied":
+        return "Copied (source kept)";
       case "skipped":
         return "Skipped";
       case "failed":
@@ -486,6 +489,9 @@ function resolveNotesLabel(
 ): string {
   if (moveResult?.error) {
     return moveResult.error;
+  }
+  if (moveResult?.result_status === "copied") {
+    return "Copied to destination; original source file was kept.";
   }
 
   if (metadata?.metadata_status === "error") {

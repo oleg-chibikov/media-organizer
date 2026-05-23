@@ -66,6 +66,7 @@ export default function App() {
   const [isExecutingMoves, setIsExecutingMoves] = useState(false);
   const [moveCompleted, setMoveCompleted] = useState(false);
   const [movedCount, setMovedCount] = useState(0);
+  const [copiedCount, setCopiedCount] = useState(0);
   const [moveSkippedCount, setMoveSkippedCount] = useState(0);
   const [moveFailedCount, setMoveFailedCount] = useState(0);
   const isPlanning = activePlanRequests > 0;
@@ -403,6 +404,7 @@ export default function App() {
         setIsExecutingMoves(false);
         setMoveCompleted(false);
         setMovedCount(0);
+        setCopiedCount(0);
         setMoveSkippedCount(0);
         setMoveFailedCount(0);
         requestedMetadataIdsRef.current = new Set();
@@ -484,6 +486,10 @@ export default function App() {
         trackedMoveIdsRef.current.add(result.file_id);
         if (result.result_status === "moved") {
           setMovedCount((count) => count + 1);
+          return;
+        }
+        if (result.result_status === "copied") {
+          setCopiedCount((count) => count + 1);
           return;
         }
         if (result.result_status === "skipped") {
@@ -660,6 +666,7 @@ export default function App() {
       setIsExecutingMoves(true);
       setMoveCompleted(false);
       setMovedCount(0);
+      setCopiedCount(0);
       setMoveSkippedCount(0);
       setMoveFailedCount(0);
       setMoveResultsByFileId({});
@@ -770,6 +777,7 @@ export default function App() {
         isExecutingMoves={isExecutingMoves}
         moveCompleted={moveCompleted}
         moved={movedCount}
+        copied={copiedCount}
         moveSkipped={moveSkippedCount}
         moveFailed={moveFailedCount}
       />
