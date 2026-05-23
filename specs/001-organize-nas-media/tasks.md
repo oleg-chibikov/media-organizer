@@ -127,7 +127,7 @@
 
 ## Phase 12: Processing Log
 
-- [ ] T086 Add Rust `logging.rs`.
+- [x] T086 Add Rust `logging.rs`.
 - [ ] T087 Create `Processed/` when needed.
 - [ ] T088 Write JSONL records to `Processed/processing-log.jsonl`.
 - [ ] T089 Log source path, destination path, metadata date, original name, move strategy, status, error, and timestamp.
