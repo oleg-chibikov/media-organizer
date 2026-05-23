@@ -104,6 +104,9 @@ export const executeMovePlan = (
     plans
   });
 
+export const revealFileInExplorer = (sourcePath: string) =>
+  invokeCommand<void>("reveal_file_in_explorer", { sourcePath });
+
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;
   onFile: (payload: ScanFileEvent) => void;

@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    process::Command,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
@@ -437,6 +438,16 @@ pub fn execute_move_plan(
     Ok(())
 }
 
+#[tauri::command]
+pub fn reveal_file_in_explorer(source_path: String) -> Result<(), String> {
+    let source = PathBuf::from(&source_path);
+    if !source.exists() {
+        return Err("File no longer exists on disk.".to_string());
+    }
+
+    reveal_path_in_system_explorer(&source)
+}
+
 fn append_move_result_to_log(
     log_file: &mut Option<fs::File>,
     result: &MoveResult,
@@ -494,6 +505,64 @@ fn validate_folder(selected_folder: &Path) -> Result<(), String> {
         .map_err(|error| format!("Selected folder is not readable: {error}"))?;
 
     Ok(())
+}
+
+fn reveal_path_in_system_explorer(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let target = path
+            .canonicalize()
+            .map_err(|error| format!("Failed to resolve file path: {error}"))?;
+        let selection = format!("/select,{}", target.to_string_lossy());
+        Command::new("explorer")
+            .arg(selection)
+            .spawn()
+            .map_err(|error| format!("Failed to open File Explorer: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn()
+            .map_err(|error| format!("Failed to open Finder: {error}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let parent = path
+            .parent()
+            .ok_or_else(|| "File has no parent directory.".to_string())?;
+
+        let attempted_select = Command::new("dbus-send")
+            .arg("--session")
+            .arg("--dest=org.freedesktop.FileManager1")
+            .arg("--type=method_call")
+            .arg("/org/freedesktop/FileManager1")
+            .arg("org.freedesktop.FileManager1.ShowItems")
+            .arg(format!(
+                "array:string:file://{}",
+                path.to_string_lossy().replace(' ', "%20")
+            ))
+            .arg("string:")
+            .spawn();
+
+        if attempted_select.is_ok() {
+            return Ok(());
+        }
+
+        Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map_err(|error| format!("Failed to open file manager: {error}"))?;
+        return Ok(());
+    }
+
+    #[allow(unreachable_code)]
+    Err("Reveal in system explorer is not supported on this platform.".to_string())
 }
 
 fn default_metadata_concurrency() -> usize {

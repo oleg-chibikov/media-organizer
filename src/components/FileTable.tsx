@@ -7,6 +7,7 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { revealFileInExplorer } from "../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
 interface FileTableProps {
@@ -336,6 +337,13 @@ export function FileTable({
                       gridTemplateColumns,
                       transform: `translateY(${virtualRow.start}px)`,
                       height: `${virtualRow.size}px`
+                    }}
+                    onDoubleClick={() => {
+                      void revealFileInExplorer(sourceRecord.source_path).catch(
+                        (error: unknown) => {
+                          console.error("Failed to reveal file in explorer", error);
+                        }
+                      );
                     }}
                   >
                     {row.getVisibleCells().map((cell) => (

@@ -25,7 +25,8 @@ pub fn run() {
             commands::read_metadata_for_files,
             commands::create_move_plan,
             commands::get_move_confirmation_summary,
-            commands::execute_move_plan
+            commands::execute_move_plan,
+            commands::reveal_file_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
