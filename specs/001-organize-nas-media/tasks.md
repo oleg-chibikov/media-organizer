@@ -121,9 +121,9 @@
 - [x] T080 Use atomic rename when possible.
 - [x] T081 Fall back to copy-verify-remove on cross-device/NAS rename failure.
 - [x] T082 Verify destination existence and size before deleting source.
-- [ ] T083 Never overwrite existing files.
+- [x] T083 Never overwrite existing files.
 - [ ] T084 Emit move progress events.
-- [ ] T085 Add Rust tests for conflict recheck and copy-verify-remove.
+- [x] T085 Add Rust tests for conflict recheck and copy-verify-remove.
 
 ## Phase 12: Processing Log
 
