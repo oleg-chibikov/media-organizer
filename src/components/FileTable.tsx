@@ -63,6 +63,42 @@ const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
 const MONO_COLUMN_KEYS = new Set<ColumnKey>(["source", "destination"]);
 
+const HEADER_MIN_WIDTHS: Record<ColumnKey, number> = (() => {
+  if (typeof document === "undefined") {
+    return COLUMNS.reduce<Record<ColumnKey, number>>(
+      (accumulator, column) => {
+        accumulator[column.key] = MIN_COLUMN_WIDTH;
+        return accumulator;
+      },
+      {} as Record<ColumnKey, number>
+    );
+  }
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return COLUMNS.reduce<Record<ColumnKey, number>>(
+      (accumulator, column) => {
+        accumulator[column.key] = MIN_COLUMN_WIDTH;
+        return accumulator;
+      },
+      {} as Record<ColumnKey, number>
+    );
+  }
+
+  context.font = BODY_CELL_FONT;
+
+  return COLUMNS.reduce<Record<ColumnKey, number>>(
+    (accumulator, column) => {
+      const headerWidth = Math.ceil(context.measureText(column.label).width);
+      accumulator[column.key] = Math.max(MIN_COLUMN_WIDTH, headerWidth + COLUMN_HORIZONTAL_PADDING);
+      return accumulator;
+    },
+    {} as Record<ColumnKey, number>
+  );
+})();
+
 export function FileTable({
   rows,
   metadataByFileId,
@@ -128,7 +164,7 @@ export function FileTable({
         id: column.key,
         header: column.label,
         accessorKey: column.key,
-        minSize: MIN_COLUMN_WIDTH,
+        minSize: HEADER_MIN_WIDTHS[column.key],
         cell: (context) => {
           const data = context.getValue() as CellData;
           return (
@@ -188,25 +224,23 @@ export function FileTable({
     };
 
     const desiredWidths: Record<ColumnKey, number> = {
-      source: COLUMN_HORIZONTAL_PADDING,
-      destination: COLUMN_HORIZONTAL_PADDING,
-      status: COLUMN_HORIZONTAL_PADDING,
-      kind: COLUMN_HORIZONTAL_PADDING,
-      originalName: COLUMN_HORIZONTAL_PADDING,
-      metadataDate: COLUMN_HORIZONTAL_PADDING,
-      notes: COLUMN_HORIZONTAL_PADDING
+      source: HEADER_MIN_WIDTHS.source,
+      destination: HEADER_MIN_WIDTHS.destination,
+      status: HEADER_MIN_WIDTHS.status,
+      kind: HEADER_MIN_WIDTHS.kind,
+      originalName: HEADER_MIN_WIDTHS.originalName,
+      metadataDate: HEADER_MIN_WIDTHS.metadataDate,
+      notes: HEADER_MIN_WIDTHS.notes
     };
 
     COLUMNS.forEach((column) => {
-      const headerWidth = measureWidth(column.label, BODY_CELL_FONT);
       const cellMaxWidth = tableRows.reduce((maxWidth, row) => {
         const font = MONO_COLUMN_KEYS.has(column.key) ? MONO_CELL_FONT : BODY_CELL_FONT;
         return Math.max(maxWidth, measureWidth(row[column.key].value, font));
       }, 0);
 
       desiredWidths[column.key] = Math.max(
-        MIN_COLUMN_WIDTH,
-        headerWidth + COLUMN_HORIZONTAL_PADDING,
+        HEADER_MIN_WIDTHS[column.key],
         cellMaxWidth + COLUMN_HORIZONTAL_PADDING
       );
     });
