@@ -34,6 +34,10 @@ function isProcessedPath(folder: string): boolean {
     .some((segment) => segment === "processed");
 }
 
+function metadataPlanningSignature(metadata: MetadataResult): string {
+  return `${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
+}
+
 export default function App() {
   const [health, setHealth] = useState<string>("checking");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -48,7 +52,6 @@ export default function App() {
   const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
   const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
   const [moveResultsByFileId, setMoveResultsByFileId] = useState<Record<string, MoveResult>>({});
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
   const [planCompleted, setPlanCompleted] = useState(false);
@@ -70,7 +73,8 @@ export default function App() {
   const activeMetadataRequestsRef = useRef(0);
   const rowByIdRef = useRef<Map<string, FileRecord>>(new Map());
   const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
-  const lastPlanRequestKeyRef = useRef<string>("");
+  const plannedMetadataSignatureByFileIdRef = useRef<Map<string, string>>(new Map());
+  const activePlanRequestsRef = useRef(0);
   const lastConfirmationRequestKeyRef = useRef<string>("");
   const pendingExecutableCount = Object.values(movePlansByFileId).filter((plan) => {
     if (plan.plan_status !== "ready") {
@@ -96,7 +100,6 @@ export default function App() {
       }
 
       activeMetadataRequestsRef.current += 1;
-      setIsLoadingMetadata(true);
       requestedMetadataIdsRef.current.add(nextFileId);
 
       void readMetadataForFile(row.id, row.source_path, row.kind)
@@ -111,9 +114,6 @@ export default function App() {
         })
         .finally(() => {
           activeMetadataRequestsRef.current -= 1;
-          if (activeMetadataRequestsRef.current === 0 && metadataQueueRef.current.length === 0) {
-            setIsLoadingMetadata(false);
-          }
           pumpMetadataQueueRef.current();
         });
     }
@@ -151,7 +151,6 @@ export default function App() {
         setMetadataByFileId({});
         setMovePlansByFileId({});
         setMoveResultsByFileId({});
-        setIsLoadingMetadata(false);
         setIsPlanning(false);
         setPlanErrors(0);
         setPlanCompleted(false);
@@ -163,12 +162,13 @@ export default function App() {
         setMovedCount(0);
         setMoveSkippedCount(0);
         setMoveFailedCount(0);
-        lastPlanRequestKeyRef.current = "";
         lastConfirmationRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
         queuedMetadataIdsRef.current = new Set();
         metadataQueueRef.current = [];
         activeMetadataRequestsRef.current = 0;
+        plannedMetadataSignatureByFileIdRef.current = new Map();
+        activePlanRequestsRef.current = 0;
         seenRowIdsRef.current = new Set();
         rowByIdRef.current = new Map();
         setRows([]);
@@ -283,8 +283,11 @@ export default function App() {
         setFolderError(`Plan error: ${error}`);
       },
       onFinished: () => {
-        setIsPlanning(false);
-        setPlanCompleted(true);
+        activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
+        if (activePlanRequestsRef.current === 0) {
+          setIsPlanning(false);
+          setPlanCompleted(true);
+        }
       }
     })
       .then((listeners) => {
@@ -337,10 +340,6 @@ export default function App() {
       queuedMetadataIdsRef.current.add(row.id);
     }
 
-    if (metadataQueueRef.current.length > 0 || activeMetadataRequestsRef.current > 0) {
-      setIsLoadingMetadata(true);
-    }
-
     pumpMetadataQueue();
   }, [metadataByFileId, pumpMetadataQueue, rows]);
 
@@ -373,43 +372,62 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isScanning || isLoadingMetadata || !selectedFolder || rows.length === 0) {
+    if (!selectedFolder || rows.length === 0) {
       return;
     }
 
-    const mediaRows = rows.filter((row) => row.kind === "photo" || row.kind === "video");
-    if (mediaRows.length === 0) {
-      return;
-    }
+    const filesToPlan: FileRecord[] = [];
+    const metadataToPlan: MetadataResult[] = [];
+    const previousSignatures = new Map<string, string | undefined>();
 
-    const allMediaResolved = mediaRows.every((row) => Boolean(metadataByFileId[row.id]));
-    if (!allMediaResolved) {
-      return;
-    }
-
-    const requestKey = mediaRows
-      .map((row) => {
-        const metadata = metadataByFileId[row.id];
-        return `${row.id}:${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
-      })
-      .join("|");
-
-    if (requestKey === lastPlanRequestKeyRef.current) {
-      return;
-    }
-    lastPlanRequestKeyRef.current = requestKey;
-
-    setIsPlanning(true);
-    setPlanCompleted(false);
-    setPlanErrors(0);
-    setMovePlansByFileId({});
-    void createMovePlan(selectedFolder, rows, Object.values(metadataByFileId)).catch(
-      (error: unknown) => {
-        setIsPlanning(false);
-        setFolderError(`Failed to create move plan: ${String(error)}`);
+    for (const row of rows) {
+      if (row.kind !== "photo" && row.kind !== "video") {
+        continue;
       }
-    );
-  }, [isScanning, isLoadingMetadata, metadataByFileId, rows, selectedFolder]);
+
+      const metadata = metadataByFileId[row.id];
+      if (!metadata) {
+        continue;
+      }
+
+      const nextSignature = metadataPlanningSignature(metadata);
+      const previousSignature = plannedMetadataSignatureByFileIdRef.current.get(row.id);
+      if (previousSignature === nextSignature) {
+        continue;
+      }
+
+      previousSignatures.set(row.id, previousSignature);
+      plannedMetadataSignatureByFileIdRef.current.set(row.id, nextSignature);
+      filesToPlan.push(row);
+      metadataToPlan.push(metadata);
+    }
+
+    if (filesToPlan.length === 0) {
+      return;
+    }
+
+    activePlanRequestsRef.current += 1;
+    queueMicrotask(() => {
+      setIsPlanning(true);
+      setPlanCompleted(false);
+    });
+
+    void createMovePlan(selectedFolder, filesToPlan, metadataToPlan).catch((error: unknown) => {
+      activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
+      if (activePlanRequestsRef.current === 0) {
+        setIsPlanning(false);
+        setPlanCompleted(true);
+      }
+      for (const [fileId, previousSignature] of previousSignatures) {
+        if (previousSignature === undefined) {
+          plannedMetadataSignatureByFileIdRef.current.delete(fileId);
+        } else {
+          plannedMetadataSignatureByFileIdRef.current.set(fileId, previousSignature);
+        }
+      }
+      setFolderError(`Failed to create move plan: ${String(error)}`);
+    });
+  }, [metadataByFileId, rows, selectedFolder]);
 
   useEffect(() => {
     if (!planCompleted || isPlanning || rows.length === 0) {
