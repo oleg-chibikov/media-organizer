@@ -1,24 +1,32 @@
 pub fn parse_original_name(file_name: &str) -> String {
-    let start = file_name.rfind('(');
-    let end = file_name.rfind(')');
+    let stem = file_name
+        .rsplit_once('.')
+        .map(|(without_extension, _)| without_extension)
+        .unwrap_or(file_name);
+
+    let start = stem.rfind('(');
+    let end = stem.rfind(')');
 
     match (start, end) {
-        (Some(s), Some(e)) if s < e => {
-            let inner = file_name[s + 1..e].trim();
-            if inner.is_empty() {
-                file_name
-                    .rsplit_once('.')
-                    .map(|(without_extension, _)| without_extension.to_string())
-                    .unwrap_or_else(|| file_name.to_string())
+        (Some(s), Some(e)) if s < e && e == stem.len() - 1 => {
+            let inner = stem[s + 1..e].trim();
+            let has_whitespace_before_group = s > 0 && stem[..s].ends_with(char::is_whitespace);
+
+            // Ignore trailing duplicate-maker suffixes like " (1)" and " (2)".
+            if has_whitespace_before_group && is_duplicate_suffix(inner) {
+                stem[..s].trim_end().to_string()
+            } else if inner.is_empty() {
+                stem.to_string()
             } else {
                 inner.to_string()
             }
         }
-        _ => file_name
-            .rsplit_once('.')
-            .map(|(without_extension, _)| without_extension.to_string())
-            .unwrap_or_else(|| file_name.to_string()),
+        _ => stem.to_string(),
     }
+}
+
+fn is_duplicate_suffix(value: &str) -> bool {
+    !value.is_empty() && value.chars().all(|ch| ch.is_ascii_digit())
 }
 
 pub fn sanitize_for_windows_filename(input: &str) -> String {
@@ -60,6 +68,19 @@ mod tests {
         assert_eq!(
             parse_original_name("2026-03-05 07-20-17 (tmp) (IMG_1234).mp4"),
             "IMG_1234"
+        );
+    }
+
+    #[test]
+    fn ignores_trailing_duplicate_suffix_group() {
+        assert_eq!(parse_original_name("IMG_1234 (1).jpg"), "IMG_1234");
+    }
+
+    #[test]
+    fn keeps_embedded_original_name_when_duplicate_suffix_exists() {
+        assert_eq!(
+            parse_original_name("2024-11-02 13-09-41 (PXL_20241102_020933409.LS) (2).mp4"),
+            "2024-11-02 13-09-41 (PXL_20241102_020933409.LS)"
         );
     }
 
