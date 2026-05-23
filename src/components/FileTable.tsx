@@ -38,6 +38,11 @@ const COLUMNS = [
   { key: "notes", label: "Notes", defaultWidth: 190, minWidth: 140 }
 ] as const;
 
+const SOURCE_COLUMN_INDEX = 0;
+const DESTINATION_COLUMN_INDEX = 1;
+const AUTO_SIZE_COLUMN_INDICES = [SOURCE_COLUMN_INDEX, DESTINATION_COLUMN_INDEX] as const;
+const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
 interface ActiveResize {
   columnIndex: number;
   startX: number;
@@ -53,6 +58,7 @@ export function FileTable({
 }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const activeResizeRef = useRef<ActiveResize | null>(null);
+  const manuallyResizedColumnsRef = useRef<Set<number>>(new Set());
   const [columnWidths, setColumnWidths] = useState<number[]>(() =>
     COLUMNS.map((column) => column.defaultWidth)
   );
@@ -80,10 +86,70 @@ export function FileTable({
         startX: event.clientX,
         startWidth: columnWidths[columnIndex]
       };
+      manuallyResizedColumnsRef.current.add(columnIndex);
       document.body.classList.add("cursor-col-resize", "select-none");
     },
     [columnWidths]
   );
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.font = MONO_CELL_FONT;
+
+    const measureWidth = (value: string) => Math.ceil(context.measureText(value).width);
+
+    const sourceMaxTextWidth = rows.reduce((maxWidth, row) => {
+      return Math.max(maxWidth, measureWidth(row.relative_path));
+    }, 0);
+
+    const destinationMaxTextWidth = rows.reduce((maxWidth, row) => {
+      const metadata = metadataByFileId[row.id];
+      const movePlan = movePlansByFileId[row.id];
+      const destinationLabel =
+        movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
+      const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
+      return Math.max(maxWidth, measureWidth(relativeDestinationLabel));
+    }, 0);
+
+    const desiredWidths: Record<number, number> = {
+      [SOURCE_COLUMN_INDEX]: Math.max(
+        COLUMNS[SOURCE_COLUMN_INDEX].defaultWidth,
+        sourceMaxTextWidth + 28
+      ),
+      [DESTINATION_COLUMN_INDEX]: Math.max(
+        COLUMNS[DESTINATION_COLUMN_INDEX].defaultWidth,
+        destinationMaxTextWidth + 28
+      )
+    };
+
+    setColumnWidths((previous) => {
+      let changed = false;
+      const next = [...previous];
+
+      for (const columnIndex of AUTO_SIZE_COLUMN_INDICES) {
+        if (manuallyResizedColumnsRef.current.has(columnIndex)) {
+          continue;
+        }
+
+        const desiredWidth = desiredWidths[columnIndex];
+        if (next[columnIndex] !== desiredWidth) {
+          next[columnIndex] = desiredWidth;
+          changed = true;
+        }
+      }
+
+      return changed ? next : previous;
+    });
+  }, [rows, metadataByFileId, movePlansByFileId, selectedFolder]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -188,11 +254,11 @@ export function FileTable({
                       height: `${virtualRow.size}px`
                     }}
                   >
-                    <div className="truncate px-3 py-2 font-mono text-xs" title={row.relative_path}>
+                    <div className="px-3 py-2 font-mono text-xs" title={row.relative_path}>
                       {row.relative_path}
                     </div>
                     <div
-                      className="truncate px-3 py-2 font-mono text-xs text-slate-300"
+                      className="px-3 py-2 font-mono text-xs text-slate-300"
                       title={destinationLabel}
                     >
                       {relativeDestinationLabel}
