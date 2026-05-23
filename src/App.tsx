@@ -20,6 +20,7 @@ import type {
   MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
+  MoveResult,
   ScanFinishedEvent
 } from "./lib/types";
 
@@ -46,6 +47,7 @@ export default function App() {
   const [rows, setRows] = useState<FileRecord[]>([]);
   const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
   const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
+  const [moveResultsByFileId, setMoveResultsByFileId] = useState<Record<string, MoveResult>>({});
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
@@ -142,6 +144,7 @@ export default function App() {
         setErrors(0);
         setMetadataByFileId({});
         setMovePlansByFileId({});
+        setMoveResultsByFileId({});
         setIsLoadingMetadata(false);
         setIsPlanning(false);
         setPlanErrors(0);
@@ -217,6 +220,7 @@ export default function App() {
     let disposed = false;
     void attachMoveListeners({
       onFile: ({ result }) => {
+        setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
         if (result.result_status === "moved") {
           setMovedCount((count) => count + 1);
           return;
@@ -454,6 +458,7 @@ export default function App() {
       setMovedCount(0);
       setMoveSkippedCount(0);
       setMoveFailedCount(0);
+      setMoveResultsByFileId({});
       if (!selectedFolder) {
         setIsExecutingMoves(false);
         setFolderError("No selected folder for move execution.");
@@ -486,6 +491,7 @@ export default function App() {
           rows={rows}
           metadataByFileId={metadataByFileId}
           movePlansByFileId={movePlansByFileId}
+          moveResultsByFileId={moveResultsByFileId}
           selectedFolder={selectedFolder}
         />
       </main>

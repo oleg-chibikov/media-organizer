@@ -1,12 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { FileRecord, MetadataResult, MovePlan } from "../lib/types";
+import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
 interface FileTableProps {
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   movePlansByFileId: Record<string, MovePlan>;
+  moveResultsByFileId: Record<string, MoveResult>;
   selectedFolder: string | null;
 }
 
@@ -47,6 +48,7 @@ export function FileTable({
   rows,
   metadataByFileId,
   movePlansByFileId,
+  moveResultsByFileId,
   selectedFolder
 }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -154,6 +156,7 @@ export function FileTable({
                 const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
                 const metadata = metadataByFileId[row.id];
                 const movePlan = movePlansByFileId[row.id];
+                const moveResult = moveResultsByFileId[row.id];
                 const metadataDateLabel = metadata
                   ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
                   : "pending";
@@ -165,14 +168,17 @@ export function FileTable({
                   selectedFolder
                 );
 
-                const statusLabel = resolveStatusLabel(row, metadata, movePlan);
-                const notesLabel = resolveNotesLabel(metadata, movePlan);
+                const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
+                const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
                 const isFallbackWarning = metadata?.date_kind === "fallback";
+                const isMoved = moveResult?.result_status === "moved";
+                const isMoveError =
+                  moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
 
                 return (
                   <div
                     key={row.id}
-                    className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
+                    className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
                     style={{
                       gridTemplateColumns,
                       transform: `translateY(${virtualRow.start}px)`,
@@ -235,8 +241,22 @@ function normalizePath(pathValue: string): string {
 function resolveStatusLabel(
   row: FileRecord,
   metadata: MetadataResult | undefined,
-  movePlan: MovePlan | undefined
+  movePlan: MovePlan | undefined,
+  moveResult: MoveResult | undefined
 ): string {
+  if (moveResult) {
+    switch (moveResult.result_status) {
+      case "moved":
+        return "Moved";
+      case "skipped":
+        return "Skipped";
+      case "failed":
+        return "Failed";
+      default:
+        return "Processed";
+    }
+  }
+
   if (row.scan_status !== "discovered") {
     return STATUS_LABELS[row.scan_status];
   }
@@ -268,8 +288,13 @@ function resolveStatusLabel(
 
 function resolveNotesLabel(
   metadata: MetadataResult | undefined,
-  movePlan: MovePlan | undefined
+  movePlan: MovePlan | undefined,
+  moveResult: MoveResult | undefined
 ): string {
+  if (moveResult?.error) {
+    return moveResult.error;
+  }
+
   if (metadata?.metadata_status === "error") {
     return metadata.error ?? "Metadata error";
   }
