@@ -38,15 +38,16 @@ const COLUMNS = [
   { key: "notes", label: "Notes" }
 ] as const;
 
-const SOURCE_COLUMN_INDEX = 0;
-const DESTINATION_COLUMN_INDEX = 1;
+type ColumnKey = (typeof COLUMNS)[number]["key"];
+
 const COLUMN_HORIZONTAL_PADDING = 28;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
+const MONO_COLUMN_KEYS = new Set<ColumnKey>(["source", "destination"]);
 
 interface ActiveResize {
-  columnIndex: number;
+  columnKey: ColumnKey;
   startX: number;
   startWidth: number;
 }
@@ -60,16 +61,25 @@ export function FileTable({
 }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const activeResizeRef = useRef<ActiveResize | null>(null);
-  const manuallyResizedColumnsRef = useRef<Set<number>>(new Set());
-  const [columnWidths, setColumnWidths] = useState<number[]>(() =>
-    COLUMNS.map(() => COLUMN_HORIZONTAL_PADDING)
-  );
+  const manuallyResizedColumnsRef = useRef<Set<ColumnKey>>(new Set());
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(() => {
+    const initial: Record<ColumnKey, number> = {
+      source: COLUMN_HORIZONTAL_PADDING,
+      destination: COLUMN_HORIZONTAL_PADDING,
+      status: COLUMN_HORIZONTAL_PADDING,
+      kind: COLUMN_HORIZONTAL_PADDING,
+      originalName: COLUMN_HORIZONTAL_PADDING,
+      metadataDate: COLUMN_HORIZONTAL_PADDING,
+      notes: COLUMN_HORIZONTAL_PADDING
+    };
+    return initial;
+  });
   const gridTemplateColumns = useMemo(
-    () => columnWidths.map((width) => `${width}px`).join(" "),
+    () => COLUMNS.map((column) => `${columnWidths[column.key]}px`).join(" "),
     [columnWidths]
   );
   const tableMinWidth = useMemo(
-    () => columnWidths.reduce((total, width) => total + width, 0),
+    () => COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
     [columnWidths]
   );
 
@@ -81,14 +91,14 @@ export function FileTable({
   });
 
   const handleResizeStart = useCallback(
-    (columnIndex: number) => (event: ReactPointerEvent<HTMLButtonElement>) => {
+    (columnKey: ColumnKey) => (event: ReactPointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
       activeResizeRef.current = {
-        columnIndex,
+        columnKey,
         startX: event.clientX,
-        startWidth: columnWidths[columnIndex]
+        startWidth: columnWidths[columnKey]
       };
-      manuallyResizedColumnsRef.current.add(columnIndex);
+      manuallyResizedColumnsRef.current.add(columnKey);
       document.body.classList.add("cursor-col-resize", "select-none");
     },
     [columnWidths]
@@ -110,52 +120,32 @@ export function FileTable({
       return Math.ceil(context.measureText(value).width);
     };
 
-    const desiredWidths = COLUMNS.map((column, columnIndex) => {
+    const desiredWidths: Record<ColumnKey, number> = {
+      source: COLUMN_HORIZONTAL_PADDING,
+      destination: COLUMN_HORIZONTAL_PADDING,
+      status: COLUMN_HORIZONTAL_PADDING,
+      kind: COLUMN_HORIZONTAL_PADDING,
+      originalName: COLUMN_HORIZONTAL_PADDING,
+      metadataDate: COLUMN_HORIZONTAL_PADDING,
+      notes: COLUMN_HORIZONTAL_PADDING
+    };
+
+    COLUMNS.forEach((column) => {
       const headerWidth = measureWidth(column.label, BODY_CELL_FONT);
       const cellMaxWidth = rows.reduce((maxWidth, row) => {
-        const metadata = metadataByFileId[row.id];
-        const movePlan = movePlansByFileId[row.id];
-        const moveResult = moveResultsByFileId[row.id];
-
-        const metadataDateLabel = metadata
-          ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
-          : "pending";
-        const destinationLabel =
-          movePlan?.destination_path ||
-          (metadata?.metadata_status === "ready" ? "planning..." : "-");
-        const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
-        const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
-        const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
-
-        const value = (() => {
-          switch (columnIndex) {
-            case SOURCE_COLUMN_INDEX:
-              return row.relative_path;
-            case DESTINATION_COLUMN_INDEX:
-              return relativeDestinationLabel;
-            case 2:
-              return statusLabel;
-            case 3:
-              return row.kind;
-            case 4:
-              return row.original_name;
-            case 5:
-              return metadataDateLabel;
-            case 6:
-              return notesLabel;
-            default:
-              return "";
-          }
-        })();
-
-        const font =
-          columnIndex === SOURCE_COLUMN_INDEX || columnIndex === DESTINATION_COLUMN_INDEX
-            ? MONO_CELL_FONT
-            : BODY_CELL_FONT;
-        return Math.max(maxWidth, measureWidth(value, font));
+        const data = resolveColumnData(
+          column.key,
+          row,
+          metadataByFileId[row.id],
+          movePlansByFileId[row.id],
+          moveResultsByFileId[row.id],
+          selectedFolder
+        );
+        const font = MONO_COLUMN_KEYS.has(column.key) ? MONO_CELL_FONT : BODY_CELL_FONT;
+        return Math.max(maxWidth, measureWidth(data.value, font));
       }, 0);
 
-      return Math.max(
+      desiredWidths[column.key] = Math.max(
         headerWidth + COLUMN_HORIZONTAL_PADDING,
         cellMaxWidth + COLUMN_HORIZONTAL_PADDING
       );
@@ -163,16 +153,16 @@ export function FileTable({
 
     setColumnWidths((previous) => {
       let changed = false;
-      const next = [...previous];
+      const next = { ...previous };
 
-      for (let columnIndex = 0; columnIndex < COLUMNS.length; columnIndex += 1) {
-        if (manuallyResizedColumnsRef.current.has(columnIndex)) {
+      for (const column of COLUMNS) {
+        if (manuallyResizedColumnsRef.current.has(column.key)) {
           continue;
         }
 
-        const desiredWidth = desiredWidths[columnIndex];
-        if (next[columnIndex] !== desiredWidth) {
-          next[columnIndex] = desiredWidth;
+        const desiredWidth = desiredWidths[column.key];
+        if (next[column.key] !== desiredWidth) {
+          next[column.key] = desiredWidth;
           changed = true;
         }
       }
@@ -194,12 +184,12 @@ export function FileTable({
       );
 
       setColumnWidths((previous) => {
-        if (previous[activeResize.columnIndex] === nextWidth) {
+        if (previous[activeResize.columnKey] === nextWidth) {
           return previous;
         }
 
-        const next = [...previous];
-        next[activeResize.columnIndex] = nextWidth;
+        const next = { ...previous };
+        next[activeResize.columnKey] = nextWidth;
         return next;
       });
     };
@@ -231,14 +221,14 @@ export function FileTable({
             className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
             style={{ gridTemplateColumns }}
           >
-            {COLUMNS.map((column, columnIndex) => (
+            {COLUMNS.map((column) => (
               <div key={column.key} className="relative px-3 py-2">
                 <span className="truncate">{column.label}</span>
                 <button
                   type="button"
                   aria-label={`Resize ${column.label} column`}
                   className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
-                  onPointerDown={handleResizeStart(columnIndex)}
+                  onPointerDown={handleResizeStart(column.key)}
                 />
               </div>
             ))}
@@ -255,19 +245,6 @@ export function FileTable({
                 const metadata = metadataByFileId[row.id];
                 const movePlan = movePlansByFileId[row.id];
                 const moveResult = moveResultsByFileId[row.id];
-                const metadataDateLabel = metadata
-                  ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
-                  : "pending";
-                const destinationLabel =
-                  movePlan?.destination_path ||
-                  (metadata?.metadata_status === "ready" ? "planning..." : "-");
-                const relativeDestinationLabel = resolveRelativePath(
-                  destinationLabel,
-                  selectedFolder
-                );
-
-                const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
-                const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
                 const isFallbackWarning = metadata?.date_kind === "fallback";
                 const isMoved = moveResult?.result_status === "moved";
                 const isMoveError =
@@ -283,30 +260,26 @@ export function FileTable({
                       height: `${virtualRow.size}px`
                     }}
                   >
-                    <div className="px-3 py-2 font-mono text-xs" title={row.relative_path}>
-                      {row.relative_path}
-                    </div>
-                    <div
-                      className="px-3 py-2 font-mono text-xs text-slate-300"
-                      title={destinationLabel}
-                    >
-                      {relativeDestinationLabel}
-                    </div>
-                    <div className="truncate px-3 py-2" title={statusLabel}>
-                      {statusLabel}
-                    </div>
-                    <div className="truncate px-3 py-2" title={row.kind}>
-                      {row.kind}
-                    </div>
-                    <div className="truncate px-3 py-2" title={row.original_name}>
-                      {row.original_name}
-                    </div>
-                    <div className="truncate px-3 py-2" title={metadataDateLabel}>
-                      {metadataDateLabel}
-                    </div>
-                    <div className="truncate px-3 py-2" title={notesLabel}>
-                      {notesLabel}
-                    </div>
+                    {COLUMNS.map((column) => {
+                      const data = resolveColumnData(
+                        column.key,
+                        row,
+                        metadata,
+                        movePlan,
+                        moveResult,
+                        selectedFolder
+                      );
+
+                      return (
+                        <div
+                          key={`${row.id}-${column.key}`}
+                          className={data.className}
+                          title={data.title}
+                        >
+                          {data.value}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -316,6 +289,57 @@ export function FileTable({
       </div>
     </div>
   );
+}
+
+function resolveColumnData(
+  columnKey: ColumnKey,
+  row: FileRecord,
+  metadata: MetadataResult | undefined,
+  movePlan: MovePlan | undefined,
+  moveResult: MoveResult | undefined,
+  selectedFolder: string | null
+): { value: string; title: string; className: string } {
+  const metadataDateLabel = metadata
+    ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
+    : "pending";
+  const destinationLabel =
+    movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
+  const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
+  const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
+  const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
+
+  switch (columnKey) {
+    case "source":
+      return {
+        value: row.relative_path,
+        title: row.relative_path,
+        className: "px-3 py-2 font-mono text-xs"
+      };
+    case "destination":
+      return {
+        value: relativeDestinationLabel,
+        title: destinationLabel,
+        className: "px-3 py-2 font-mono text-xs text-slate-300"
+      };
+    case "status":
+      return { value: statusLabel, title: statusLabel, className: "truncate px-3 py-2" };
+    case "kind":
+      return { value: row.kind, title: row.kind, className: "truncate px-3 py-2" };
+    case "originalName":
+      return {
+        value: row.original_name,
+        title: row.original_name,
+        className: "truncate px-3 py-2"
+      };
+    case "metadataDate":
+      return {
+        value: metadataDateLabel,
+        title: metadataDateLabel,
+        className: "truncate px-3 py-2"
+      };
+    case "notes":
+      return { value: notesLabel, title: notesLabel, className: "truncate px-3 py-2" };
+  }
 }
 
 function resolveRelativePath(pathValue: string, basePath: string | null): string {
