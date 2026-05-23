@@ -4,29 +4,42 @@ pub fn parse_original_name(file_name: &str) -> String {
         .map(|(without_extension, _)| without_extension)
         .unwrap_or(file_name);
 
-    let start = stem.rfind('(');
-    let end = stem.rfind(')');
+    let stem_without_duplicate_suffix = strip_trailing_duplicate_suffix(stem);
+    let start = stem_without_duplicate_suffix.rfind('(');
+    let end = stem_without_duplicate_suffix.rfind(')');
 
     match (start, end) {
-        (Some(s), Some(e)) if s < e && e == stem.len() - 1 => {
-            let inner = stem[s + 1..e].trim();
-            let has_whitespace_before_group = s > 0 && stem[..s].ends_with(char::is_whitespace);
-
-            // Ignore trailing duplicate-maker suffixes like " (1)" and " (2)".
-            if has_whitespace_before_group && is_duplicate_suffix(inner) {
-                stem[..s].trim_end().to_string()
-            } else if has_whitespace_before_group && !inner.is_empty() {
+        (Some(s), Some(e)) if s < e => {
+            let inner = stem_without_duplicate_suffix[s + 1..e].trim();
+            if !inner.is_empty() && !is_duplicate_suffix(inner) {
                 inner.to_string()
             } else {
-                stem.to_string()
+                stem_without_duplicate_suffix.to_string()
             }
         }
-        _ => stem.to_string(),
+        _ => stem_without_duplicate_suffix.to_string(),
     }
 }
 
 fn is_duplicate_suffix(value: &str) -> bool {
     !value.is_empty() && value.chars().all(|ch| ch.is_ascii_digit())
+}
+
+fn strip_trailing_duplicate_suffix(stem: &str) -> &str {
+    let Some(stripped) = stem.strip_suffix(')') else {
+        return stem;
+    };
+    let Some(start) = stripped.rfind('(') else {
+        return stem;
+    };
+    let inner = stripped[start + 1..].trim();
+    let has_whitespace_before_group = start > 0 && stripped[..start].ends_with(char::is_whitespace);
+
+    if has_whitespace_before_group && is_duplicate_suffix(inner) {
+        stripped[..start].trim_end()
+    } else {
+        stem
+    }
 }
 
 pub fn sanitize_for_windows_filename(input: &str) -> String {
@@ -80,7 +93,7 @@ mod tests {
     fn keeps_embedded_original_name_when_duplicate_suffix_exists() {
         assert_eq!(
             parse_original_name("2024-11-02 13-09-41 (PXL_20241102_020933409.LS) (2).mp4"),
-            "2024-11-02 13-09-41 (PXL_20241102_020933409.LS)"
+            "PXL_20241102_020933409.LS"
         );
     }
 
@@ -89,6 +102,14 @@ mod tests {
         assert_eq!(
             parse_original_name("120260101_094503(0).jpg"),
             "120260101_094503(0)"
+        );
+    }
+
+    #[test]
+    fn parses_parenthesized_original_name_with_device_suffix_after_group() {
+        assert_eq!(
+            parse_original_name("2026-01-01 09-45-05 (20260101_094504) - SM-G991B.jpg"),
+            "20260101_094504"
         );
     }
 
