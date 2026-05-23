@@ -15,10 +15,10 @@ pub fn parse_original_name(file_name: &str) -> String {
             // Ignore trailing duplicate-maker suffixes like " (1)" and " (2)".
             if has_whitespace_before_group && is_duplicate_suffix(inner) {
                 stem[..s].trim_end().to_string()
-            } else if inner.is_empty() {
-                stem.to_string()
-            } else {
+            } else if has_whitespace_before_group && !inner.is_empty() {
                 inner.to_string()
+            } else {
+                stem.to_string()
             }
         }
         _ => stem.to_string(),
@@ -81,6 +81,14 @@ mod tests {
         assert_eq!(
             parse_original_name("2024-11-02 13-09-41 (PXL_20241102_020933409.LS) (2).mp4"),
             "2024-11-02 13-09-41 (PXL_20241102_020933409.LS)"
+        );
+    }
+
+    #[test]
+    fn keeps_full_stem_for_parenthesized_number_without_space() {
+        assert_eq!(
+            parse_original_name("120260101_094503(0).jpg"),
+            "120260101_094503(0)"
         );
     }
 
