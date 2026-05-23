@@ -41,6 +41,7 @@ const COLUMNS = [
 type ColumnKey = (typeof COLUMNS)[number]["key"];
 
 const COLUMN_HORIZONTAL_PADDING = 28;
+const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
@@ -179,7 +180,7 @@ export function FileTable({
       }
 
       const nextWidth = Math.max(
-        0,
+        MIN_COLUMN_WIDTH,
         activeResize.startWidth + (event.clientX - activeResize.startX)
       );
 
