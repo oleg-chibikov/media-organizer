@@ -117,7 +117,7 @@
 
 - [x] T077 Add Rust `mover.rs`.
 - [x] T078 Add explicit confirmation summary before execution.
-- [ ] T079 Recheck destination conflicts immediately before moving.
+- [x] T079 Recheck destination conflicts immediately before moving.
 - [ ] T080 Use atomic rename when possible.
 - [ ] T081 Fall back to copy-verify-remove on cross-device/NAS rename failure.
 - [ ] T082 Verify destination existence and size before deleting source.

@@ -13,7 +13,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     metadata,
-    models::{FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary, MovePlan},
+    models::{
+        FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary, MovePlan,
+    },
     mover, planner, scanner,
 };
 use tauri_plugin_dialog::DialogExt;

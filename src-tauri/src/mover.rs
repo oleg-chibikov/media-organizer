@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use crate::models::{
     ConflictStatus, DateKind, FileKind, FileRecord, MetadataResult, MoveConfirmationSummary,
@@ -15,6 +18,12 @@ pub struct MoveOperation {
 #[derive(Debug, Clone, Default)]
 pub struct PreparedMoves {
     pub operations: Vec<MoveOperation>,
+    pub skipped: Vec<MoveResult>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RecheckedMoves {
+    pub ready: Vec<MoveOperation>,
     pub skipped: Vec<MoveResult>,
 }
 
@@ -106,7 +115,8 @@ pub fn build_move_confirmation_summary(
     plans: &[MovePlan],
 ) -> MoveConfirmationSummary {
     let prepared = prepare_move_operations(files, plans);
-    let file_by_id: HashMap<&str, &FileRecord> = files.iter().map(|file| (file.id.as_str(), file)).collect();
+    let file_by_id: HashMap<&str, &FileRecord> =
+        files.iter().map(|file| (file.id.as_str(), file)).collect();
     let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
         .iter()
         .map(|metadata| (metadata.file_id.as_str(), metadata))
@@ -162,6 +172,27 @@ pub fn build_move_confirmation_summary(
     }
 }
 
+pub fn recheck_destination_conflicts(operations: Vec<MoveOperation>) -> RecheckedMoves {
+    let mut ready = Vec::new();
+    let mut skipped = Vec::new();
+
+    for operation in operations {
+        if Path::new(&operation.destination_path).exists() {
+            skipped.push(skipped_result(
+                &operation.file_id,
+                &operation.source_path,
+                &operation.destination_path,
+                "Destination file already exists at execution time.",
+            ));
+            continue;
+        }
+
+        ready.push(operation);
+    }
+
+    RecheckedMoves { ready, skipped }
+}
+
 fn skipped_result(
     file_id: &str,
     source_path: &str,
@@ -180,7 +211,10 @@ fn skipped_result(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use crate::models::{ConflictStatus, DateKind, MetadataResult, MetadataStatus, MovePlan};
+    use tempfile::tempdir;
 
     use super::*;
 
@@ -307,5 +341,50 @@ mod tests {
         assert_eq!(summary.suffix_applied, 1);
         assert_eq!(summary.ready_operations, 1);
         assert_eq!(summary.skipped_operations, 0);
+    }
+
+    #[test]
+    fn recheck_skips_operation_when_destination_exists() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("destination.jpg");
+        fs::write(&source, b"source").expect("write source");
+        fs::write(&destination, b"existing").expect("write destination");
+
+        let operations = vec![MoveOperation {
+            file_id: "photo_1".to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            destination_path: destination.to_string_lossy().to_string(),
+        }];
+
+        let rechecked = recheck_destination_conflicts(operations);
+
+        assert_eq!(rechecked.ready.len(), 0);
+        assert_eq!(rechecked.skipped.len(), 1);
+        assert_eq!(rechecked.skipped[0].file_id, "photo_1");
+        assert!(matches!(
+            rechecked.skipped[0].result_status,
+            MoveResultStatus::Skipped
+        ));
+    }
+
+    #[test]
+    fn recheck_keeps_operation_when_destination_is_available() {
+        let temp = tempdir().expect("temp dir");
+        let source = temp.path().join("source.jpg");
+        let destination = temp.path().join("destination.jpg");
+        fs::write(&source, b"source").expect("write source");
+
+        let operations = vec![MoveOperation {
+            file_id: "photo_1".to_string(),
+            source_path: source.to_string_lossy().to_string(),
+            destination_path: destination.to_string_lossy().to_string(),
+        }];
+
+        let rechecked = recheck_destination_conflicts(operations);
+
+        assert_eq!(rechecked.ready.len(), 1);
+        assert_eq!(rechecked.skipped.len(), 0);
+        assert_eq!(rechecked.ready[0].file_id, "photo_1");
     }
 }
