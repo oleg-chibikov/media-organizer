@@ -5,8 +5,9 @@ pub fn parse_original_name(file_name: &str) -> String {
         .unwrap_or(file_name);
 
     let stem_without_duplicate_suffix = strip_trailing_duplicate_suffix(stem);
-    let start = stem_without_duplicate_suffix.rfind('(');
     let end = stem_without_duplicate_suffix.rfind(')');
+    let start =
+        end.and_then(|index| find_matching_open_paren(stem_without_duplicate_suffix, index));
 
     match (start, end) {
         (Some(s), Some(e)) if s < e => {
@@ -19,6 +20,31 @@ pub fn parse_original_name(file_name: &str) -> String {
         }
         _ => stem_without_duplicate_suffix.to_string(),
     }
+}
+
+fn find_matching_open_paren(value: &str, close_index: usize) -> Option<usize> {
+    let bytes = value.as_bytes();
+    if close_index >= bytes.len() || bytes[close_index] != b')' {
+        return None;
+    }
+
+    let mut depth = 0_u32;
+    for index in (0..=close_index).rev() {
+        if bytes[index] == b')' {
+            depth += 1;
+            continue;
+        }
+        if bytes[index] == b'(' {
+            if depth == 0 {
+                return None;
+            }
+            depth -= 1;
+            if depth == 0 {
+                return Some(index);
+            }
+        }
+    }
+    None
 }
 
 fn is_duplicate_suffix(value: &str) -> bool {
@@ -110,6 +136,14 @@ mod tests {
         assert_eq!(
             parse_original_name("2026-01-01 09-45-05 (20260101_094504) - SM-G991B.jpg"),
             "20260101_094504"
+        );
+    }
+
+    #[test]
+    fn parses_parenthesized_original_name_with_nested_parentheses_and_device_suffix() {
+        assert_eq!(
+            parse_original_name("2025-03-02 15-15-16 (20250302_151515(0)) - SM-G991B.jpg"),
+            "20250302_151515(0)"
         );
     }
 
