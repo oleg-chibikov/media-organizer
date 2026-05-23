@@ -66,18 +66,18 @@
 - [ ] T040 Preserve original file extension.
 - [x] T041 Sanitize destination filename components for Windows path safety.
 - [x] T042 Add Rust tests for filenames with parentheses, no parentheses, multiple parentheses, and invalid characters.
-- [ ] T043 Display parsed original name in the UI for scanned media files.
+- [x] T043 Display parsed original name in the UI for scanned media files.
 
 ## Phase 7: ExifTool One-Shot Metadata
 
 - [x] T044 Add `src-tauri/binaries/` directory.
 - [x] T045 Add documentation for obtaining Windows ExifTool and renaming it to `exiftool-x86_64-pc-windows-msvc.exe`.
 - [x] T046 Configure the ExifTool binary as a Tauri sidecar.
-- [ ] T047 Add Rust `metadata.rs` one-shot ExifTool invocation.
-- [ ] T048 Parse ExifTool JSON output into a typed metadata structure.
-- [ ] T049 Read metadata for one selected media file.
-- [ ] T050 Display raw detected metadata dates in the UI.
-- [ ] T051 Surface a clear error when the sidecar binary is missing.
+- [x] T047 Add Rust `metadata.rs` one-shot ExifTool invocation.
+- [x] T048 Parse ExifTool JSON output into a typed metadata structure.
+- [x] T049 Read metadata for one selected media file.
+- [x] T050 Display raw detected metadata dates in the UI.
+- [x] T051 Surface a clear error when the sidecar binary is missing.
 
 ## Phase 8: Date Selection
 

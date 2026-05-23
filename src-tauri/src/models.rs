@@ -24,6 +24,7 @@ pub struct FileRecord {
     pub source_path: String,
     pub relative_path: String,
     pub extension: String,
+    pub original_name: String,
     pub kind: FileKind,
     pub scan_status: ScanStatus,
 }

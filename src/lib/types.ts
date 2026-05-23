@@ -10,6 +10,7 @@ export interface FileRecord {
   source_path: string;
   relative_path: string;
   extension: string;
+  original_name: string;
   kind: FileKind;
   scan_status: ScanStatus;
 }

@@ -5,6 +5,7 @@ use walkdir::WalkDir;
 
 use crate::{
     events,
+    filename,
     models::{
         FileKind, FileRecord, ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
         ScanStatus,
@@ -150,12 +151,18 @@ fn build_file_record(root: &Path, absolute_path: &Path, kind: FileKind, status: 
         .and_then(|value| value.to_str())
         .unwrap_or_default()
         .to_string();
+    let stem = absolute_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    let original_name = filename::parse_original_name(stem);
 
     FileRecord {
         id,
         source_path: absolute_path.to_string_lossy().to_string(),
         relative_path,
         extension,
+        original_name,
         kind,
         scan_status: status,
     }

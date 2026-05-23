@@ -1,9 +1,10 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
-import type { FileRecord } from "../lib/types";
+import type { FileRecord, MetadataResult } from "../lib/types";
 
 interface FileTableProps {
   rows: FileRecord[];
+  metadataByFileId: Record<string, MetadataResult>;
 }
 
 const STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
@@ -13,7 +14,7 @@ const STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
   scan_error: "Scan Error"
 };
 
-export function FileTable({ rows }: FileTableProps) {
+export function FileTable({ rows, metadataByFileId }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -42,6 +43,16 @@ export function FileTable({ rows }: FileTableProps) {
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const row = rows[virtualRow.index];
             const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
+            const metadata = metadataByFileId[row.id];
+            const metadataDateLabel = metadata
+              ? metadata.raw_metadata_date ?? "No metadata date"
+              : "pending";
+            const issueLabel = metadata
+              ? metadata.metadata_status === "error"
+                ? metadata.error ?? "Metadata error"
+                : metadata.chosen_date_source ?? "-"
+              : "-";
+
             return (
               <div
                 key={row.id}
@@ -56,10 +67,10 @@ export function FileTable({ rows }: FileTableProps) {
                 <div className="truncate px-3 py-2">{STATUS_LABELS[row.scan_status]}</div>
                 <div className="truncate px-3 py-2 font-mono text-xs">{row.relative_path}</div>
                 <div className="truncate px-3 py-2">{row.kind}</div>
+                <div className="truncate px-3 py-2">{row.original_name}</div>
+                <div className="truncate px-3 py-2">{metadataDateLabel}</div>
                 <div className="truncate px-3 py-2 text-slate-500">pending</div>
-                <div className="truncate px-3 py-2 text-slate-500">pending</div>
-                <div className="truncate px-3 py-2 text-slate-500">pending</div>
-                <div className="truncate px-3 py-2 text-slate-500">-</div>
+                <div className="truncate px-3 py-2">{issueLabel}</div>
               </div>
             );
           })}

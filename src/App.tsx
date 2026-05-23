@@ -7,9 +7,10 @@ import {
   cancelScan,
   chooseFolder,
   healthCheck,
+  readMetadataForFile,
   startScan
 } from "./lib/api";
-import type { FileRecord, ScanFinishedEvent } from "./lib/types";
+import type { FileRecord, MetadataResult, ScanFinishedEvent } from "./lib/types";
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -29,7 +30,12 @@ export default function App() {
   const [completed, setCompleted] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [rows, setRows] = useState<FileRecord[]>([]);
+  const [metadataByFileId, setMetadataByFileId] = useState<
+    Record<string, MetadataResult>
+  >({});
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const seenRowIdsRef = useRef<Set<string>>(new Set());
+  const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let ignore = false;
@@ -56,6 +62,9 @@ export default function App() {
         setDiscovered(0);
         setSkipped(0);
         setErrors(0);
+        setMetadataByFileId({});
+        setIsLoadingMetadata(false);
+        requestedMetadataIdsRef.current = new Set();
         seenRowIdsRef.current = new Set();
         setRows([]);
       },
@@ -135,6 +144,43 @@ export default function App() {
     }
   };
 
+  const loadMetadataForRow = async (row: FileRecord) => {
+    setIsLoadingMetadata(true);
+    try {
+      const result = await readMetadataForFile(row.id, row.source_path);
+      setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+      if (result.metadata_status === "error" && result.error) {
+        setFolderError(result.error);
+      }
+    } catch (error) {
+      setFolderError(`Failed to read metadata: ${String(error)}`);
+    } finally {
+      setIsLoadingMetadata(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isScanning || rows.length === 0 || isLoadingMetadata) {
+      return;
+    }
+
+    const firstMediaRow = rows.find(
+      (row) => row.kind === "photo" || row.kind === "video"
+    );
+    if (!firstMediaRow) {
+      return;
+    }
+    if (metadataByFileId[firstMediaRow.id]) {
+      return;
+    }
+    if (requestedMetadataIdsRef.current.has(firstMediaRow.id)) {
+      return;
+    }
+
+    requestedMetadataIdsRef.current.add(firstMediaRow.id);
+    void loadMetadataForRow(firstMediaRow);
+  }, [isScanning, isLoadingMetadata, metadataByFileId, rows]);
+
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       <Toolbar
@@ -146,7 +192,10 @@ export default function App() {
       />
 
       <main className="min-h-0 flex-1">
-        <FileTable rows={rows} />
+        <FileTable
+          rows={rows}
+          metadataByFileId={metadataByFileId}
+        />
       </main>
 
       <StatusBar
