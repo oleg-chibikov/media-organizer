@@ -35,13 +35,15 @@ export function StatusBar({
       ? "Executing moves"
       : moveCompleted
         ? "Move completed"
-        : isPlanning
+        : completed && !planCompleted
           ? "Planning destinations"
-          : completed && planCompleted
-            ? "Plan completed"
-            : completed
-              ? "Scan completed"
-              : "Idle";
+          : isPlanning
+            ? "Planning destinations"
+            : completed && planCompleted
+              ? "Plan completed"
+              : completed
+                ? "Scan completed"
+                : "Idle";
 
   return (
     <footer className="flex items-center gap-4 border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
