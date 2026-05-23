@@ -20,7 +20,8 @@ pub fn run() {
             commands::choose_folder,
             commands::start_scan,
             commands::cancel_scan,
-            commands::read_metadata_for_file
+            commands::read_metadata_for_file,
+            commands::create_move_plan
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

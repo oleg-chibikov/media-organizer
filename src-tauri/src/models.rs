@@ -135,3 +135,20 @@ pub struct ScanFinishedEvent {
     pub errors: u64,
     pub cancelled: bool,
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PlanFileEvent {
+    pub plan: MovePlan,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PlanErrorEvent {
+    pub file_id: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PlanFinishedEvent {
+    pub planned: u64,
+    pub errors: u64,
+}

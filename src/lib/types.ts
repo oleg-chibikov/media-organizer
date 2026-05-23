@@ -58,6 +58,20 @@ export interface MoveResult {
   error: string | null;
 }
 
+export interface PlanFileEvent {
+  plan: MovePlan;
+}
+
+export interface PlanErrorEvent {
+  file_id: string;
+  error: string;
+}
+
+export interface PlanFinishedEvent {
+  planned: number;
+  errors: number;
+}
+
 export interface ScanStartedEvent {
   root: string;
 }

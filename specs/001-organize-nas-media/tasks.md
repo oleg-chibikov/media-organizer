@@ -92,16 +92,16 @@
 
 ## Phase 9: Dry-Run Planner
 
-- [ ] T060 Add Rust `planner.rs`.
-- [ ] T061 Compute `Processed/YYYY/MM/DD` destination directories.
-- [ ] T062 Compute `YYYY-MM-DD HH-MM-SS (original_name).ext` destination filenames.
-- [ ] T063 Detect conflicts against existing destination files.
-- [ ] T064 Detect conflicts against other planned operations in the same run.
-- [ ] T065 Apply suffixes as ` - 2`, ` - 3`, and so on.
-- [ ] T066 Mark rows with no stronger capture date as warning fallback rows using `FileModifyDate`.
-- [ ] T067 Emit planned destination updates lazily to the UI.
-- [ ] T068 Add Rust tests for destination planning and conflict suffix assignment.
-- [ ] T069 Verify no file operations occur during dry-run planning.
+- [x] T060 Add Rust `planner.rs`.
+- [x] T061 Compute `Processed/YYYY/MM/DD` destination directories.
+- [x] T062 Compute `YYYY-MM-DD HH-MM-SS (original_name).ext` destination filenames.
+- [x] T063 Detect conflicts against existing destination files.
+- [x] T064 Detect conflicts against other planned operations in the same run.
+- [x] T065 Apply suffixes as ` - 2`, ` - 3`, and so on.
+- [x] T066 Mark rows with no stronger capture date as warning fallback rows using `FileModifyDate`.
+- [x] T067 Emit planned destination updates lazily to the UI.
+- [x] T068 Add Rust tests for destination planning and conflict suffix assignment.
+- [x] T069 Verify no file operations occur during dry-run planning.
 
 ## Phase 10: Persistent ExifTool Worker
 

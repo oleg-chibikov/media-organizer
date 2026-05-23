@@ -6,7 +6,8 @@ use std::{
 
 use crate::{
     metadata,
-    models::{FileKind, MetadataResult, MetadataStatus},
+    models::{FileKind, FileRecord, MetadataResult, MetadataStatus},
+    planner,
     scanner,
 };
 use tauri_plugin_dialog::DialogExt;
@@ -143,6 +144,23 @@ pub fn read_metadata_for_file(
         metadata_status: MetadataStatus::NoDate,
         error: None,
     })
+}
+
+#[tauri::command]
+pub fn create_move_plan(
+    selected_path: String,
+    files: Vec<FileRecord>,
+    metadata_results: Vec<MetadataResult>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let selected_folder = PathBuf::from(&selected_path);
+    validate_folder(&selected_folder)?;
+
+    tauri::async_runtime::spawn(async move {
+        let _ = planner::stream_move_plan(&app, selected_folder, files, metadata_results);
+    });
+
+    Ok(())
 }
 
 fn validate_folder(selected_folder: &Path) -> Result<(), String> {

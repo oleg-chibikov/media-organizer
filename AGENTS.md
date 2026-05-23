@@ -2,6 +2,10 @@
 
 Use `mise` to run all project tools and scripts. Do not call `cargo`, `node`, `pnpm`, `npm`, or `tauri` directly.
 
+## Git Requirement
+
+Agents must commit and push on every change.
+
 ## Required Pattern
 
 - Use: `mise x -- <command> ...`

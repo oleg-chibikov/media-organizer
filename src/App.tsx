@@ -3,14 +3,21 @@ import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import {
+  attachPlanListeners,
   attachScanListeners,
   cancelScan,
   chooseFolder,
+  createMovePlan,
   healthCheck,
   readMetadataForFile,
   startScan
 } from "./lib/api";
-import type { FileRecord, MetadataResult, ScanFinishedEvent } from "./lib/types";
+import type {
+  FileRecord,
+  MetadataResult,
+  MovePlan,
+  ScanFinishedEvent
+} from "./lib/types";
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -33,9 +40,16 @@ export default function App() {
   const [metadataByFileId, setMetadataByFileId] = useState<
     Record<string, MetadataResult>
   >({});
+  const [movePlansByFileId, setMovePlansByFileId] = useState<
+    Record<string, MovePlan>
+  >({});
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [planErrors, setPlanErrors] = useState(0);
+  const [planCompleted, setPlanCompleted] = useState(false);
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
+  const lastPlanRequestKeyRef = useRef<string>("");
 
   useEffect(() => {
     let ignore = false;
@@ -63,7 +77,12 @@ export default function App() {
         setSkipped(0);
         setErrors(0);
         setMetadataByFileId({});
+        setMovePlansByFileId({});
         setIsLoadingMetadata(false);
+        setIsPlanning(false);
+        setPlanErrors(0);
+        setPlanCompleted(false);
+        lastPlanRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
         seenRowIdsRef.current = new Set();
         setRows([]);
@@ -105,6 +124,45 @@ export default function App() {
       .catch((error: unknown) => {
         if (!disposed) {
           setFolderError(`Failed to attach scan listeners: ${String(error)}`);
+        }
+      });
+
+    return () => {
+      disposed = true;
+      for (const unlisten of unsubs) {
+        unlisten();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let unsubs: (() => void)[] = [];
+    let disposed = false;
+    void attachPlanListeners({
+      onFile: ({ plan }) => {
+        setMovePlansByFileId((prev) => ({ ...prev, [plan.file_id]: plan }));
+      },
+      onError: ({ error }) => {
+        setPlanErrors((count) => count + 1);
+        setFolderError(`Plan error: ${error}`);
+      },
+      onFinished: () => {
+        setIsPlanning(false);
+        setPlanCompleted(true);
+      }
+    })
+      .then((listeners) => {
+        if (disposed) {
+          for (const unlisten of listeners) {
+            unlisten();
+          }
+          return;
+        }
+        unsubs = listeners;
+      })
+      .catch((error: unknown) => {
+        if (!disposed) {
+          setFolderError(`Failed to attach plan listeners: ${String(error)}`);
         }
       });
 
@@ -165,21 +223,58 @@ export default function App() {
     }
 
     const firstMediaRow = rows.find(
-      (row) => row.kind === "photo" || row.kind === "video"
+      (row) =>
+        (row.kind === "photo" || row.kind === "video") &&
+        !metadataByFileId[row.id] &&
+        !requestedMetadataIdsRef.current.has(row.id)
     );
     if (!firstMediaRow) {
       return;
     }
-    if (metadataByFileId[firstMediaRow.id]) {
-      return;
-    }
-    if (requestedMetadataIdsRef.current.has(firstMediaRow.id)) {
-      return;
-    }
-
     requestedMetadataIdsRef.current.add(firstMediaRow.id);
     void loadMetadataForRow(firstMediaRow);
   }, [isScanning, isLoadingMetadata, metadataByFileId, rows]);
+
+  useEffect(() => {
+    if (isScanning || isLoadingMetadata || !selectedFolder || rows.length === 0) {
+      return;
+    }
+
+    const mediaRows = rows.filter(
+      (row) => row.kind === "photo" || row.kind === "video"
+    );
+    if (mediaRows.length === 0) {
+      return;
+    }
+
+    const allMediaResolved = mediaRows.every((row) => Boolean(metadataByFileId[row.id]));
+    if (!allMediaResolved) {
+      return;
+    }
+
+    const requestKey = mediaRows
+      .map((row) => {
+        const metadata = metadataByFileId[row.id];
+        return `${row.id}:${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
+      })
+      .join("|");
+
+    if (requestKey === lastPlanRequestKeyRef.current) {
+      return;
+    }
+    lastPlanRequestKeyRef.current = requestKey;
+
+    setIsPlanning(true);
+    setPlanCompleted(false);
+    setPlanErrors(0);
+    setMovePlansByFileId({});
+    void createMovePlan(selectedFolder, rows, Object.values(metadataByFileId)).catch(
+      (error: unknown) => {
+        setIsPlanning(false);
+        setFolderError(`Failed to create move plan: ${String(error)}`);
+      }
+    );
+  }, [isScanning, isLoadingMetadata, metadataByFileId, rows, selectedFolder]);
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
@@ -195,6 +290,7 @@ export default function App() {
         <FileTable
           rows={rows}
           metadataByFileId={metadataByFileId}
+          movePlansByFileId={movePlansByFileId}
         />
       </main>
 
@@ -202,6 +298,9 @@ export default function App() {
         discovered={discovered}
         skipped={skipped}
         errors={errors}
+        planErrors={planErrors}
+        isPlanning={isPlanning}
+        planCompleted={planCompleted}
         completed={completed}
         cancelled={cancelled}
       />

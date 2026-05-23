@@ -2,7 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FileKind,
+  FileRecord,
   MetadataResult,
+  PlanErrorEvent,
+  PlanFileEvent,
+  PlanFinishedEvent,
   ScanErrorEvent,
   ScanFileEvent,
   ScanFinishedEvent,
@@ -37,6 +41,12 @@ export const SCAN_EVENTS = {
   finished: "scan:finished"
 } as const;
 
+export const PLAN_EVENTS = {
+  file: "plan:file",
+  error: "plan:error",
+  finished: "plan:finished"
+} as const;
+
 export const healthCheck = () => invokeCommand<string>("health_check");
 export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
@@ -53,12 +63,29 @@ export const readMetadataForFile = (
     fileKind
   });
 
+export const createMovePlan = (
+  selectedPath: string,
+  files: FileRecord[],
+  metadataResults: MetadataResult[]
+) =>
+  invokeCommand<void>("create_move_plan", {
+    selectedPath,
+    files,
+    metadataResults
+  });
+
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;
   onFile: (payload: ScanFileEvent) => void;
   onSkipped: (payload: ScanFileEvent) => void;
   onError: (payload: ScanErrorEvent) => void;
   onFinished: (payload: ScanFinishedEvent) => void;
+}
+
+export interface PlanListeners {
+  onFile: (payload: PlanFileEvent) => void;
+  onError: (payload: PlanErrorEvent) => void;
+  onFinished: (payload: PlanFinishedEvent) => void;
 }
 
 export async function attachScanListeners(
@@ -80,6 +107,26 @@ export async function attachScanListeners(
       handlers.onError(event.payload)
     ),
     listen<ScanFinishedEvent>(SCAN_EVENTS.finished, (event) =>
+      handlers.onFinished(event.payload)
+    )
+  ]);
+
+  return listeners;
+}
+
+export async function attachPlanListeners(
+  handlers: PlanListeners
+): Promise<UnlistenFn[]> {
+  ensureTauriRuntime();
+
+  const listeners = await Promise.all([
+    listen<PlanFileEvent>(PLAN_EVENTS.file, (event) =>
+      handlers.onFile(event.payload)
+    ),
+    listen<PlanErrorEvent>(PLAN_EVENTS.error, (event) =>
+      handlers.onError(event.payload)
+    ),
+    listen<PlanFinishedEvent>(PLAN_EVENTS.finished, (event) =>
       handlers.onFinished(event.payload)
     )
   ]);
