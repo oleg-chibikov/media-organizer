@@ -121,83 +121,83 @@ export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTab
   }, []);
 
   return (
-    <div className="flex h-full flex-col">
-      <div
-        className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
-        style={{ gridTemplateColumns, minWidth: `${tableMinWidth}px` }}
-      >
-        {COLUMNS.map((column, columnIndex) => (
-          <div key={column.key} className="relative px-3 py-2">
-            <span className="truncate">{column.label}</span>
-            <button
-              type="button"
-              aria-label={`Resize ${column.label} column`}
-              className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
-              onPointerDown={handleResizeStart(columnIndex)}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
-        <div
-          className="relative"
-          style={{ height: `${rowVirtualizer.getTotalSize()}px`, minWidth: `${tableMinWidth}px` }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
-            const metadata = metadataByFileId[row.id];
-            const movePlan = movePlansByFileId[row.id];
-            const metadataDateLabel = metadata
-              ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
-              : "pending";
-            const destinationLabel =
-              movePlan?.destination_path ||
-              (metadata?.metadata_status === "ready" ? "planning..." : "-");
-
-            const statusLabel = resolveStatusLabel(row, metadata, movePlan);
-            const notesLabel = resolveNotesLabel(metadata, movePlan);
-            const isFallbackWarning = metadata?.date_kind === "fallback";
-
-            return (
-              <div
-                key={row.id}
-                className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
-                style={{
-                  gridTemplateColumns,
-                  transform: `translateY(${virtualRow.start}px)`,
-                  height: `${virtualRow.size}px`,
-                  minWidth: `${tableMinWidth}px`
-                }}
-              >
-                <div className="truncate px-3 py-2" title={statusLabel}>
-                  {statusLabel}
-                </div>
-                <div className="truncate px-3 py-2 font-mono text-xs" title={row.relative_path}>
-                  {row.relative_path}
-                </div>
-                <div className="truncate px-3 py-2" title={row.kind}>
-                  {row.kind}
-                </div>
-                <div className="truncate px-3 py-2" title={row.original_name}>
-                  {row.original_name}
-                </div>
-                <div className="truncate px-3 py-2" title={metadataDateLabel}>
-                  {metadataDateLabel}
-                </div>
-                <div
-                  className="truncate px-3 py-2 font-mono text-xs text-slate-300"
-                  title={destinationLabel}
-                >
-                  {destinationLabel}
-                </div>
-                <div className="truncate px-3 py-2" title={notesLabel}>
-                  {notesLabel}
-                </div>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        <div className="flex h-full flex-col" style={{ minWidth: `${tableMinWidth}px` }}>
+          <div
+            className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
+            style={{ gridTemplateColumns }}
+          >
+            {COLUMNS.map((column, columnIndex) => (
+              <div key={column.key} className="relative px-3 py-2">
+                <span className="truncate">{column.label}</span>
+                <button
+                  type="button"
+                  aria-label={`Resize ${column.label} column`}
+                  className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
+                  onPointerDown={handleResizeStart(columnIndex)}
+                />
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index];
+                const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
+                const metadata = metadataByFileId[row.id];
+                const movePlan = movePlansByFileId[row.id];
+                const metadataDateLabel = metadata
+                  ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
+                  : "pending";
+                const destinationLabel =
+                  movePlan?.destination_path ||
+                  (metadata?.metadata_status === "ready" ? "planning..." : "-");
+
+                const statusLabel = resolveStatusLabel(row, metadata, movePlan);
+                const notesLabel = resolveNotesLabel(metadata, movePlan);
+                const isFallbackWarning = metadata?.date_kind === "fallback";
+
+                return (
+                  <div
+                    key={row.id}
+                    className={`absolute left-0 top-0 grid border-t border-slate-800 text-sm ${isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
+                    style={{
+                      gridTemplateColumns,
+                      transform: `translateY(${virtualRow.start}px)`,
+                      height: `${virtualRow.size}px`
+                    }}
+                  >
+                    <div className="truncate px-3 py-2" title={statusLabel}>
+                      {statusLabel}
+                    </div>
+                    <div className="truncate px-3 py-2 font-mono text-xs" title={row.relative_path}>
+                      {row.relative_path}
+                    </div>
+                    <div className="truncate px-3 py-2" title={row.kind}>
+                      {row.kind}
+                    </div>
+                    <div className="truncate px-3 py-2" title={row.original_name}>
+                      {row.original_name}
+                    </div>
+                    <div className="truncate px-3 py-2" title={metadataDateLabel}>
+                      {metadataDateLabel}
+                    </div>
+                    <div
+                      className="truncate px-3 py-2 font-mono text-xs text-slate-300"
+                      title={destinationLabel}
+                    >
+                      {destinationLabel}
+                    </div>
+                    <div className="truncate px-3 py-2" title={notesLabel}>
+                      {notesLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
