@@ -29,8 +29,8 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
 };
 
 const COLUMNS = [
-  { key: "source", label: "Source File", defaultWidth: 420, minWidth: 280 },
-  { key: "destination", label: "Destination", defaultWidth: 420, minWidth: 280 },
+  { key: "source", label: "Source File", defaultWidth: 160, minWidth: 80 },
+  { key: "destination", label: "Destination", defaultWidth: 160, minWidth: 80 },
   { key: "status", label: "Status", defaultWidth: 180, minWidth: 140 },
   { key: "kind", label: "Kind", defaultWidth: 110, minWidth: 90 },
   { key: "originalName", label: "Original Name", defaultWidth: 170, minWidth: 130 },
@@ -120,13 +120,18 @@ export function FileTable({
       return Math.max(maxWidth, measureWidth(relativeDestinationLabel));
     }, 0);
 
+    const sourceHeaderWidth = measureWidth(COLUMNS[SOURCE_COLUMN_INDEX].label);
+    const destinationHeaderWidth = measureWidth(COLUMNS[DESTINATION_COLUMN_INDEX].label);
+
     const desiredWidths: Record<number, number> = {
       [SOURCE_COLUMN_INDEX]: Math.max(
-        COLUMNS[SOURCE_COLUMN_INDEX].defaultWidth,
+        COLUMNS[SOURCE_COLUMN_INDEX].minWidth,
+        sourceHeaderWidth + 28,
         sourceMaxTextWidth + 28
       ),
       [DESTINATION_COLUMN_INDEX]: Math.max(
-        COLUMNS[DESTINATION_COLUMN_INDEX].defaultWidth,
+        COLUMNS[DESTINATION_COLUMN_INDEX].minWidth,
+        destinationHeaderWidth + 28,
         destinationMaxTextWidth + 28
       )
     };
