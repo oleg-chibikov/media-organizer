@@ -140,7 +140,7 @@
 - [x] T092 Configure Tauri NSIS installer.
 - [x] T093 Configure WebView2 bootstrapper handling.
 - [x] T094 Verify ExifTool sidecar is included in production build.
-- [ ] T095 Build installer `.exe`.
+- [x] T095 Build installer `.exe`.
 - [ ] T096 Smoke-test installed app on a clean Windows user profile.
 
 ## Phase 14: Documentation
