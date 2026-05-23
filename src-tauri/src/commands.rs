@@ -533,9 +533,9 @@ fn reveal_path_in_system_explorer(path: &Path) -> Result<(), String> {
         let target = path
             .canonicalize()
             .map_err(|error| format!("Failed to resolve file path: {error}"))?;
-        let selection = format!("/select,{}", target.to_string_lossy());
         Command::new("explorer")
-            .arg(selection)
+            .arg("/select,")
+            .arg(strip_windows_verbatim_prefix(&target))
             .spawn()
             .map_err(|error| format!("Failed to open File Explorer: {error}"))?;
         return Ok(());
@@ -585,6 +585,21 @@ fn reveal_path_in_system_explorer(path: &Path) -> Result<(), String> {
     Err("Reveal in system explorer is not supported on this platform.".to_string())
 }
 
+#[cfg(target_os = "windows")]
+fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+    let path_value = path.to_string_lossy();
+
+    if let Some(stripped) = path_value.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{stripped}"));
+    }
+
+    if let Some(stripped) = path_value.strip_prefix(r"\\?\") {
+        return PathBuf::from(stripped);
+    }
+
+    path.to_path_buf()
+}
+
 fn default_metadata_concurrency() -> usize {
     std::thread::available_parallelism()
         .map(usize::from)
@@ -624,5 +639,31 @@ fn count_move_result(
         MoveResultStatus::Copied => *copied += 1,
         MoveResultStatus::Skipped => *skipped += 1,
         MoveResultStatus::Failed => *failed += 1,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_os = "windows")]
+    mod windows {
+        use std::path::Path;
+
+        use crate::commands::strip_windows_verbatim_prefix;
+
+        #[test]
+        fn strips_verbatim_disk_prefix_for_explorer() {
+            assert_eq!(
+                strip_windows_verbatim_prefix(Path::new(r"\\?\C:\todo\IMG 1001.jpg")),
+                Path::new(r"C:\todo\IMG 1001.jpg")
+            );
+        }
+
+        #[test]
+        fn strips_verbatim_unc_prefix_for_explorer() {
+            assert_eq!(
+                strip_windows_verbatim_prefix(Path::new(r"\\?\UNC\nas\photos\TODO\IMG 1001.jpg")),
+                Path::new(r"\\nas\photos\TODO\IMG 1001.jpg")
+            );
+        }
     }
 }
