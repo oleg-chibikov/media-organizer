@@ -56,9 +56,9 @@ export default function App() {
   const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
   const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
   const [moveResultsByFileId, setMoveResultsByFileId] = useState<Record<string, MoveResult>>({});
-  const [isPlanning, setIsPlanning] = useState(false);
+  const [activeMetadataRequests, setActiveMetadataRequests] = useState(0);
+  const [activePlanRequests, setActivePlanRequests] = useState(0);
   const [planErrors, setPlanErrors] = useState(0);
-  const [planCompleted, setPlanCompleted] = useState(false);
   const [executionConfirmed, setExecutionConfirmed] = useState(false);
   const [isMoveDispatchPaused, setIsMoveDispatchPaused] = useState(false);
   const [isExecutingMoves, setIsExecutingMoves] = useState(false);
@@ -66,6 +66,9 @@ export default function App() {
   const [movedCount, setMovedCount] = useState(0);
   const [moveSkippedCount, setMoveSkippedCount] = useState(0);
   const [moveFailedCount, setMoveFailedCount] = useState(0);
+  const isPlanning = activePlanRequests > 0;
+  const planCompleted =
+    completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0;
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -170,6 +173,7 @@ export default function App() {
       }
 
       activeMetadataRequestsRef.current += 1;
+      setActiveMetadataRequests(activeMetadataRequestsRef.current);
       requestedMetadataIdsRef.current.add(nextFileId);
 
       void readMetadataForFile(row.id, row.source_path, row.kind)
@@ -184,6 +188,7 @@ export default function App() {
         })
         .finally(() => {
           activeMetadataRequestsRef.current -= 1;
+          setActiveMetadataRequests(activeMetadataRequestsRef.current);
           pumpMetadataQueueRef.current();
         });
     }
@@ -305,9 +310,9 @@ export default function App() {
         setMetadataByFileId({});
         setMovePlansByFileId({});
         setMoveResultsByFileId({});
-        setIsPlanning(false);
+        setActiveMetadataRequests(0);
+        setActivePlanRequests(0);
         setPlanErrors(0);
-        setPlanCompleted(false);
         setExecutionConfirmed(false);
         setIsMoveDispatchPaused(false);
         setIsExecutingMoves(false);
@@ -452,10 +457,7 @@ export default function App() {
       },
       onFinished: () => {
         activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
-        if (activePlanRequestsRef.current === 0) {
-          setIsPlanning(false);
-          setPlanCompleted(true);
-        }
+        setActivePlanRequests(activePlanRequestsRef.current);
       }
     })
       .then((listeners) => {
@@ -575,17 +577,11 @@ export default function App() {
     }
 
     activePlanRequestsRef.current += 1;
-    queueMicrotask(() => {
-      setIsPlanning(true);
-      setPlanCompleted(false);
-    });
+    setActivePlanRequests(activePlanRequestsRef.current);
 
     void createMovePlan(selectedFolder, filesToPlan, metadataToPlan).catch((error: unknown) => {
       activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
-      if (activePlanRequestsRef.current === 0) {
-        setIsPlanning(false);
-        setPlanCompleted(true);
-      }
+      setActivePlanRequests(activePlanRequestsRef.current);
       for (const [fileId, previousSignature] of previousSignatures) {
         if (previousSignature === undefined) {
           plannedMetadataSignatureByFileIdRef.current.delete(fileId);
