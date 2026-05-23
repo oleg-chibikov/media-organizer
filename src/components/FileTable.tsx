@@ -29,18 +29,20 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
 };
 
 const COLUMNS = [
-  { key: "source", label: "Source File", defaultWidth: 160, minWidth: 80 },
-  { key: "destination", label: "Destination", defaultWidth: 160, minWidth: 80 },
-  { key: "status", label: "Status", defaultWidth: 180, minWidth: 140 },
-  { key: "kind", label: "Kind", defaultWidth: 110, minWidth: 90 },
-  { key: "originalName", label: "Original Name", defaultWidth: 170, minWidth: 130 },
-  { key: "metadataDate", label: "Metadata Date", defaultWidth: 170, minWidth: 130 },
-  { key: "notes", label: "Notes", defaultWidth: 190, minWidth: 140 }
+  { key: "source", label: "Source File" },
+  { key: "destination", label: "Destination" },
+  { key: "status", label: "Status" },
+  { key: "kind", label: "Kind" },
+  { key: "originalName", label: "Original Name" },
+  { key: "metadataDate", label: "Metadata Date" },
+  { key: "notes", label: "Notes" }
 ] as const;
 
 const SOURCE_COLUMN_INDEX = 0;
 const DESTINATION_COLUMN_INDEX = 1;
 const AUTO_SIZE_COLUMN_INDICES = [SOURCE_COLUMN_INDEX, DESTINATION_COLUMN_INDEX] as const;
+const DEFAULT_COLUMN_WIDTHS = [160, 160, 180, 110, 170, 170, 190] as const;
+const MIN_COLUMN_WIDTHS = [80, 80, 140, 90, 130, 130, 140] as const;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
 interface ActiveResize {
@@ -59,9 +61,7 @@ export function FileTable({
   const parentRef = useRef<HTMLDivElement | null>(null);
   const activeResizeRef = useRef<ActiveResize | null>(null);
   const manuallyResizedColumnsRef = useRef<Set<number>>(new Set());
-  const [columnWidths, setColumnWidths] = useState<number[]>(() =>
-    COLUMNS.map((column) => column.defaultWidth)
-  );
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => [...DEFAULT_COLUMN_WIDTHS]);
   const gridTemplateColumns = useMemo(
     () => columnWidths.map((width) => `${width}px`).join(" "),
     [columnWidths]
@@ -125,12 +125,12 @@ export function FileTable({
 
     const desiredWidths: Record<number, number> = {
       [SOURCE_COLUMN_INDEX]: Math.max(
-        COLUMNS[SOURCE_COLUMN_INDEX].minWidth,
+        MIN_COLUMN_WIDTHS[SOURCE_COLUMN_INDEX],
         sourceHeaderWidth + 28,
         sourceMaxTextWidth + 28
       ),
       [DESTINATION_COLUMN_INDEX]: Math.max(
-        COLUMNS[DESTINATION_COLUMN_INDEX].minWidth,
+        MIN_COLUMN_WIDTHS[DESTINATION_COLUMN_INDEX],
         destinationHeaderWidth + 28,
         destinationMaxTextWidth + 28
       )
@@ -163,9 +163,8 @@ export function FileTable({
         return;
       }
 
-      const column = COLUMNS[activeResize.columnIndex];
       const nextWidth = Math.max(
-        column.minWidth,
+        MIN_COLUMN_WIDTHS[activeResize.columnIndex],
         activeResize.startWidth + (event.clientX - activeResize.startX)
       );
 
