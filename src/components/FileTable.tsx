@@ -15,6 +15,16 @@ const STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
   scan_error: "Scan Error"
 };
 
+const DATE_SOURCE_LABELS: Record<string, string> = {
+  SubSecDateTimeOriginal: "Original photo capture time",
+  DateTimeOriginal: "Photo capture time",
+  MediaCreateDate: "Video creation time",
+  TrackCreateDate: "Video track creation time",
+  CreateDate: "Embedded media creation time",
+  ModifyDate: "Embedded media modified time",
+  FileModifyDate: "File modified time (fallback)"
+};
+
 export function FileTable({ rows, metadataByFileId, movePlansByFileId }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const rowVirtualizer = useVirtualizer({
@@ -136,5 +146,13 @@ function resolveIssueLabel(
     return "Suffix applied for conflict";
   }
 
-  return metadata.chosen_date_source ?? "-";
+  return resolveDateSourceLabel(metadata.chosen_date_source);
+}
+
+function resolveDateSourceLabel(source: string | null): string {
+  if (!source) {
+    return "-";
+  }
+
+  return DATE_SOURCE_LABELS[source] ?? source;
 }
