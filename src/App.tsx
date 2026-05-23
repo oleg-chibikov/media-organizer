@@ -454,7 +454,17 @@ export default function App() {
       setMovedCount(0);
       setMoveSkippedCount(0);
       setMoveFailedCount(0);
-      void executeMovePlan(rows, Object.values(movePlansByFileId)).catch((error: unknown) => {
+      if (!selectedFolder) {
+        setIsExecutingMoves(false);
+        setFolderError("No selected folder for move execution.");
+        return;
+      }
+      void executeMovePlan(
+        selectedFolder,
+        rows,
+        Object.values(metadataByFileId),
+        Object.values(movePlansByFileId)
+      ).catch((error: unknown) => {
         setIsExecutingMoves(false);
         setFolderError(`Failed to execute move plan: ${String(error)}`);
       });

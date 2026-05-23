@@ -128,10 +128,10 @@
 ## Phase 12: Processing Log
 
 - [x] T086 Add Rust `logging.rs`.
-- [ ] T087 Create `Processed/` when needed.
-- [ ] T088 Write JSONL records to `Processed/processing-log.jsonl`.
-- [ ] T089 Log source path, destination path, metadata date, original name, move strategy, status, error, and timestamp.
-- [ ] T090 Verify failed and skipped moves are logged.
+- [x] T087 Create `Processed/` when needed.
+- [x] T088 Write JSONL records to `Processed/processing-log.jsonl`.
+- [x] T089 Log source path, destination path, metadata date, original name, move strategy, status, error, and timestamp.
+- [x] T090 Verify failed and skipped moves are logged.
 
 ## Phase 13: Packaging
 

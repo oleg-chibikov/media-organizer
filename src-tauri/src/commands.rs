@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
     sync::{
@@ -8,11 +9,12 @@ use std::{
     time::Duration,
 };
 
+use chrono::Local;
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    events, metadata,
+    events, logging, metadata,
     models::{
         FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary,
         MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus,
@@ -273,24 +275,55 @@ pub fn get_move_confirmation_summary(
 
 #[tauri::command]
 pub fn execute_move_plan(
+    selected_path: String,
     files: Vec<FileRecord>,
+    metadata_results: Vec<MetadataResult>,
     plans: Vec<MovePlan>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
+    let selected_folder = PathBuf::from(&selected_path);
+    validate_folder(&selected_folder)?;
+    let log_file = logging::open_processing_log_for_append(&selected_folder)?;
+
     tauri::async_runtime::spawn(async move {
         let prepared = mover::prepare_move_operations(&files, &plans);
         let rechecked = mover::recheck_destination_conflicts(prepared.operations);
+        let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
+            .iter()
+            .map(|metadata| (metadata.file_id.as_str(), metadata))
+            .collect();
+        let plans_by_id: HashMap<&str, &MovePlan> = plans
+            .iter()
+            .map(|plan| (plan.file_id.as_str(), plan))
+            .collect();
+        let files_by_id: HashMap<&str, &FileRecord> =
+            files.iter().map(|file| (file.id.as_str(), file)).collect();
         let mut moved = 0u64;
         let mut skipped = 0u64;
         let mut failed = 0u64;
+        let mut log_file = Some(log_file);
 
         for result in prepared.skipped.into_iter().chain(rechecked.skipped) {
+            append_move_result_to_log(
+                &mut log_file,
+                &result,
+                &metadata_by_id,
+                &plans_by_id,
+                &files_by_id,
+            );
             count_move_result(&result, &mut moved, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
         for operation in rechecked.ready {
             let result = mover::execute_move_with_rename(&operation);
+            append_move_result_to_log(
+                &mut log_file,
+                &result,
+                &metadata_by_id,
+                &plans_by_id,
+                &files_by_id,
+            );
             count_move_result(&result, &mut moved, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
@@ -306,6 +339,45 @@ pub fn execute_move_plan(
     });
 
     Ok(())
+}
+
+fn append_move_result_to_log(
+    log_file: &mut Option<fs::File>,
+    result: &MoveResult,
+    metadata_by_id: &HashMap<&str, &MetadataResult>,
+    plans_by_id: &HashMap<&str, &MovePlan>,
+    files_by_id: &HashMap<&str, &FileRecord>,
+) {
+    let Some(file) = log_file.as_mut() else {
+        return;
+    };
+
+    let metadata_date = metadata_by_id
+        .get(result.file_id.as_str())
+        .and_then(|metadata| metadata.chosen_date.clone());
+
+    let original_name = plans_by_id
+        .get(result.file_id.as_str())
+        .map(|plan| plan.original_name.clone())
+        .or_else(|| {
+            files_by_id
+                .get(result.file_id.as_str())
+                .map(|file| file.original_name.clone())
+        })
+        .unwrap_or_else(|| result.file_id.clone());
+
+    let record = logging::build_processing_log_record(
+        &result.attempted_source_path,
+        &result.attempted_destination_path,
+        metadata_date,
+        original_name,
+        result.move_strategy.clone(),
+        result.result_status.clone(),
+        result.error.clone(),
+        Local::now(),
+    );
+
+    let _ = logging::append_record(file, &record);
 }
 
 fn select_metadata_worker(state: &AppState) -> Arc<Mutex<metadata::ExifToolWorkerManager>> {

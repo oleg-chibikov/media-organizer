@@ -86,9 +86,16 @@ export const getMoveConfirmationSummary = (
     plans
   });
 
-export const executeMovePlan = (files: FileRecord[], plans: MovePlan[]) =>
+export const executeMovePlan = (
+  selectedPath: string,
+  files: FileRecord[],
+  metadataResults: MetadataResult[],
+  plans: MovePlan[]
+) =>
   invokeCommand<void>("execute_move_plan", {
+    selectedPath,
     files,
+    metadataResults,
     plans
   });
 
