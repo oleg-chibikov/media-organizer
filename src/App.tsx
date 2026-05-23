@@ -26,6 +26,7 @@ import type {
 
 const METADATA_CONCURRENCY = 2;
 const METADATA_QUEUE_CAPACITY = 256;
+const MOVE_DISPATCH_CONCURRENCY = 1;
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -36,6 +37,10 @@ function isProcessedPath(folder: string): boolean {
 
 function metadataPlanningSignature(metadata: MetadataResult): string {
   return `${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
+}
+
+function isMoveResultTerminal(result: MoveResult | undefined): boolean {
+  return result !== undefined;
 }
 
 export default function App() {
@@ -76,11 +81,18 @@ export default function App() {
   const plannedMetadataSignatureByFileIdRef = useRef<Map<string, string>>(new Map());
   const activePlanRequestsRef = useRef(0);
   const lastConfirmationRequestKeyRef = useRef<string>("");
+  const queuedMoveIdsRef = useRef<Set<string>>(new Set());
+  const moveQueueRef = useRef<string[]>([]);
+  const inflightMoveIdsRef = useRef<Set<string>>(new Set());
+  const completedMoveIdsRef = useRef<Set<string>>(new Set());
+  const trackedMoveIdsRef = useRef<Set<string>>(new Set());
+  const activeMoveRequestsRef = useRef(0);
+  const pumpMoveQueueRef = useRef<() => void>(() => undefined);
   const pendingExecutableCount = Object.values(movePlansByFileId).filter((plan) => {
     if (plan.plan_status !== "ready") {
       return false;
     }
-    return moveResultsByFileId[plan.file_id]?.result_status !== "moved";
+    return !isMoveResultTerminal(moveResultsByFileId[plan.file_id]);
   }).length;
 
   const pumpMetadataQueue = useCallback(() => {
@@ -122,6 +134,84 @@ export default function App() {
   useEffect(() => {
     pumpMetadataQueueRef.current = pumpMetadataQueue;
   }, [pumpMetadataQueue]);
+
+  const enqueueReadyMovePlans = useCallback(() => {
+    for (const plan of Object.values(movePlansByFileId)) {
+      if (plan.plan_status !== "ready") {
+        continue;
+      }
+
+      const fileId = plan.file_id;
+      if (trackedMoveIdsRef.current.has(fileId)) {
+        continue;
+      }
+
+      if (isMoveResultTerminal(moveResultsByFileId[fileId])) {
+        trackedMoveIdsRef.current.add(fileId);
+        completedMoveIdsRef.current.add(fileId);
+        continue;
+      }
+
+      trackedMoveIdsRef.current.add(fileId);
+      queuedMoveIdsRef.current.add(fileId);
+      moveQueueRef.current.push(fileId);
+    }
+  }, [movePlansByFileId, moveResultsByFileId]);
+
+  const pumpMoveQueue = useCallback(() => {
+    if (!executionConfirmed || !selectedFolder) {
+      return;
+    }
+
+    while (
+      activeMoveRequestsRef.current < MOVE_DISPATCH_CONCURRENCY &&
+      moveQueueRef.current.length > 0
+    ) {
+      const nextFileId = moveQueueRef.current.shift();
+      if (!nextFileId) {
+        break;
+      }
+      queuedMoveIdsRef.current.delete(nextFileId);
+
+      if (
+        inflightMoveIdsRef.current.has(nextFileId) ||
+        completedMoveIdsRef.current.has(nextFileId)
+      ) {
+        continue;
+      }
+
+      const row = rowByIdRef.current.get(nextFileId);
+      const metadata = metadataByFileId[nextFileId];
+      const plan = movePlansByFileId[nextFileId];
+      if (!row || !metadata || !plan || plan.plan_status !== "ready") {
+        trackedMoveIdsRef.current.delete(nextFileId);
+        continue;
+      }
+
+      activeMoveRequestsRef.current += 1;
+      inflightMoveIdsRef.current.add(nextFileId);
+      setIsExecutingMoves(true);
+      setMoveCompleted(false);
+
+      void executeMovePlan(selectedFolder, [row], [metadata], [plan]).catch((error: unknown) => {
+        activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
+        inflightMoveIdsRef.current.delete(nextFileId);
+        trackedMoveIdsRef.current.delete(nextFileId);
+        setFolderError(`Failed to execute move plan: ${String(error)}`);
+        if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
+          setIsExecutingMoves(false);
+          setMoveCompleted(true);
+        }
+        queueMicrotask(() => {
+          pumpMoveQueueRef.current();
+        });
+      });
+    }
+  }, [executionConfirmed, metadataByFileId, movePlansByFileId, selectedFolder]);
+
+  useEffect(() => {
+    pumpMoveQueueRef.current = pumpMoveQueue;
+  }, [pumpMoveQueue]);
 
   useEffect(() => {
     let ignore = false;
@@ -169,6 +259,12 @@ export default function App() {
         activeMetadataRequestsRef.current = 0;
         plannedMetadataSignatureByFileIdRef.current = new Map();
         activePlanRequestsRef.current = 0;
+        queuedMoveIdsRef.current = new Set();
+        moveQueueRef.current = [];
+        inflightMoveIdsRef.current = new Set();
+        completedMoveIdsRef.current = new Set();
+        trackedMoveIdsRef.current = new Set();
+        activeMoveRequestsRef.current = 0;
         seenRowIdsRef.current = new Set();
         rowByIdRef.current = new Map();
         setRows([]);
@@ -226,7 +322,14 @@ export default function App() {
     let disposed = false;
     void attachMoveListeners({
       onFile: ({ result }) => {
+        if (completedMoveIdsRef.current.has(result.file_id)) {
+          setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+          return;
+        }
         setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+        inflightMoveIdsRef.current.delete(result.file_id);
+        completedMoveIdsRef.current.add(result.file_id);
+        trackedMoveIdsRef.current.add(result.file_id);
         if (result.result_status === "moved") {
           setMovedCount((count) => count + 1);
           return;
@@ -240,12 +343,15 @@ export default function App() {
           setFolderError(`Move error: ${result.error}`);
         }
       },
-      onFinished: ({ moved, skipped, failed }) => {
-        setIsExecutingMoves(false);
-        setMoveCompleted(true);
-        setMovedCount(moved);
-        setMoveSkippedCount(skipped);
-        setMoveFailedCount(failed);
+      onFinished: () => {
+        activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
+        if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
+          setIsExecutingMoves(false);
+          setMoveCompleted(true);
+        }
+        queueMicrotask(() => {
+          pumpMoveQueueRef.current();
+        });
       }
     })
       .then((listeners) => {
@@ -430,6 +536,13 @@ export default function App() {
   }, [metadataByFileId, rows, selectedFolder]);
 
   useEffect(() => {
+    enqueueReadyMovePlans();
+    if (executionConfirmed) {
+      pumpMoveQueueRef.current();
+    }
+  }, [enqueueReadyMovePlans, executionConfirmed]);
+
+  useEffect(() => {
     if (!planCompleted || isPlanning || rows.length === 0) {
       return;
     }
@@ -449,7 +562,6 @@ export default function App() {
     lastConfirmationRequestKeyRef.current = requestKey;
 
     setIsBuildingConfirmation(true);
-    setExecutionConfirmed(false);
     void getMoveConfirmationSummary(rows, Object.values(metadataByFileId), plans)
       .then((summary) => {
         setConfirmationSummary(summary);
@@ -464,7 +576,7 @@ export default function App() {
   }, [isPlanning, metadataByFileId, movePlansByFileId, planCompleted, rows]);
 
   const handleConfirmExecution = () => {
-    if (!confirmationSummary || pendingExecutableCount === 0 || isExecutingMoves) {
+    if (!confirmationSummary || pendingExecutableCount === 0 || executionConfirmed) {
       return;
     }
 
@@ -476,6 +588,18 @@ export default function App() {
       "Proceed with move execution now?";
 
     if (window.confirm(message)) {
+      if (!selectedFolder) {
+        setFolderError("No selected folder for move execution.");
+        return;
+      }
+
+      queuedMoveIdsRef.current = new Set();
+      moveQueueRef.current = [];
+      inflightMoveIdsRef.current = new Set();
+      completedMoveIdsRef.current = new Set();
+      trackedMoveIdsRef.current = new Set();
+      activeMoveRequestsRef.current = 0;
+
       setExecutionConfirmed(true);
       setIsExecutingMoves(true);
       setMoveCompleted(false);
@@ -483,20 +607,15 @@ export default function App() {
       setMoveSkippedCount(0);
       setMoveFailedCount(0);
       setMoveResultsByFileId({});
-      if (!selectedFolder) {
-        setIsExecutingMoves(false);
-        setFolderError("No selected folder for move execution.");
-        return;
+      for (const plan of Object.values(movePlansByFileId)) {
+        if (plan.plan_status !== "ready") {
+          continue;
+        }
+        trackedMoveIdsRef.current.add(plan.file_id);
+        queuedMoveIdsRef.current.add(plan.file_id);
+        moveQueueRef.current.push(plan.file_id);
       }
-      void executeMovePlan(
-        selectedFolder,
-        rows,
-        Object.values(metadataByFileId),
-        Object.values(movePlansByFileId)
-      ).catch((error: unknown) => {
-        setIsExecutingMoves(false);
-        setFolderError(`Failed to execute move plan: ${String(error)}`);
-      });
+      pumpMoveQueueRef.current();
     }
   };
 
@@ -542,12 +661,17 @@ export default function App() {
               !confirmationSummary ||
               pendingExecutableCount === 0 ||
               isBuildingConfirmation ||
-              isExecutingMoves
+              isExecutingMoves ||
+              executionConfirmed
             }
             onClick={handleConfirmExecution}
             type="button"
           >
-            {isExecutingMoves ? "Executing..." : "Confirm & Execute"}
+            {executionConfirmed
+              ? "Execution Requested"
+              : isExecutingMoves
+                ? "Executing..."
+                : "Confirm & Execute"}
           </button>
         </div>
         {executionConfirmed ? (
