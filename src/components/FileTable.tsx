@@ -29,12 +29,12 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
 };
 
 const COLUMNS = [
-  { key: "status", label: "Status", defaultWidth: 180, minWidth: 140 },
   { key: "source", label: "Source File", defaultWidth: 420, minWidth: 280 },
+  { key: "destination", label: "Destination", defaultWidth: 420, minWidth: 280 },
+  { key: "status", label: "Status", defaultWidth: 180, minWidth: 140 },
   { key: "kind", label: "Kind", defaultWidth: 110, minWidth: 90 },
   { key: "originalName", label: "Original Name", defaultWidth: 170, minWidth: 130 },
   { key: "metadataDate", label: "Metadata Date", defaultWidth: 170, minWidth: 130 },
-  { key: "destination", label: "Destination", defaultWidth: 420, minWidth: 280 },
   { key: "notes", label: "Notes", defaultWidth: 190, minWidth: 140 }
 ] as const;
 
@@ -149,7 +149,10 @@ export function FileTable({
             ))}
           </div>
 
-          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div
+            ref={parentRef}
+            className="min-h-0 flex-1 overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable]"
+          >
             <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const row = rows[virtualRow.index];
@@ -185,11 +188,17 @@ export function FileTable({
                       height: `${virtualRow.size}px`
                     }}
                   >
-                    <div className="truncate px-3 py-2" title={statusLabel}>
-                      {statusLabel}
-                    </div>
                     <div className="truncate px-3 py-2 font-mono text-xs" title={row.relative_path}>
                       {row.relative_path}
+                    </div>
+                    <div
+                      className="truncate px-3 py-2 font-mono text-xs text-slate-300"
+                      title={destinationLabel}
+                    >
+                      {relativeDestinationLabel}
+                    </div>
+                    <div className="truncate px-3 py-2" title={statusLabel}>
+                      {statusLabel}
                     </div>
                     <div className="truncate px-3 py-2" title={row.kind}>
                       {row.kind}
@@ -199,12 +208,6 @@ export function FileTable({
                     </div>
                     <div className="truncate px-3 py-2" title={metadataDateLabel}>
                       {metadataDateLabel}
-                    </div>
-                    <div
-                      className="truncate px-3 py-2 font-mono text-xs text-slate-300"
-                      title={destinationLabel}
-                    >
-                      {relativeDestinationLabel}
                     </div>
                     <div className="truncate px-3 py-2" title={notesLabel}>
                       {notesLabel}
