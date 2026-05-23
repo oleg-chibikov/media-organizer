@@ -65,6 +65,7 @@ export default function App() {
   );
   const [isBuildingConfirmation, setIsBuildingConfirmation] = useState(false);
   const [executionConfirmed, setExecutionConfirmed] = useState(false);
+  const [isMoveDispatchPaused, setIsMoveDispatchPaused] = useState(false);
   const [isExecutingMoves, setIsExecutingMoves] = useState(false);
   const [moveCompleted, setMoveCompleted] = useState(false);
   const [movedCount, setMovedCount] = useState(0);
@@ -159,7 +160,7 @@ export default function App() {
   }, [movePlansByFileId, moveResultsByFileId]);
 
   const pumpMoveQueue = useCallback(() => {
-    if (!executionConfirmed || !selectedFolder) {
+    if (!executionConfirmed || !selectedFolder || isMoveDispatchPaused) {
       return;
     }
 
@@ -207,7 +208,13 @@ export default function App() {
         });
       });
     }
-  }, [executionConfirmed, metadataByFileId, movePlansByFileId, selectedFolder]);
+  }, [
+    executionConfirmed,
+    isMoveDispatchPaused,
+    metadataByFileId,
+    movePlansByFileId,
+    selectedFolder
+  ]);
 
   useEffect(() => {
     pumpMoveQueueRef.current = pumpMoveQueue;
@@ -247,6 +254,7 @@ export default function App() {
         setConfirmationSummary(null);
         setIsBuildingConfirmation(false);
         setExecutionConfirmed(false);
+        setIsMoveDispatchPaused(false);
         setIsExecutingMoves(false);
         setMoveCompleted(false);
         setMovedCount(0);
@@ -601,6 +609,7 @@ export default function App() {
       activeMoveRequestsRef.current = 0;
 
       setExecutionConfirmed(true);
+      setIsMoveDispatchPaused(false);
       setIsExecutingMoves(true);
       setMoveCompleted(false);
       setMovedCount(0);
@@ -617,6 +626,22 @@ export default function App() {
       }
       pumpMoveQueueRef.current();
     }
+  };
+
+  const handleToggleMoveDispatchPause = () => {
+    if (!executionConfirmed || moveCompleted) {
+      return;
+    }
+
+    setIsMoveDispatchPaused((previous) => {
+      const next = !previous;
+      if (!next) {
+        queueMicrotask(() => {
+          pumpMoveQueueRef.current();
+        });
+      }
+      return next;
+    });
   };
 
   return (
@@ -673,9 +698,21 @@ export default function App() {
                 ? "Executing..."
                 : "Confirm & Execute"}
           </button>
+          <button
+            className="rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-600 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+            disabled={!executionConfirmed || moveCompleted}
+            onClick={handleToggleMoveDispatchPause}
+            type="button"
+          >
+            {isMoveDispatchPaused ? "Resume Dispatch" : "Pause Dispatch"}
+          </button>
         </div>
         {executionConfirmed ? (
-          <p className="mt-1 text-emerald-400">Execution explicitly confirmed.</p>
+          <p className={`mt-1 ${isMoveDispatchPaused ? "text-amber-400" : "text-emerald-400"}`}>
+            {isMoveDispatchPaused
+              ? "Move dispatch paused. In-flight jobs may still complete."
+              : "Execution explicitly confirmed."}
+          </p>
         ) : null}
       </section>
 
