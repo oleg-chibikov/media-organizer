@@ -1,6 +1,12 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  flexRender,
+  getCoreRowModel,
+  type ColumnDef,
+  type ColumnSizingState,
+  useReactTable
+} from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
 interface FileTableProps {
@@ -40,18 +46,22 @@ const COLUMNS = [
 
 type ColumnKey = (typeof COLUMNS)[number]["key"];
 
+interface CellData {
+  value: string;
+  title: string;
+  className: string;
+}
+
+type TableRowData = {
+  id: string;
+} & Record<ColumnKey, CellData>;
+
 const COLUMN_HORIZONTAL_PADDING = 28;
 const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
 const MONO_COLUMN_KEYS = new Set<ColumnKey>(["source", "destination"]);
-
-interface ActiveResize {
-  columnKey: ColumnKey;
-  startX: number;
-  startWidth: number;
-}
 
 export function FileTable({
   rows,
@@ -61,49 +71,104 @@ export function FileTable({
   selectedFolder
 }: FileTableProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
-  const activeResizeRef = useRef<ActiveResize | null>(null);
   const manuallyResizedColumnsRef = useRef<Set<ColumnKey>>(new Set());
-  const [columnWidths, setColumnWidths] = useState<Record<ColumnKey, number>>(() => {
-    const initial: Record<ColumnKey, number> = {
-      source: COLUMN_HORIZONTAL_PADDING,
-      destination: COLUMN_HORIZONTAL_PADDING,
-      status: COLUMN_HORIZONTAL_PADDING,
-      kind: COLUMN_HORIZONTAL_PADDING,
-      originalName: COLUMN_HORIZONTAL_PADDING,
-      metadataDate: COLUMN_HORIZONTAL_PADDING,
-      notes: COLUMN_HORIZONTAL_PADDING
-    };
-    return initial;
-  });
-  const gridTemplateColumns = useMemo(
-    () => COLUMNS.map((column) => `${columnWidths[column.key]}px`).join(" "),
-    [columnWidths]
-  );
-  const tableMinWidth = useMemo(
-    () => COLUMNS.reduce((total, column) => total + columnWidths[column.key], 0),
-    [columnWidths]
+
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() =>
+    COLUMNS.reduce<ColumnSizingState>((accumulator, column) => {
+      accumulator[column.key] = COLUMN_HORIZONTAL_PADDING;
+      return accumulator;
+    }, {})
   );
 
+  const tableRows = useMemo<TableRowData[]>(
+    () =>
+      rows.map((row) => {
+        const metadata = metadataByFileId[row.id];
+        const movePlan = movePlansByFileId[row.id];
+        const moveResult = moveResultsByFileId[row.id];
+
+        return {
+          id: row.id,
+          source: resolveColumnData("source", row, metadata, movePlan, moveResult, selectedFolder),
+          destination: resolveColumnData(
+            "destination",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            selectedFolder
+          ),
+          status: resolveColumnData("status", row, metadata, movePlan, moveResult, selectedFolder),
+          kind: resolveColumnData("kind", row, metadata, movePlan, moveResult, selectedFolder),
+          originalName: resolveColumnData(
+            "originalName",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            selectedFolder
+          ),
+          metadataDate: resolveColumnData(
+            "metadataDate",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            selectedFolder
+          ),
+          notes: resolveColumnData("notes", row, metadata, movePlan, moveResult, selectedFolder)
+        };
+      }),
+    [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, selectedFolder]
+  );
+
+  const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
+    () =>
+      COLUMNS.map((column) => ({
+        id: column.key,
+        header: column.label,
+        accessorKey: column.key,
+        minSize: MIN_COLUMN_WIDTH,
+        cell: (context) => {
+          const data = context.getValue() as CellData;
+          return (
+            <div className={data.className} title={data.title}>
+              {data.value}
+            </div>
+          );
+        }
+      })),
+    []
+  );
+
+  const table = useReactTable({
+    data: tableRows,
+    columns: tableColumns,
+    getCoreRowModel: getCoreRowModel(),
+    columnResizeMode: "onChange",
+    enableColumnResizing: true,
+    state: { columnSizing },
+    onColumnSizingChange: setColumnSizing
+  });
+
+  const gridTemplateColumns = table
+    .getVisibleLeafColumns()
+    .map((column) => `${column.getSize()}px`)
+    .join(" ");
+
+  const tableMinWidth = table.getTotalSize();
+
   const rowVirtualizer = useVirtualizer({
-    count: rows.length,
+    count: tableRows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 38,
     overscan: 20
   });
 
-  const handleResizeStart = useCallback(
-    (columnKey: ColumnKey) => (event: ReactPointerEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      activeResizeRef.current = {
-        columnKey,
-        startX: event.clientX,
-        startWidth: columnWidths[columnKey]
-      };
-      manuallyResizedColumnsRef.current.add(columnKey);
-      document.body.classList.add("cursor-col-resize", "select-none");
-    },
-    [columnWidths]
-  );
+  const markColumnAsResized = useCallback((columnKey: ColumnKey) => {
+    manuallyResizedColumnsRef.current.add(columnKey);
+    document.body.classList.add("cursor-col-resize", "select-none");
+  }, []);
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -133,28 +198,21 @@ export function FileTable({
 
     COLUMNS.forEach((column) => {
       const headerWidth = measureWidth(column.label, BODY_CELL_FONT);
-      const cellMaxWidth = rows.reduce((maxWidth, row) => {
-        const data = resolveColumnData(
-          column.key,
-          row,
-          metadataByFileId[row.id],
-          movePlansByFileId[row.id],
-          moveResultsByFileId[row.id],
-          selectedFolder
-        );
+      const cellMaxWidth = tableRows.reduce((maxWidth, row) => {
         const font = MONO_COLUMN_KEYS.has(column.key) ? MONO_CELL_FONT : BODY_CELL_FONT;
-        return Math.max(maxWidth, measureWidth(data.value, font));
+        return Math.max(maxWidth, measureWidth(row[column.key].value, font));
       }, 0);
 
       desiredWidths[column.key] = Math.max(
+        MIN_COLUMN_WIDTH,
         headerWidth + COLUMN_HORIZONTAL_PADDING,
         cellMaxWidth + COLUMN_HORIZONTAL_PADDING
       );
     });
 
-    setColumnWidths((previous) => {
+    setColumnSizing((previous) => {
       let changed = false;
-      const next = { ...previous };
+      const next: ColumnSizingState = { ...previous };
 
       for (const column of COLUMNS) {
         if (manuallyResizedColumnsRef.current.has(column.key)) {
@@ -170,45 +228,16 @@ export function FileTable({
 
       return changed ? next : previous;
     });
-  }, [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, selectedFolder]);
+  }, [rows.length, tableRows]);
 
   useEffect(() => {
-    const handlePointerMove = (event: PointerEvent) => {
-      const activeResize = activeResizeRef.current;
-      if (!activeResize) {
-        return;
-      }
-
-      const nextWidth = Math.max(
-        MIN_COLUMN_WIDTH,
-        activeResize.startWidth + (event.clientX - activeResize.startX)
-      );
-
-      setColumnWidths((previous) => {
-        if (previous[activeResize.columnKey] === nextWidth) {
-          return previous;
-        }
-
-        const next = { ...previous };
-        next[activeResize.columnKey] = nextWidth;
-        return next;
-      });
-    };
-
     const stopResizing = () => {
-      if (!activeResizeRef.current) {
-        return;
-      }
-
-      activeResizeRef.current = null;
       document.body.classList.remove("cursor-col-resize", "select-none");
     };
 
-    window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", stopResizing);
 
     return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", stopResizing);
       document.body.classList.remove("cursor-col-resize", "select-none");
     };
@@ -222,17 +251,30 @@ export function FileTable({
             className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
             style={{ gridTemplateColumns }}
           >
-            {COLUMNS.map((column) => (
-              <div key={column.key} className="relative px-3 py-2">
-                <span className="truncate">{column.label}</span>
-                <button
-                  type="button"
-                  aria-label={`Resize ${column.label} column`}
-                  className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
-                  onPointerDown={handleResizeStart(column.key)}
-                />
-              </div>
-            ))}
+            {table.getHeaderGroups().map((headerGroup) =>
+              headerGroup.headers.map((header) => (
+                <div key={header.id} className="relative px-3 py-2">
+                  <span className="truncate">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={`Resize ${String(header.column.columnDef.header)} column`}
+                    className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
+                    onMouseDown={(event) => {
+                      markColumnAsResized(header.column.id as ColumnKey);
+                      header.getResizeHandler()(event);
+                    }}
+                    onTouchStart={(event) => {
+                      markColumnAsResized(header.column.id as ColumnKey);
+                      header.getResizeHandler()(event);
+                    }}
+                  />
+                </div>
+              ))
+            )}
           </div>
 
           <div
@@ -241,11 +283,11 @@ export function FileTable({
           >
             <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const row = rows[virtualRow.index];
-                const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
-                const metadata = metadataByFileId[row.id];
-                const movePlan = movePlansByFileId[row.id];
-                const moveResult = moveResultsByFileId[row.id];
+                const row = table.getRowModel().rows[virtualRow.index];
+                const sourceRecord = rows[virtualRow.index];
+                const metadata = metadataByFileId[sourceRecord.id];
+                const moveResult = moveResultsByFileId[sourceRecord.id];
+                const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
                 const isFallbackWarning = metadata?.date_kind === "fallback";
                 const isMoved = moveResult?.result_status === "moved";
                 const isMoveError =
@@ -261,26 +303,11 @@ export function FileTable({
                       height: `${virtualRow.size}px`
                     }}
                   >
-                    {COLUMNS.map((column) => {
-                      const data = resolveColumnData(
-                        column.key,
-                        row,
-                        metadata,
-                        movePlan,
-                        moveResult,
-                        selectedFolder
-                      );
-
-                      return (
-                        <div
-                          key={`${row.id}-${column.key}`}
-                          className={data.className}
-                          title={data.title}
-                        >
-                          {data.value}
-                        </div>
-                      );
-                    })}
+                    {row.getVisibleCells().map((cell) => (
+                      <div key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </div>
+                    ))}
                   </div>
                 );
               })}
