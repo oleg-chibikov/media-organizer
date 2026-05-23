@@ -156,6 +156,36 @@ export default function App() {
     };
   }, [metadataByFileId, movePlansByFileId, rows]);
 
+  const requestMovePlanForMetadata = useCallback(
+    (row: FileRecord, metadata: MetadataResult) => {
+      if (!selectedFolder || (row.kind !== "photo" && row.kind !== "video")) {
+        return;
+      }
+
+      const nextSignature = metadataPlanningSignature(metadata);
+      const previousSignature = plannedMetadataSignatureByFileIdRef.current.get(row.id);
+      if (previousSignature === nextSignature) {
+        return;
+      }
+
+      plannedMetadataSignatureByFileIdRef.current.set(row.id, nextSignature);
+      activePlanRequestsRef.current += 1;
+      setActivePlanRequests(activePlanRequestsRef.current);
+
+      void createMovePlan(selectedFolder, [row], [metadata]).catch((error: unknown) => {
+        activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
+        setActivePlanRequests(activePlanRequestsRef.current);
+        if (previousSignature === undefined) {
+          plannedMetadataSignatureByFileIdRef.current.delete(row.id);
+        } else {
+          plannedMetadataSignatureByFileIdRef.current.set(row.id, previousSignature);
+        }
+        setFolderError(`Failed to create move plan: ${String(error)}`);
+      });
+    },
+    [selectedFolder]
+  );
+
   const pumpMetadataQueue = useCallback(() => {
     while (
       activeMetadataRequestsRef.current < METADATA_CONCURRENCY &&
@@ -179,6 +209,7 @@ export default function App() {
       void readMetadataForFile(row.id, row.source_path, row.kind)
         .then((result) => {
           setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+          requestMovePlanForMetadata(row, result);
           if (result.metadata_status === "error" && result.error) {
             setFolderError(result.error);
           }
@@ -192,7 +223,7 @@ export default function App() {
           pumpMetadataQueueRef.current();
         });
     }
-  }, []);
+  }, [requestMovePlanForMetadata]);
 
   useEffect(() => {
     pumpMetadataQueueRef.current = pumpMetadataQueue;
@@ -540,58 +571,6 @@ export default function App() {
       setFolderError(`Failed to cancel scan: ${String(error)}`);
     }
   };
-
-  useEffect(() => {
-    if (!selectedFolder || rows.length === 0) {
-      return;
-    }
-
-    const filesToPlan: FileRecord[] = [];
-    const metadataToPlan: MetadataResult[] = [];
-    const previousSignatures = new Map<string, string | undefined>();
-
-    for (const row of rows) {
-      if (row.kind !== "photo" && row.kind !== "video") {
-        continue;
-      }
-
-      const metadata = metadataByFileId[row.id];
-      if (!metadata) {
-        continue;
-      }
-
-      const nextSignature = metadataPlanningSignature(metadata);
-      const previousSignature = plannedMetadataSignatureByFileIdRef.current.get(row.id);
-      if (previousSignature === nextSignature) {
-        continue;
-      }
-
-      previousSignatures.set(row.id, previousSignature);
-      plannedMetadataSignatureByFileIdRef.current.set(row.id, nextSignature);
-      filesToPlan.push(row);
-      metadataToPlan.push(metadata);
-    }
-
-    if (filesToPlan.length === 0) {
-      return;
-    }
-
-    activePlanRequestsRef.current += 1;
-    setActivePlanRequests(activePlanRequestsRef.current);
-
-    void createMovePlan(selectedFolder, filesToPlan, metadataToPlan).catch((error: unknown) => {
-      activePlanRequestsRef.current = Math.max(0, activePlanRequestsRef.current - 1);
-      setActivePlanRequests(activePlanRequestsRef.current);
-      for (const [fileId, previousSignature] of previousSignatures) {
-        if (previousSignature === undefined) {
-          plannedMetadataSignatureByFileIdRef.current.delete(fileId);
-        } else {
-          plannedMetadataSignatureByFileIdRef.current.set(fileId, previousSignature);
-        }
-      }
-      setFolderError(`Failed to create move plan: ${String(error)}`);
-    });
-  }, [metadataByFileId, rows, selectedFolder]);
 
   useEffect(() => {
     enqueueReadyMovePlans();
