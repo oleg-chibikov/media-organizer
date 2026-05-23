@@ -105,13 +105,13 @@
 
 ## Phase 10: Persistent ExifTool Worker
 
-- [ ] T070 Implement persistent `-stay_open` ExifTool worker after one-shot metadata is stable.
-- [ ] T071 Add request/response framing.
-- [ ] T072 Add per-request timeout.
-- [ ] T073 Add worker process watchdog.
-- [ ] T074 Add crash detection and restart behavior.
-- [ ] T075 Add bounded metadata queue and configurable concurrency.
-- [ ] T076 Verify metadata rows update lazily while the UI remains responsive.
+- [x] T070 Implement persistent `-stay_open` ExifTool worker after one-shot metadata is stable.
+- [x] T071 Add request/response framing.
+- [x] T072 Add per-request timeout.
+- [x] T073 Add worker process watchdog.
+- [x] T074 Add crash detection and restart behavior.
+- [x] T075 Add bounded metadata queue and configurable concurrency.
+- [x] T076 Verify metadata rows update lazily while the UI remains responsive.
 
 ## Phase 11: Safe Move Execution
 

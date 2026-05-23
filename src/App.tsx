@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
@@ -13,6 +13,9 @@ import {
   startScan
 } from "./lib/api";
 import type { FileRecord, MetadataResult, MovePlan, ScanFinishedEvent } from "./lib/types";
+
+const METADATA_CONCURRENCY = 2;
+const METADATA_QUEUE_CAPACITY = 256;
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -38,9 +41,59 @@ export default function App() {
   const [isPlanning, setIsPlanning] = useState(false);
   const [planErrors, setPlanErrors] = useState(0);
   const [planCompleted, setPlanCompleted] = useState(false);
+
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
+  const queuedMetadataIdsRef = useRef<Set<string>>(new Set());
+  const metadataQueueRef = useRef<string[]>([]);
+  const activeMetadataRequestsRef = useRef(0);
+  const rowByIdRef = useRef<Map<string, FileRecord>>(new Map());
+  const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
   const lastPlanRequestKeyRef = useRef<string>("");
+
+  const pumpMetadataQueue = useCallback(() => {
+    while (
+      activeMetadataRequestsRef.current < METADATA_CONCURRENCY &&
+      metadataQueueRef.current.length > 0
+    ) {
+      const nextFileId = metadataQueueRef.current.shift();
+      if (!nextFileId) {
+        break;
+      }
+
+      queuedMetadataIdsRef.current.delete(nextFileId);
+      const row = rowByIdRef.current.get(nextFileId);
+      if (!row) {
+        continue;
+      }
+
+      activeMetadataRequestsRef.current += 1;
+      setIsLoadingMetadata(true);
+      requestedMetadataIdsRef.current.add(nextFileId);
+
+      void readMetadataForFile(row.id, row.source_path, row.kind)
+        .then((result) => {
+          setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+          if (result.metadata_status === "error" && result.error) {
+            setFolderError(result.error);
+          }
+        })
+        .catch((error: unknown) => {
+          setFolderError(`Failed to read metadata: ${String(error)}`);
+        })
+        .finally(() => {
+          activeMetadataRequestsRef.current -= 1;
+          if (activeMetadataRequestsRef.current === 0 && metadataQueueRef.current.length === 0) {
+            setIsLoadingMetadata(false);
+          }
+          pumpMetadataQueueRef.current();
+        });
+    }
+  }, []);
+
+  useEffect(() => {
+    pumpMetadataQueueRef.current = pumpMetadataQueue;
+  }, [pumpMetadataQueue]);
 
   useEffect(() => {
     let ignore = false;
@@ -75,7 +128,11 @@ export default function App() {
         setPlanCompleted(false);
         lastPlanRequestKeyRef.current = "";
         requestedMetadataIdsRef.current = new Set();
+        queuedMetadataIdsRef.current = new Set();
+        metadataQueueRef.current = [];
+        activeMetadataRequestsRef.current = 0;
         seenRowIdsRef.current = new Set();
+        rowByIdRef.current = new Map();
         setRows([]);
       },
       onFile: ({ record }) => {
@@ -165,6 +222,40 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    rowByIdRef.current = new Map(rows.map((row) => [row.id, row]));
+
+    for (const row of rows) {
+      if (row.kind !== "photo" && row.kind !== "video") {
+        continue;
+      }
+
+      if (metadataByFileId[row.id]) {
+        continue;
+      }
+
+      if (requestedMetadataIdsRef.current.has(row.id) || queuedMetadataIdsRef.current.has(row.id)) {
+        continue;
+      }
+
+      if (metadataQueueRef.current.length >= METADATA_QUEUE_CAPACITY) {
+        setFolderError(
+          `Metadata queue reached capacity (${METADATA_QUEUE_CAPACITY}). Remaining files will wait.`
+        );
+        break;
+      }
+
+      metadataQueueRef.current.push(row.id);
+      queuedMetadataIdsRef.current.add(row.id);
+    }
+
+    if (metadataQueueRef.current.length > 0 || activeMetadataRequestsRef.current > 0) {
+      setIsLoadingMetadata(true);
+    }
+
+    pumpMetadataQueue();
+  }, [metadataByFileId, pumpMetadataQueue, rows]);
+
   const handleChooseFolder = async () => {
     try {
       const chosen = await chooseFolder();
@@ -192,39 +283,6 @@ export default function App() {
       setFolderError(`Failed to cancel scan: ${String(error)}`);
     }
   };
-
-  const loadMetadataForRow = async (row: FileRecord) => {
-    setIsLoadingMetadata(true);
-    try {
-      const result = await readMetadataForFile(row.id, row.source_path, row.kind);
-      setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
-      if (result.metadata_status === "error" && result.error) {
-        setFolderError(result.error);
-      }
-    } catch (error) {
-      setFolderError(`Failed to read metadata: ${String(error)}`);
-    } finally {
-      setIsLoadingMetadata(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isScanning || rows.length === 0 || isLoadingMetadata) {
-      return;
-    }
-
-    const firstMediaRow = rows.find(
-      (row) =>
-        (row.kind === "photo" || row.kind === "video") &&
-        !metadataByFileId[row.id] &&
-        !requestedMetadataIdsRef.current.has(row.id)
-    );
-    if (!firstMediaRow) {
-      return;
-    }
-    requestedMetadataIdsRef.current.add(firstMediaRow.id);
-    void loadMetadataForRow(firstMediaRow);
-  }, [isScanning, isLoadingMetadata, metadataByFileId, rows]);
 
   useEffect(() => {
     if (isScanning || isLoadingMetadata || !selectedFolder || rows.length === 0) {

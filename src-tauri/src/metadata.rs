@@ -1,12 +1,27 @@
 use std::{
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::mpsc::{self, Receiver},
+    time::{Duration, Instant},
 };
 
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use tauri::Manager;
 
 use crate::models::{DateKind, FileKind};
+
+pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
+
+const EXIFTOOL_TAGS: [&str; 7] = [
+    "-SubSecDateTimeOriginal",
+    "-DateTimeOriginal",
+    "-CreateDate",
+    "-ModifyDate",
+    "-MediaCreateDate",
+    "-TrackCreateDate",
+    "-FileModifyDate",
+];
 
 #[derive(Debug, Clone)]
 pub struct RawMetadataDates {
@@ -27,38 +42,293 @@ pub struct SelectedMetadataDate {
     pub raw_metadata_date: String,
 }
 
-pub fn read_metadata_with_exiftool(
-    app: &tauri::AppHandle,
-    source_path: &Path,
-) -> Result<RawMetadataDates, String> {
-    let exiftool_path = resolve_exiftool_path(app)?;
-    let output = Command::new(&exiftool_path)
-        .args([
-            "-json",
-            "-SubSecDateTimeOriginal",
-            "-DateTimeOriginal",
-            "-CreateDate",
-            "-ModifyDate",
-            "-MediaCreateDate",
-            "-TrackCreateDate",
-            "-FileModifyDate",
-        ])
-        .arg(source_path)
-        .output()
-        .map_err(|error| format!("Failed to run ExifTool at {:?}: {error}", exiftool_path))?;
+#[derive(Debug, Clone)]
+pub struct MetadataReadOutcome {
+    pub raw_dates: RawMetadataDates,
+    pub did_restart: bool,
+}
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        return Err(if stderr.is_empty() {
-            format!("ExifTool exited with status {}", output.status)
-        } else {
-            format!("ExifTool failed: {stderr}")
-        });
+#[derive(Default)]
+pub struct ExifToolWorkerManager {
+    worker: Option<ExifToolWorker>,
+}
+
+impl ExifToolWorkerManager {
+    pub fn read_metadata(
+        &mut self,
+        app: &tauri::AppHandle,
+        source_path: &Path,
+        timeout: Duration,
+    ) -> Result<MetadataReadOutcome, String> {
+        let mut did_restart = false;
+
+        for attempt in 0..=1 {
+            let had_worker = self.worker.is_some();
+            if self.worker_needs_restart() {
+                self.shutdown_worker();
+                self.worker = Some(ExifToolWorker::start(app)?);
+                if had_worker {
+                    did_restart = true;
+                }
+            }
+
+            let Some(worker) = self.worker.as_mut() else {
+                return Err("ExifTool worker is unavailable.".to_string());
+            };
+
+            match worker.read_metadata(source_path, timeout) {
+                Ok(raw_dates) => {
+                    return Ok(MetadataReadOutcome {
+                        raw_dates,
+                        did_restart,
+                    });
+                }
+                Err(WorkerError::TimedOut(message)) => {
+                    self.shutdown_worker();
+                    return Err(message);
+                }
+                Err(WorkerError::Crashed(message)) => {
+                    self.shutdown_worker();
+                    if attempt == 0 {
+                        did_restart = true;
+                        continue;
+                    }
+                    return Err(message);
+                }
+                Err(WorkerError::Protocol(message)) => {
+                    self.shutdown_worker();
+                    return Err(message);
+                }
+            }
+        }
+
+        Err("ExifTool worker failed after restart attempt.".to_string())
     }
 
-    let stdout = String::from_utf8(output.stdout)
-        .map_err(|error| format!("ExifTool output was not valid UTF-8: {error}"))?;
-    parse_exiftool_json(&stdout)
+    fn worker_needs_restart(&mut self) -> bool {
+        match self.worker.as_mut() {
+            Some(worker) => !worker.is_alive(),
+            None => true,
+        }
+    }
+
+    fn shutdown_worker(&mut self) {
+        if let Some(mut worker) = self.worker.take() {
+            worker.shutdown();
+        }
+    }
+}
+
+enum ReaderEvent {
+    Ready { request_id: u64, payload: String },
+    Exited,
+}
+
+#[derive(Debug)]
+enum WorkerError {
+    TimedOut(String),
+    Crashed(String),
+    Protocol(String),
+}
+
+struct ExifToolWorker {
+    child: Child,
+    stdin: ChildStdin,
+    reader_rx: Receiver<ReaderEvent>,
+    next_request_id: u64,
+}
+
+impl ExifToolWorker {
+    fn start(app: &tauri::AppHandle) -> Result<Self, String> {
+        let exiftool_path = resolve_exiftool_path(app)?;
+
+        let mut child = Command::new(&exiftool_path)
+            .args(["-stay_open", "True", "-@", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| format!("Failed to start ExifTool at {:?}: {error}", exiftool_path))?;
+
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| "Failed to open ExifTool stdin.".to_string())?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| "Failed to open ExifTool stdout.".to_string())?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| "Failed to open ExifTool stderr.".to_string())?;
+
+        let (tx, rx) = mpsc::channel::<ReaderEvent>();
+        std::thread::spawn(move || {
+            let tx_stdout = tx.clone();
+            let mut payload = String::new();
+            for line in BufReader::new(stdout).lines() {
+                match line {
+                    Ok(value) => {
+                        if let Some(request_id) = parse_ready_marker(&value) {
+                            let completed_payload = std::mem::take(&mut payload);
+                            if tx_stdout
+                                .send(ReaderEvent::Ready {
+                                    request_id,
+                                    payload: completed_payload,
+                                })
+                                .is_err()
+                            {
+                                return;
+                            }
+                            continue;
+                        }
+
+                        if !payload.is_empty() {
+                            payload.push('\n');
+                        }
+                        payload.push_str(&value);
+                    }
+                    Err(_) => {
+                        let _ = tx_stdout.send(ReaderEvent::Exited);
+                        return;
+                    }
+                }
+            }
+
+            let _ = tx_stdout.send(ReaderEvent::Exited);
+        });
+
+        std::thread::spawn(move || {
+            let stderr_reader = BufReader::new(stderr);
+            for _ in stderr_reader.lines() {
+                // Drain stderr to avoid pipe backpressure that can block stdout.
+            }
+        });
+
+        Ok(Self {
+            child,
+            stdin,
+            reader_rx: rx,
+            next_request_id: 1,
+        })
+    }
+
+    fn is_alive(&mut self) -> bool {
+        match self.child.try_wait() {
+            Ok(None) => true,
+            Ok(Some(_)) => false,
+            Err(_) => false,
+        }
+    }
+
+    fn read_metadata(
+        &mut self,
+        source_path: &Path,
+        timeout: Duration,
+    ) -> Result<RawMetadataDates, WorkerError> {
+        let request_id = self.next_request_id;
+        self.next_request_id += 1;
+
+        self.send_request(source_path, request_id)?;
+
+        let deadline = Instant::now() + timeout;
+        loop {
+            let now = Instant::now();
+            if now >= deadline {
+                return Err(WorkerError::TimedOut(format!(
+                    "ExifTool request timed out after {}ms for {}",
+                    timeout.as_millis(),
+                    source_path.to_string_lossy()
+                )));
+            }
+
+            let remaining = deadline.saturating_duration_since(now);
+            match self.reader_rx.recv_timeout(remaining) {
+                Ok(ReaderEvent::Ready {
+                    request_id: ready_id,
+                    payload,
+                }) => {
+                    if ready_id != request_id {
+                        return Err(WorkerError::Protocol(format!(
+                            "ExifTool response framing mismatch: expected {request_id}, got {ready_id}."
+                        )));
+                    }
+                    return parse_exiftool_json(&payload).map_err(WorkerError::Protocol);
+                }
+                Ok(ReaderEvent::Exited) => {
+                    return Err(WorkerError::Crashed(
+                        "ExifTool worker exited unexpectedly during metadata request.".to_string(),
+                    ));
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    return Err(WorkerError::TimedOut(format!(
+                        "ExifTool request timed out after {}ms for {}",
+                        timeout.as_millis(),
+                        source_path.to_string_lossy()
+                    )));
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(WorkerError::Crashed(
+                        "ExifTool worker output channel disconnected unexpectedly.".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    fn send_request(&mut self, source_path: &Path, request_id: u64) -> Result<(), WorkerError> {
+        self.stdin.write_all(b"-json\n").map_err(|error| {
+            WorkerError::Crashed(format!("Failed to write ExifTool request: {error}"))
+        })?;
+
+        for tag in EXIFTOOL_TAGS {
+            self.stdin
+                .write_all(format!("{tag}\n").as_bytes())
+                .map_err(|error| {
+                    WorkerError::Crashed(format!("Failed to write ExifTool tag request: {error}"))
+                })?;
+        }
+
+        self.stdin
+            .write_all(format!("{}\n", source_path.to_string_lossy()).as_bytes())
+            .map_err(|error| {
+                WorkerError::Crashed(format!("Failed to write ExifTool source path: {error}"))
+            })?;
+        self.stdin
+            .write_all(format!("-execute{request_id}\n").as_bytes())
+            .map_err(|error| {
+                WorkerError::Crashed(format!("Failed to write ExifTool execute marker: {error}"))
+            })?;
+        self.stdin.flush().map_err(|error| {
+            WorkerError::Crashed(format!("Failed to flush ExifTool stdin: {error}"))
+        })?;
+
+        Ok(())
+    }
+
+    fn shutdown(&mut self) {
+        let _ = self.stdin.write_all(b"-stay_open\nFalse\n");
+        let _ = self.stdin.write_all(b"-execute\n");
+        let _ = self.stdin.flush();
+
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+}
+
+impl Drop for ExifToolWorker {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
+}
+
+fn parse_ready_marker(line: &str) -> Option<u64> {
+    line.strip_prefix("{ready")
+        .and_then(|value| value.strip_suffix('}'))
+        .and_then(|value| value.parse::<u64>().ok())
 }
 
 pub fn parse_exiftool_json(json: &str) -> Result<RawMetadataDates, String> {
