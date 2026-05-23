@@ -3,7 +3,10 @@ use std::{
     process::Command,
 };
 
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use tauri::Manager;
+
+use crate::models::{DateKind, FileKind};
 
 #[derive(Debug, Clone)]
 pub struct RawMetadataDates {
@@ -14,6 +17,14 @@ pub struct RawMetadataDates {
     pub media_create_date: Option<String>,
     pub track_create_date: Option<String>,
     pub file_modify_date: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SelectedMetadataDate {
+    pub chosen_date: String,
+    pub chosen_date_source: String,
+    pub date_kind: DateKind,
+    pub raw_metadata_date: String,
 }
 
 pub fn read_metadata_with_exiftool(
@@ -71,6 +82,137 @@ pub fn parse_exiftool_json(json: &str) -> Result<RawMetadataDates, String> {
     })
 }
 
+pub fn select_metadata_date(
+    file_kind: &FileKind,
+    raw_dates: &RawMetadataDates,
+) -> Result<Option<SelectedMetadataDate>, String> {
+    let mut parse_failures: Vec<String> = Vec::new();
+
+    for (tag, value) in metadata_priority(file_kind, raw_dates) {
+        let Some(raw_value) = value else {
+            continue;
+        };
+
+        if let Some((chosen_date, date_kind)) =
+            parse_metadata_timestamp(raw_value, tag == "FileModifyDate")
+        {
+            return Ok(Some(SelectedMetadataDate {
+                chosen_date,
+                chosen_date_source: tag.to_string(),
+                date_kind,
+                raw_metadata_date: raw_value.to_string(),
+            }));
+        }
+
+        parse_failures.push(format!("{tag}={raw_value}"));
+    }
+
+    if parse_failures.is_empty() {
+        Ok(None)
+    } else {
+        Err(format!(
+            "Could not parse metadata date values in priority order: {}",
+            parse_failures.join(", ")
+        ))
+    }
+}
+
+fn metadata_priority<'a>(
+    file_kind: &FileKind,
+    raw_dates: &'a RawMetadataDates,
+) -> [(&'static str, Option<&'a String>); 5] {
+    match file_kind {
+        FileKind::Photo => [
+            (
+                "SubSecDateTimeOriginal",
+                raw_dates.sub_sec_date_time_original.as_ref(),
+            ),
+            ("DateTimeOriginal", raw_dates.date_time_original.as_ref()),
+            ("CreateDate", raw_dates.create_date.as_ref()),
+            ("ModifyDate", raw_dates.modify_date.as_ref()),
+            ("FileModifyDate", raw_dates.file_modify_date.as_ref()),
+        ],
+        FileKind::Video => [
+            ("MediaCreateDate", raw_dates.media_create_date.as_ref()),
+            ("TrackCreateDate", raw_dates.track_create_date.as_ref()),
+            ("CreateDate", raw_dates.create_date.as_ref()),
+            ("ModifyDate", raw_dates.modify_date.as_ref()),
+            ("FileModifyDate", raw_dates.file_modify_date.as_ref()),
+        ],
+        _ => [
+            ("CreateDate", raw_dates.create_date.as_ref()),
+            ("ModifyDate", raw_dates.modify_date.as_ref()),
+            ("FileModifyDate", raw_dates.file_modify_date.as_ref()),
+            ("DateTimeOriginal", raw_dates.date_time_original.as_ref()),
+            ("MediaCreateDate", raw_dates.media_create_date.as_ref()),
+        ],
+    }
+}
+
+fn parse_metadata_timestamp(raw: &str, is_fallback: bool) -> Option<(String, DateKind)> {
+    if let Some(local) = parse_timezone_aware_to_local(raw) {
+        let kind = if is_fallback {
+            DateKind::Fallback
+        } else {
+            DateKind::TimezoneAware
+        };
+        return Some((local.format("%Y-%m-%d %H:%M:%S").to_string(), kind));
+    }
+
+    if let Some(local_naive) = parse_timezone_unknown_as_local(raw) {
+        let kind = if is_fallback {
+            DateKind::Fallback
+        } else {
+            DateKind::TimezoneUnknown
+        };
+        return Some((local_naive.format("%Y-%m-%d %H:%M:%S").to_string(), kind));
+    }
+
+    None
+}
+
+fn parse_timezone_aware_to_local(raw: &str) -> Option<DateTime<Local>> {
+    let candidates = [
+        "%Y:%m:%d %H:%M:%S%.f%:z",
+        "%Y:%m:%d %H:%M:%S%:z",
+        "%Y:%m:%d %H:%M:%S%.f%z",
+        "%Y:%m:%d %H:%M:%S%z",
+    ];
+
+    for format in candidates {
+        if let Ok(parsed) = DateTime::parse_from_str(raw, format) {
+            return Some(parsed.with_timezone(&Local));
+        }
+    }
+
+    if let Some(stripped) = raw.strip_suffix('Z') {
+        let normalized = format!("{stripped}+00:00");
+        for format in ["%Y:%m:%d %H:%M:%S%.f%:z", "%Y:%m:%d %H:%M:%S%:z"] {
+            if let Ok(parsed) = DateTime::parse_from_str(&normalized, format) {
+                return Some(parsed.with_timezone(&Local));
+            }
+        }
+    }
+
+    None
+}
+
+fn parse_timezone_unknown_as_local(raw: &str) -> Option<NaiveDateTime> {
+    let candidates = ["%Y:%m:%d %H:%M:%S%.f", "%Y:%m:%d %H:%M:%S"];
+
+    for format in candidates {
+        if let Ok(naive) = NaiveDateTime::parse_from_str(raw, format) {
+            return match Local.from_local_datetime(&naive) {
+                chrono::LocalResult::Single(value) => Some(value.naive_local()),
+                chrono::LocalResult::Ambiguous(first, _) => Some(first.naive_local()),
+                chrono::LocalResult::None => None,
+            };
+        }
+    }
+
+    None
+}
+
 fn read_tag(
     object: &serde_json::Map<String, serde_json::Value>,
     key: &str,
@@ -124,7 +266,8 @@ fn resolve_exiftool_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_exiftool_json;
+    use super::{parse_exiftool_json, select_metadata_date, RawMetadataDates};
+    use crate::models::{DateKind, FileKind};
 
     #[test]
     fn parses_known_exiftool_fields() {
@@ -151,5 +294,86 @@ mod tests {
     fn rejects_empty_json_payload() {
         let result = parse_exiftool_json("[]");
         assert!(result.is_err());
+    }
+
+    fn empty_raw_dates() -> RawMetadataDates {
+        RawMetadataDates {
+            sub_sec_date_time_original: None,
+            date_time_original: None,
+            create_date: None,
+            modify_date: None,
+            media_create_date: None,
+            track_create_date: None,
+            file_modify_date: None,
+        }
+    }
+
+    #[test]
+    fn chooses_photo_priority_order() {
+        let mut raw = empty_raw_dates();
+        raw.date_time_original = Some("2026:03:05 07:20:17".to_string());
+        raw.create_date = Some("2024:01:01 01:02:03".to_string());
+
+        let selected = select_metadata_date(&FileKind::Photo, &raw)
+            .expect("selection should succeed")
+            .expect("a date should be selected");
+
+        assert_eq!(selected.chosen_date_source, "DateTimeOriginal");
+        assert!(matches!(selected.date_kind, DateKind::TimezoneUnknown));
+        assert_eq!(selected.raw_metadata_date, "2026:03:05 07:20:17");
+    }
+
+    #[test]
+    fn chooses_video_priority_order() {
+        let mut raw = empty_raw_dates();
+        raw.track_create_date = Some("2026:03:05 07:20:17".to_string());
+        raw.create_date = Some("2025:01:01 00:00:00".to_string());
+
+        let selected = select_metadata_date(&FileKind::Video, &raw)
+            .expect("selection should succeed")
+            .expect("a date should be selected");
+
+        assert_eq!(selected.chosen_date_source, "TrackCreateDate");
+        assert!(matches!(selected.date_kind, DateKind::TimezoneUnknown));
+    }
+
+    #[test]
+    fn marks_file_modify_date_as_fallback() {
+        let mut raw = empty_raw_dates();
+        raw.file_modify_date = Some("2026:03:05 07:20:17".to_string());
+
+        let selected = select_metadata_date(&FileKind::Photo, &raw)
+            .expect("selection should succeed")
+            .expect("a date should be selected");
+
+        assert_eq!(selected.chosen_date_source, "FileModifyDate");
+        assert!(matches!(selected.date_kind, DateKind::Fallback));
+    }
+
+    #[test]
+    fn parses_timezone_aware_dates() {
+        let mut raw = empty_raw_dates();
+        raw.sub_sec_date_time_original = Some("2026:03:05 07:20:17.616+11:00".to_string());
+
+        let selected = select_metadata_date(&FileKind::Photo, &raw)
+            .expect("selection should succeed")
+            .expect("a date should be selected");
+
+        assert_eq!(selected.chosen_date_source, "SubSecDateTimeOriginal");
+        assert!(matches!(selected.date_kind, DateKind::TimezoneAware));
+        assert!(selected.chosen_date.starts_with("2026-03-05 07:20:17"));
+    }
+
+    #[test]
+    fn parses_timezone_less_dates_as_local_wall_time() {
+        let mut raw = empty_raw_dates();
+        raw.create_date = Some("2026:03:05 07:20:17".to_string());
+
+        let selected = select_metadata_date(&FileKind::Photo, &raw)
+            .expect("selection should succeed")
+            .expect("a date should be selected");
+
+        assert_eq!(selected.chosen_date, "2026-03-05 07:20:17");
+        assert!(matches!(selected.date_kind, DateKind::TimezoneUnknown));
     }
 }

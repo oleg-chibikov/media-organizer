@@ -30,9 +30,9 @@ export function FileTable({ rows, metadataByFileId }: FileTableProps) {
         <div className="px-3 py-2">Source File</div>
         <div className="px-3 py-2">Kind</div>
         <div className="px-3 py-2">Original Name</div>
-        <div className="px-3 py-2">Metadata Date</div>
-        <div className="px-3 py-2">Destination</div>
-        <div className="px-3 py-2">Issue</div>
+        <div className="px-3 py-2">Chosen Date</div>
+        <div className="px-3 py-2">Date Source</div>
+        <div className="px-3 py-2">Date Kind / Issue</div>
       </div>
 
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
@@ -45,12 +45,15 @@ export function FileTable({ rows, metadataByFileId }: FileTableProps) {
             const isSkippedUnsupported = row.scan_status === "skipped_unsupported";
             const metadata = metadataByFileId[row.id];
             const metadataDateLabel = metadata
-              ? metadata.raw_metadata_date ?? "No metadata date"
+              ? metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date"
+              : "pending";
+            const dateSourceLabel = metadata
+              ? metadata.chosen_date_source ?? "-"
               : "pending";
             const issueLabel = metadata
               ? metadata.metadata_status === "error"
                 ? metadata.error ?? "Metadata error"
-                : metadata.chosen_date_source ?? "-"
+                : metadata.date_kind ?? "-"
               : "-";
 
             return (
@@ -69,7 +72,7 @@ export function FileTable({ rows, metadataByFileId }: FileTableProps) {
                 <div className="truncate px-3 py-2">{row.kind}</div>
                 <div className="truncate px-3 py-2">{row.original_name}</div>
                 <div className="truncate px-3 py-2">{metadataDateLabel}</div>
-                <div className="truncate px-3 py-2 text-slate-500">pending</div>
+                <div className="truncate px-3 py-2 text-slate-500">{dateSourceLabel}</div>
                 <div className="truncate px-3 py-2">{issueLabel}</div>
               </div>
             );

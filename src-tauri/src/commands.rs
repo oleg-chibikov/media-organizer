@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     metadata,
-    models::{MetadataResult, MetadataStatus},
+    models::{FileKind, MetadataResult, MetadataStatus},
     scanner,
 };
 use tauri_plugin_dialog::DialogExt;
@@ -77,6 +77,7 @@ pub fn read_metadata_for_file(
     app: tauri::AppHandle,
     file_id: String,
     source_path: String,
+    file_kind: FileKind,
 ) -> Result<MetadataResult, String> {
     let source = PathBuf::from(&source_path);
     if !source.exists() {
@@ -106,25 +107,28 @@ pub fn read_metadata_for_file(
         }
     };
 
-    let detected_raw_date = [
-        ("SubSecDateTimeOriginal", raw_dates.sub_sec_date_time_original.as_ref()),
-        ("DateTimeOriginal", raw_dates.date_time_original.as_ref()),
-        ("CreateDate", raw_dates.create_date.as_ref()),
-        ("ModifyDate", raw_dates.modify_date.as_ref()),
-        ("MediaCreateDate", raw_dates.media_create_date.as_ref()),
-        ("TrackCreateDate", raw_dates.track_create_date.as_ref()),
-        ("FileModifyDate", raw_dates.file_modify_date.as_ref()),
-    ]
-    .into_iter()
-    .find_map(|(tag, value)| value.map(|raw| (tag.to_string(), raw.to_string())));
+    let selection = match metadata::select_metadata_date(&file_kind, &raw_dates) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(MetadataResult {
+                file_id,
+                chosen_date: None,
+                chosen_date_source: None,
+                date_kind: None,
+                raw_metadata_date: None,
+                metadata_status: MetadataStatus::Error,
+                error: Some(error),
+            })
+        }
+    };
 
-    if let Some((source_tag, raw_value)) = detected_raw_date {
+    if let Some(date) = selection {
         return Ok(MetadataResult {
             file_id,
-            chosen_date: None,
-            chosen_date_source: Some(source_tag),
-            date_kind: None,
-            raw_metadata_date: Some(raw_value),
+            chosen_date: Some(date.chosen_date),
+            chosen_date_source: Some(date.chosen_date_source),
+            date_kind: Some(date.date_kind),
+            raw_metadata_date: Some(date.raw_metadata_date),
             metadata_status: MetadataStatus::Ready,
             error: None,
         });

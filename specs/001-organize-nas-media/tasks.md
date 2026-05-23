@@ -81,14 +81,14 @@
 
 ## Phase 8: Date Selection
 
-- [ ] T052 Implement photo date priority selection.
-- [ ] T053 Implement video date priority selection.
-- [ ] T054 Use `FileModifyDate` as an automatic warning fallback only when no stronger capture date is available.
-- [ ] T055 Parse timezone-aware timestamps.
-- [ ] T056 Parse timezone-less timestamps as local wall time and mark timezone unknown.
-- [ ] T057 Convert timezone-aware timestamps to local time for filename generation.
-- [ ] T058 Add Rust tests for photo priority, video priority, fallback warning, timezone-aware, and timezone-less dates.
-- [ ] T059 Display chosen date, date source, and date kind in the UI.
+- [x] T052 Implement photo date priority selection.
+- [x] T053 Implement video date priority selection.
+- [x] T054 Use `FileModifyDate` as an automatic warning fallback only when no stronger capture date is available.
+- [x] T055 Parse timezone-aware timestamps.
+- [x] T056 Parse timezone-less timestamps as local wall time and mark timezone unknown.
+- [x] T057 Convert timezone-aware timestamps to local time for filename generation.
+- [x] T058 Add Rust tests for photo priority, video priority, fallback warning, timezone-aware, and timezone-less dates.
+- [x] T059 Display chosen date, date source, and date kind in the UI.
 
 ## Phase 9: Dry-Run Planner
 

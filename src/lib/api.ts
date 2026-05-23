@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  FileKind,
   MetadataResult,
   ScanErrorEvent,
   ScanFileEvent,
@@ -41,8 +42,16 @@ export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
   invokeCommand<void>("start_scan", { selectedPath });
 export const cancelScan = () => invokeCommand<void>("cancel_scan");
-export const readMetadataForFile = (fileId: string, sourcePath: string) =>
-  invokeCommand<MetadataResult>("read_metadata_for_file", { fileId, sourcePath });
+export const readMetadataForFile = (
+  fileId: string,
+  sourcePath: string,
+  fileKind: FileKind
+) =>
+  invokeCommand<MetadataResult>("read_metadata_for_file", {
+    fileId,
+    sourcePath,
+    fileKind
+  });
 
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;

@@ -147,7 +147,7 @@ export default function App() {
   const loadMetadataForRow = async (row: FileRecord) => {
     setIsLoadingMetadata(true);
     try {
-      const result = await readMetadataForFile(row.id, row.source_path);
+      const result = await readMetadataForFile(row.id, row.source_path, row.kind);
       setMetadataByFileId((prev) => ({ ...prev, [result.file_id]: result }));
       if (result.metadata_status === "error" && result.error) {
         setFolderError(result.error);
