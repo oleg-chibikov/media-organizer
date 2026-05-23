@@ -40,10 +40,10 @@ const COLUMNS = [
 
 const SOURCE_COLUMN_INDEX = 0;
 const DESTINATION_COLUMN_INDEX = 1;
-const AUTO_SIZE_COLUMN_INDICES = [SOURCE_COLUMN_INDEX, DESTINATION_COLUMN_INDEX] as const;
-const DEFAULT_COLUMN_WIDTHS = [160, 160, 180, 110, 170, 170, 190] as const;
-const MIN_COLUMN_WIDTHS = [80, 80, 140, 90, 130, 130, 140] as const;
+const COLUMN_HORIZONTAL_PADDING = 28;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+const BODY_CELL_FONT =
+  "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
 
 interface ActiveResize {
   columnIndex: number;
@@ -61,7 +61,9 @@ export function FileTable({
   const parentRef = useRef<HTMLDivElement | null>(null);
   const activeResizeRef = useRef<ActiveResize | null>(null);
   const manuallyResizedColumnsRef = useRef<Set<number>>(new Set());
-  const [columnWidths, setColumnWidths] = useState<number[]>(() => [...DEFAULT_COLUMN_WIDTHS]);
+  const [columnWidths, setColumnWidths] = useState<number[]>(() =>
+    COLUMNS.map(() => COLUMN_HORIZONTAL_PADDING)
+  );
   const gridTemplateColumns = useMemo(
     () => columnWidths.map((width) => `${width}px`).join(" "),
     [columnWidths]
@@ -103,44 +105,67 @@ export function FileTable({
       return;
     }
 
-    context.font = MONO_CELL_FONT;
-
-    const measureWidth = (value: string) => Math.ceil(context.measureText(value).width);
-
-    const sourceMaxTextWidth = rows.reduce((maxWidth, row) => {
-      return Math.max(maxWidth, measureWidth(row.relative_path));
-    }, 0);
-
-    const destinationMaxTextWidth = rows.reduce((maxWidth, row) => {
-      const metadata = metadataByFileId[row.id];
-      const movePlan = movePlansByFileId[row.id];
-      const destinationLabel =
-        movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
-      const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
-      return Math.max(maxWidth, measureWidth(relativeDestinationLabel));
-    }, 0);
-
-    const sourceHeaderWidth = measureWidth(COLUMNS[SOURCE_COLUMN_INDEX].label);
-    const destinationHeaderWidth = measureWidth(COLUMNS[DESTINATION_COLUMN_INDEX].label);
-
-    const desiredWidths: Record<number, number> = {
-      [SOURCE_COLUMN_INDEX]: Math.max(
-        MIN_COLUMN_WIDTHS[SOURCE_COLUMN_INDEX],
-        sourceHeaderWidth + 28,
-        sourceMaxTextWidth + 28
-      ),
-      [DESTINATION_COLUMN_INDEX]: Math.max(
-        MIN_COLUMN_WIDTHS[DESTINATION_COLUMN_INDEX],
-        destinationHeaderWidth + 28,
-        destinationMaxTextWidth + 28
-      )
+    const measureWidth = (value: string, font: string) => {
+      context.font = font;
+      return Math.ceil(context.measureText(value).width);
     };
+
+    const desiredWidths = COLUMNS.map((column, columnIndex) => {
+      const headerWidth = measureWidth(column.label, BODY_CELL_FONT);
+      const cellMaxWidth = rows.reduce((maxWidth, row) => {
+        const metadata = metadataByFileId[row.id];
+        const movePlan = movePlansByFileId[row.id];
+        const moveResult = moveResultsByFileId[row.id];
+
+        const metadataDateLabel = metadata
+          ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
+          : "pending";
+        const destinationLabel =
+          movePlan?.destination_path ||
+          (metadata?.metadata_status === "ready" ? "planning..." : "-");
+        const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
+        const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
+        const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
+
+        const value = (() => {
+          switch (columnIndex) {
+            case SOURCE_COLUMN_INDEX:
+              return row.relative_path;
+            case DESTINATION_COLUMN_INDEX:
+              return relativeDestinationLabel;
+            case 2:
+              return statusLabel;
+            case 3:
+              return row.kind;
+            case 4:
+              return row.original_name;
+            case 5:
+              return metadataDateLabel;
+            case 6:
+              return notesLabel;
+            default:
+              return "";
+          }
+        })();
+
+        const font =
+          columnIndex === SOURCE_COLUMN_INDEX || columnIndex === DESTINATION_COLUMN_INDEX
+            ? MONO_CELL_FONT
+            : BODY_CELL_FONT;
+        return Math.max(maxWidth, measureWidth(value, font));
+      }, 0);
+
+      return Math.max(
+        headerWidth + COLUMN_HORIZONTAL_PADDING,
+        cellMaxWidth + COLUMN_HORIZONTAL_PADDING
+      );
+    });
 
     setColumnWidths((previous) => {
       let changed = false;
       const next = [...previous];
 
-      for (const columnIndex of AUTO_SIZE_COLUMN_INDICES) {
+      for (let columnIndex = 0; columnIndex < COLUMNS.length; columnIndex += 1) {
         if (manuallyResizedColumnsRef.current.has(columnIndex)) {
           continue;
         }
@@ -154,7 +179,7 @@ export function FileTable({
 
       return changed ? next : previous;
     });
-  }, [rows, metadataByFileId, movePlansByFileId, selectedFolder]);
+  }, [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, selectedFolder]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -164,7 +189,7 @@ export function FileTable({
       }
 
       const nextWidth = Math.max(
-        MIN_COLUMN_WIDTHS[activeResize.columnIndex],
+        0,
         activeResize.startWidth + (event.clientX - activeResize.startX)
       );
 
@@ -200,7 +225,7 @@ export function FileTable({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-x-scroll">
+      <div className="min-h-0 flex-1 overflow-x-auto">
         <div className="flex h-full flex-col" style={{ minWidth: `${tableMinWidth}px` }}>
           <div
             className="grid border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
