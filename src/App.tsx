@@ -10,6 +10,7 @@ import {
   chooseFolder,
   createMovePlan,
   executeMovePlan,
+  getProcessingConfig,
   healthCheck,
   readMetadataForFile,
   startScan
@@ -23,8 +24,6 @@ import type {
   ScanFinishedEvent
 } from "./lib/types";
 
-const METADATA_CONCURRENCY = 2;
-const METADATA_QUEUE_CAPACITY = 256;
 const MOVE_DISPATCH_CONCURRENCY = 1;
 
 function isProcessedPath(folder: string): boolean {
@@ -56,6 +55,8 @@ export default function App() {
   const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
   const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
   const [moveResultsByFileId, setMoveResultsByFileId] = useState<Record<string, MoveResult>>({});
+  const [metadataConcurrency, setMetadataConcurrency] = useState(1);
+  const [metadataQueueCapacity, setMetadataQueueCapacity] = useState(256);
   const [activeMetadataRequests, setActiveMetadataRequests] = useState(0);
   const [activePlanRequests, setActivePlanRequests] = useState(0);
   const [planErrors, setPlanErrors] = useState(0);
@@ -188,7 +189,7 @@ export default function App() {
 
   const pumpMetadataQueue = useCallback(() => {
     while (
-      activeMetadataRequestsRef.current < METADATA_CONCURRENCY &&
+      activeMetadataRequestsRef.current < metadataConcurrency &&
       metadataQueueRef.current.length > 0
     ) {
       const nextFileId = metadataQueueRef.current.shift();
@@ -223,7 +224,7 @@ export default function App() {
           pumpMetadataQueueRef.current();
         });
     }
-  }, [requestMovePlanForMetadata]);
+  }, [metadataConcurrency, requestMovePlanForMetadata]);
 
   useEffect(() => {
     pumpMetadataQueueRef.current = pumpMetadataQueue;
@@ -315,9 +316,14 @@ export default function App() {
 
   useEffect(() => {
     let ignore = false;
-    healthCheck()
-      .then((value) => {
-        if (!ignore) setHealth(value);
+    Promise.all([healthCheck(), getProcessingConfig()])
+      .then(([value, config]) => {
+        if (ignore) {
+          return;
+        }
+        setHealth(value);
+        setMetadataConcurrency(config.metadata_concurrency);
+        setMetadataQueueCapacity(config.metadata_queue_capacity);
       })
       .catch((error: unknown) => {
         if (!ignore) setHealth(`error: ${String(error)}`);
@@ -530,9 +536,9 @@ export default function App() {
         continue;
       }
 
-      if (metadataQueueRef.current.length >= METADATA_QUEUE_CAPACITY) {
+      if (metadataQueueRef.current.length >= metadataQueueCapacity) {
         setFolderError(
-          `Metadata queue reached capacity (${METADATA_QUEUE_CAPACITY}). Remaining files will wait.`
+          `Metadata queue reached capacity (${metadataQueueCapacity}). Remaining files will wait.`
         );
         break;
       }
@@ -542,7 +548,7 @@ export default function App() {
     }
 
     pumpMetadataQueue();
-  }, [metadataByFileId, pumpMetadataQueue, rows]);
+  }, [metadataByFileId, metadataQueueCapacity, pumpMetadataQueue, rows]);
 
   const handleChooseFolder = async () => {
     try {

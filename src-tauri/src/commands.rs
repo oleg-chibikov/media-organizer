@@ -17,13 +17,14 @@ use crate::{
     events, logging, metadata,
     models::{
         FileKind, FileRecord, MetadataResult, MetadataStatus, MoveConfirmationSummary,
-        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus,
+        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
 use tauri_plugin_dialog::DialogExt;
 
-const DEFAULT_METADATA_CONCURRENCY: usize = 2;
+const MIN_METADATA_CONCURRENCY: usize = 1;
+const MAX_METADATA_CONCURRENCY: usize = 8;
 const DEFAULT_METADATA_QUEUE_CAPACITY: usize = 256;
 
 pub struct AppState {
@@ -38,11 +39,12 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
+        let default_metadata_concurrency = default_metadata_concurrency();
         let metadata_concurrency = read_env_usize(
             "MEDIA_ORGANIZER_METADATA_CONCURRENCY",
-            DEFAULT_METADATA_CONCURRENCY,
-            1,
-            8,
+            default_metadata_concurrency,
+            MIN_METADATA_CONCURRENCY,
+            MAX_METADATA_CONCURRENCY,
         );
         let metadata_queue_capacity = read_env_usize(
             "MEDIA_ORGANIZER_METADATA_QUEUE_CAPACITY",
@@ -76,6 +78,15 @@ impl Default for AppState {
 #[tauri::command]
 pub fn health_check() -> String {
     "ok".to_string()
+}
+
+#[tauri::command]
+pub fn get_processing_config(state: tauri::State<'_, AppState>) -> ProcessingConfig {
+    ProcessingConfig {
+        metadata_concurrency: state.metadata_workers.len(),
+        metadata_queue_capacity: state.metadata_queue_capacity,
+        metadata_timeout_ms: state.metadata_timeout.as_millis() as u64,
+    }
 }
 
 #[tauri::command]
@@ -398,6 +409,13 @@ fn validate_folder(selected_folder: &Path) -> Result<(), String> {
         .map_err(|error| format!("Selected folder is not readable: {error}"))?;
 
     Ok(())
+}
+
+fn default_metadata_concurrency() -> usize {
+    std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(4)
+        .clamp(MIN_METADATA_CONCURRENCY, MAX_METADATA_CONCURRENCY)
 }
 
 fn read_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {

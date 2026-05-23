@@ -24,6 +24,12 @@ export interface MetadataResult {
   error: string | null;
 }
 
+export interface ProcessingConfig {
+  metadata_concurrency: number;
+  metadata_queue_capacity: number;
+  metadata_timeout_ms: number;
+}
+
 export type ConflictStatus = "none" | "suffix_applied" | "blocked";
 export type PlanStatus = "ready" | "blocked_no_date" | "blocked_conflict" | "error";
 

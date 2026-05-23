@@ -8,6 +8,7 @@ import type {
   MoveFileEvent,
   MoveFinishedEvent,
   MovePlan,
+  ProcessingConfig,
   PlanErrorEvent,
   PlanFileEvent,
   PlanFinishedEvent,
@@ -53,6 +54,7 @@ export const MOVE_EVENTS = {
 } as const;
 
 export const healthCheck = () => invokeCommand<string>("health_check");
+export const getProcessingConfig = () => invokeCommand<ProcessingConfig>("get_processing_config");
 export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
   invokeCommand<void>("start_scan", { selectedPath });

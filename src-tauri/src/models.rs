@@ -58,6 +58,13 @@ pub struct MetadataResult {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ProcessingConfig {
+    pub metadata_concurrency: usize,
+    pub metadata_queue_capacity: usize,
+    pub metadata_timeout_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConflictStatus {

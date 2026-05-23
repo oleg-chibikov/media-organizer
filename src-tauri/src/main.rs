@@ -17,6 +17,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
+            commands::get_processing_config,
             commands::choose_folder,
             commands::start_scan,
             commands::cancel_scan,
