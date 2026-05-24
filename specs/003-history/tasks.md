@@ -23,11 +23,11 @@
 
 ## Phase 3: History Loading
 
-- [ ] T013 Add `list_history_runs` command.
-- [ ] T014 Add `get_history_run` command.
-- [ ] T015 Recover run logs line by line and tolerate partial trailing records.
-- [ ] T016 Mark unreadable, malformed, or incomplete runs as unsafe for undo/redo.
-- [ ] T017 Add Rust tests for partial and corrupt history recovery.
+- [x] T013 Add `list_history_runs` command.
+- [x] T014 Add `get_history_run` command.
+- [x] T015 Recover run logs line by line and tolerate partial trailing records.
+- [x] T016 Mark unreadable, malformed, or incomplete runs as unsafe for undo/redo.
+- [x] T017 Add Rust tests for partial and corrupt history recovery.
 
 ## Phase 4: History Menu And Details
 

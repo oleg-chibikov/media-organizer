@@ -26,6 +26,8 @@ pub fn run() {
             commands::read_metadata_for_files,
             commands::create_move_plan,
             commands::get_move_confirmation_summary,
+            commands::list_history_runs,
+            commands::get_history_run,
             commands::execute_move_plan,
             commands::reveal_file_in_explorer
         ])

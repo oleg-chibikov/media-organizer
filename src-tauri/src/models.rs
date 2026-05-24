@@ -265,7 +265,7 @@ pub struct HistoryOperation {
     pub timestamp: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
 pub struct HistoryIndexEntry {
     pub run_id: String,
@@ -294,4 +294,13 @@ pub struct HistoryRunCompletedRecord {
     pub run_id: String,
     pub completed_at: String,
     pub run_status: HistoryRunStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryRunDetails {
+    pub run: HistoryRun,
+    pub operations: Vec<HistoryOperation>,
+    pub unsafe_for_undo_redo: bool,
+    pub recovery_error: Option<String>,
 }

@@ -17,10 +17,10 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     events, history, logging, metadata,
     models::{
-        FileKind, FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
-        HistoryRunStatus, MetadataReadRequest, MetadataResult, MetadataStatus,
-        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult,
-        MoveResultStatus, ProcessingConfig,
+        FileKind, FileRecord, HistoryIndexEntry, HistoryOperation, HistoryOperationKind,
+        HistoryOperationStatus, HistoryRunDetails, HistoryRunStatus, MetadataReadRequest,
+        MetadataResult, MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent,
+        MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -369,6 +369,19 @@ pub fn get_move_confirmation_summary(
     plans: Vec<MovePlan>,
 ) -> MoveConfirmationSummary {
     mover::build_move_confirmation_summary(&files, &metadata_results, &plans)
+}
+
+#[tauri::command]
+pub fn list_history_runs(app: tauri::AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
+    history::list_history_runs(&app)
+}
+
+#[tauri::command]
+pub fn get_history_run(
+    run_id: String,
+    app: tauri::AppHandle,
+) -> Result<Option<HistoryRunDetails>, String> {
+    history::get_history_run(&app, &run_id)
 }
 
 #[tauri::command]

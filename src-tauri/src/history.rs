@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io::Write,
+    io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::models::{
     HistoryIndexEntry, HistoryOperation, HistoryRecord, HistoryRun, HistoryRunCompletedRecord,
-    HistoryRunStatus,
+    HistoryRunDetails, HistoryRunStatus,
 };
 
 pub const HISTORY_VERSION: u32 = 1;
@@ -33,6 +33,14 @@ pub struct ActiveHistoryRun {
 struct HistoryIndexFile {
     history_version: u32,
     runs: Vec<HistoryIndexEntry>,
+}
+
+#[derive(Debug)]
+struct RecoveredHistoryRun {
+    run: HistoryRun,
+    operations: Vec<HistoryOperation>,
+    unsafe_for_undo_redo: bool,
+    recovery_error: Option<String>,
 }
 
 pub fn history_root_for_app(app: &AppHandle) -> Result<PathBuf, String> {
@@ -154,6 +162,289 @@ pub fn append_history_operation(
         &mut active_run.log_file,
         &HistoryRecord::Operation(operation),
     )
+}
+
+pub fn list_history_runs(app: &AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
+    let history_root = history_root_for_app(app)?;
+    list_history_runs_from_root(&history_root)
+}
+
+pub fn get_history_run(app: &AppHandle, run_id: &str) -> Result<Option<HistoryRunDetails>, String> {
+    let history_root = history_root_for_app(app)?;
+    get_history_run_from_root(&history_root, run_id)
+}
+
+fn list_history_runs_from_root(history_root: &Path) -> Result<Vec<HistoryIndexEntry>, String> {
+    let mut index = load_history_index(history_root)?;
+    let mut did_change = false;
+    let mut recovered_entries = Vec::with_capacity(index.runs.len());
+
+    for entry in &index.runs {
+        let recovered = recover_history_run_from_entry(entry);
+        let mut next_entry = entry.clone();
+        next_entry.completed_at = recovered.run.completed_at.clone();
+        next_entry.run_status = recovered.run.run_status.clone();
+        next_entry.undo_available =
+            !recovered.unsafe_for_undo_redo && undo_candidate_exists(&recovered);
+        next_entry.redo_available =
+            !recovered.unsafe_for_undo_redo && redo_candidate_exists(&recovered);
+        if next_entry != *entry {
+            did_change = true;
+        }
+        recovered_entries.push(next_entry);
+    }
+
+    recovered_entries.sort_by(|left, right| {
+        right
+            .started_at
+            .cmp(&left.started_at)
+            .then_with(|| right.run_id.cmp(&left.run_id))
+    });
+    recovered_entries.truncate(MAX_INDEX_RUNS);
+
+    if recovered_entries != index.runs {
+        did_change = true;
+    }
+
+    if did_change {
+        index.runs = recovered_entries.clone();
+        write_history_index(history_root, &index)?;
+    }
+
+    Ok(recovered_entries)
+}
+
+fn get_history_run_from_root(
+    history_root: &Path,
+    run_id: &str,
+) -> Result<Option<HistoryRunDetails>, String> {
+    let index = load_history_index(history_root)?;
+    let Some(entry) = index.runs.iter().find(|entry| entry.run_id == run_id) else {
+        return Ok(None);
+    };
+
+    let recovered = recover_history_run_from_entry(entry);
+    Ok(Some(HistoryRunDetails {
+        run: recovered.run,
+        operations: recovered.operations,
+        unsafe_for_undo_redo: recovered.unsafe_for_undo_redo,
+        recovery_error: recovered.recovery_error,
+    }))
+}
+
+fn undo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
+    matches!(
+        recovered.run.run_status,
+        HistoryRunStatus::Completed
+            | HistoryRunStatus::CompletedWithErrors
+            | HistoryRunStatus::Redone
+    ) && recovered
+        .operations
+        .iter()
+        .any(|operation| operation.status == crate::models::HistoryOperationStatus::Succeeded)
+}
+
+fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
+    matches!(
+        recovered.run.run_status,
+        HistoryRunStatus::Undone | HistoryRunStatus::PartiallyUndone
+    )
+}
+
+fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistoryRun {
+    let history_path = PathBuf::from(&entry.history_file_path);
+    let parse_result = parse_run_log_records(&history_path, &entry.run_id);
+    let mut run = parse_result
+        .started_run
+        .unwrap_or_else(|| run_from_index_entry(entry));
+    run.history_file_path = entry.history_file_path.clone();
+
+    let mut unsafe_for_undo_redo = false;
+    let mut recovery_error = parse_result.recovery_error;
+
+    if parse_result.corrupt {
+        run.run_status = HistoryRunStatus::Corrupt;
+        unsafe_for_undo_redo = true;
+    } else if parse_result.partial || parse_result.incomplete {
+        run.run_status = HistoryRunStatus::Partial;
+        unsafe_for_undo_redo = true;
+    } else if let Some(completed) = parse_result.completed_record {
+        run.completed_at = Some(completed.completed_at);
+        run.run_status = completed.run_status;
+    }
+
+    if recovery_error.is_some() {
+        unsafe_for_undo_redo = true;
+    }
+
+    RecoveredHistoryRun {
+        run,
+        operations: parse_result.operations,
+        unsafe_for_undo_redo,
+        recovery_error: recovery_error.take(),
+    }
+}
+
+fn run_from_index_entry(entry: &HistoryIndexEntry) -> HistoryRun {
+    HistoryRun {
+        run_id: entry.run_id.clone(),
+        history_version: HISTORY_VERSION,
+        app_version: String::new(),
+        selected_folder: entry.selected_folder.clone(),
+        folder_label: entry.folder_label.clone(),
+        started_at: entry.started_at.clone(),
+        completed_at: entry.completed_at.clone(),
+        run_status: entry.run_status.clone(),
+        history_file_path: entry.history_file_path.clone(),
+    }
+}
+
+struct ParsedRunLog {
+    started_run: Option<HistoryRun>,
+    operations: Vec<HistoryOperation>,
+    completed_record: Option<HistoryRunCompletedRecord>,
+    partial: bool,
+    incomplete: bool,
+    corrupt: bool,
+    recovery_error: Option<String>,
+}
+
+fn parse_run_log_records(history_file_path: &Path, expected_run_id: &str) -> ParsedRunLog {
+    let mut parsed = ParsedRunLog {
+        started_run: None,
+        operations: Vec::new(),
+        completed_record: None,
+        partial: false,
+        incomplete: false,
+        corrupt: false,
+        recovery_error: None,
+    };
+
+    let file = match File::open(history_file_path) {
+        Ok(file) => file,
+        Err(error) => {
+            parsed.corrupt = true;
+            parsed.recovery_error = Some(format!(
+                "Failed to open history run log at '{}': {error}",
+                history_file_path.display()
+            ));
+            return parsed;
+        }
+    };
+
+    let mut reader = BufReader::new(file);
+    let mut line_bytes = Vec::new();
+    let mut line_number = 0usize;
+
+    loop {
+        line_bytes.clear();
+        match reader.read_until(b'\n', &mut line_bytes) {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(error) => {
+                parsed.corrupt = true;
+                parsed.recovery_error = Some(format!(
+                    "Failed reading history run log at '{}': {error}",
+                    history_file_path.display()
+                ));
+                return parsed;
+            }
+        }
+
+        line_number += 1;
+        let has_newline = line_bytes.last() == Some(&b'\n');
+        if has_newline {
+            line_bytes.pop();
+        }
+        if line_bytes.last() == Some(&b'\r') {
+            line_bytes.pop();
+        }
+        if line_bytes.is_empty() {
+            continue;
+        }
+
+        let line = match std::str::from_utf8(&line_bytes) {
+            Ok(value) => value,
+            Err(error) => {
+                if !has_newline {
+                    parsed.partial = true;
+                    break;
+                }
+                parsed.corrupt = true;
+                parsed.recovery_error = Some(format!(
+                    "Malformed UTF-8 at line {line_number} in '{}': {error}",
+                    history_file_path.display()
+                ));
+                break;
+            }
+        };
+
+        let record: HistoryRecord = match serde_json::from_str(line) {
+            Ok(record) => record,
+            Err(error) => {
+                if !has_newline {
+                    parsed.partial = true;
+                    break;
+                }
+                parsed.corrupt = true;
+                parsed.recovery_error = Some(format!(
+                    "Malformed history record at line {line_number} in '{}': {error}",
+                    history_file_path.display()
+                ));
+                break;
+            }
+        };
+
+        match record {
+            HistoryRecord::RunStarted { run } => {
+                if run.run_id != expected_run_id {
+                    parsed.corrupt = true;
+                    parsed.recovery_error = Some(format!(
+                        "Run id mismatch at line {line_number} in '{}': expected '{}', found '{}'",
+                        history_file_path.display(),
+                        expected_run_id,
+                        run.run_id
+                    ));
+                    break;
+                }
+                parsed.started_run = Some(run);
+            }
+            HistoryRecord::Operation(operation) => {
+                if operation.run_id != expected_run_id {
+                    parsed.corrupt = true;
+                    parsed.recovery_error = Some(format!(
+                        "Operation run id mismatch at line {line_number} in '{}': expected '{}', found '{}'",
+                        history_file_path.display(),
+                        expected_run_id,
+                        operation.run_id
+                    ));
+                    break;
+                }
+                parsed.operations.push(operation);
+            }
+            HistoryRecord::RunCompleted(record) => {
+                if record.run_id != expected_run_id {
+                    parsed.corrupt = true;
+                    parsed.recovery_error = Some(format!(
+                        "Completion run id mismatch at line {line_number} in '{}': expected '{}', found '{}'",
+                        history_file_path.display(),
+                        expected_run_id,
+                        record.run_id
+                    ));
+                    break;
+                }
+                parsed.completed_record = Some(record);
+            }
+        }
+    }
+
+    if parsed.started_run.is_none() {
+        parsed.incomplete = true;
+    } else if parsed.completed_record.is_none() {
+        parsed.incomplete = true;
+    }
+
+    parsed
 }
 
 fn generate_run_id(now: DateTime<Utc>) -> String {
@@ -390,5 +681,153 @@ mod tests {
         assert_eq!(index.runs.len(), MAX_INDEX_RUNS);
         assert_eq!(index.runs[0].run_id, format!("run-{}", MAX_INDEX_RUNS + 4));
         assert_eq!(index.runs[MAX_INDEX_RUNS - 1].run_id, "run-5");
+    }
+
+    #[test]
+    fn recovers_partial_trailing_history_record_as_partial_and_unsafe() {
+        let temp = tempdir().expect("temp dir");
+        let history_root = temp.path().join("history");
+        let runs_dir = history_runs_dir(&history_root);
+        fs::create_dir_all(&runs_dir).expect("create runs dir");
+        let log_path = runs_dir.join("2026-05-24T01-02-03Z_run-1.jsonl");
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&log_path)
+            .expect("open run log");
+
+        let run = HistoryRun {
+            run_id: "run-1".to_string(),
+            history_version: HISTORY_VERSION,
+            app_version: "0.1.0".to_string(),
+            selected_folder: r"C:\todo".to_string(),
+            folder_label: "todo".to_string(),
+            started_at: "2026-05-24T01:02:03Z".to_string(),
+            completed_at: None,
+            run_status: HistoryRunStatus::Running,
+            history_file_path: log_path.to_string_lossy().to_string(),
+        };
+        append_history_record(&mut file, &HistoryRecord::RunStarted { run: run.clone() })
+            .expect("write start record");
+        append_history_record(
+            &mut file,
+            &HistoryRecord::Operation(HistoryOperation {
+                operation_id: "run-1-0000000000000001".to_string(),
+                run_id: "run-1".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\in.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\out.jpg".to_string(),
+                expected_source_size: Some(12),
+                expected_destination_size: Some(12),
+                metadata_date: Some("2026-05-24T01:00:00Z".to_string()),
+                original_name: "in".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:03:03Z".to_string(),
+            }),
+        )
+        .expect("write operation record");
+        file.write_all(br#"{"record_type":"run_completed""#)
+            .expect("write partial trailing record");
+        file.flush().expect("flush partial record");
+
+        upsert_history_index_entry(
+            &history_root,
+            HistoryIndexEntry {
+                run_id: "run-1".to_string(),
+                folder_label: "todo".to_string(),
+                selected_folder: r"C:\todo".to_string(),
+                started_at: "2026-05-24T01:02:03Z".to_string(),
+                completed_at: None,
+                run_status: HistoryRunStatus::Running,
+                undo_available: true,
+                redo_available: true,
+                history_file_path: log_path.to_string_lossy().to_string(),
+            },
+        )
+        .expect("write index entry");
+
+        let runs = list_history_runs_from_root(&history_root).expect("list runs");
+        assert_eq!(runs.len(), 1);
+        assert!(matches!(runs[0].run_status, HistoryRunStatus::Partial));
+        assert!(!runs[0].undo_available);
+        assert!(!runs[0].redo_available);
+
+        let details = get_history_run_from_root(&history_root, "run-1")
+            .expect("load run details")
+            .expect("run details should exist");
+        assert!(matches!(details.run.run_status, HistoryRunStatus::Partial));
+        assert!(details.unsafe_for_undo_redo);
+        assert_eq!(details.operations.len(), 1);
+    }
+
+    #[test]
+    fn marks_malformed_history_record_as_corrupt_and_unsafe() {
+        let temp = tempdir().expect("temp dir");
+        let history_root = temp.path().join("history");
+        let runs_dir = history_runs_dir(&history_root);
+        fs::create_dir_all(&runs_dir).expect("create runs dir");
+        let log_path = runs_dir.join("2026-05-24T01-02-03Z_run-2.jsonl");
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&log_path)
+            .expect("open run log");
+
+        append_history_record(
+            &mut file,
+            &HistoryRecord::RunStarted {
+                run: HistoryRun {
+                    run_id: "run-2".to_string(),
+                    history_version: HISTORY_VERSION,
+                    app_version: "0.1.0".to_string(),
+                    selected_folder: r"C:\todo".to_string(),
+                    folder_label: "todo".to_string(),
+                    started_at: "2026-05-24T01:02:03Z".to_string(),
+                    completed_at: None,
+                    run_status: HistoryRunStatus::Running,
+                    history_file_path: log_path.to_string_lossy().to_string(),
+                },
+            },
+        )
+        .expect("write start record");
+        file.write_all(b"not-json\n")
+            .expect("write malformed record");
+        file.flush().expect("flush malformed record");
+
+        upsert_history_index_entry(
+            &history_root,
+            HistoryIndexEntry {
+                run_id: "run-2".to_string(),
+                folder_label: "todo".to_string(),
+                selected_folder: r"C:\todo".to_string(),
+                started_at: "2026-05-24T01:02:03Z".to_string(),
+                completed_at: None,
+                run_status: HistoryRunStatus::Running,
+                undo_available: true,
+                redo_available: true,
+                history_file_path: log_path.to_string_lossy().to_string(),
+            },
+        )
+        .expect("write index entry");
+
+        let runs = list_history_runs_from_root(&history_root).expect("list runs");
+        assert_eq!(runs.len(), 1);
+        assert!(matches!(runs[0].run_status, HistoryRunStatus::Corrupt));
+        assert!(!runs[0].undo_available);
+        assert!(!runs[0].redo_available);
+
+        let details = get_history_run_from_root(&history_root, "run-2")
+            .expect("load run details")
+            .expect("run details should exist");
+        assert!(matches!(details.run.run_status, HistoryRunStatus::Corrupt));
+        assert!(details.unsafe_for_undo_redo);
+        assert!(details.recovery_error.is_some());
     }
 }
