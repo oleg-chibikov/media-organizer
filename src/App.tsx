@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileTable } from "./components/FileTable";
-import { HistoryDetailsPanel } from "./components/HistoryDetailsPanel";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import {
@@ -885,11 +884,16 @@ export default function App() {
         historyRuns={historyRuns}
         selectedHistoryRunId={selectedHistoryRunId}
         historyLoading={historyLoading}
+        details={visibleHistoryDetails}
+        detailsLoading={historyDetailsLoading}
+        detailsError={historyError}
         onChooseFolder={() => void handleChooseFolder()}
         onCancelScan={() => void handleCancelScan()}
         onSelectHistoryRun={(runId) => {
-          setSelectedHistoryRunId(runId);
-          setSelectedHistoryRunDetails(null);
+          if (runId !== selectedHistoryRunId) {
+            setSelectedHistoryRunId(runId);
+            setSelectedHistoryRunDetails(null);
+          }
         }}
         onUndoProcessing={(runId) => void handleUndoProcessing(runId)}
         onRedoProcessing={(runId) => void handleRedoProcessing(runId)}
@@ -905,12 +909,6 @@ export default function App() {
           selectedFolder={selectedFolder}
         />
       </main>
-
-      <HistoryDetailsPanel
-        details={visibleHistoryDetails}
-        loading={historyDetailsLoading}
-        error={historyError}
-      />
 
       <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
         <div className="flex flex-wrap items-center gap-3">
