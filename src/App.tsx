@@ -1043,6 +1043,18 @@ export default function App() {
         details={visibleHistoryDetails}
         detailsLoading={historyDetailsLoading}
         detailsError={historyError}
+        settingsMenu={
+          <DestinationSettingsMenu
+            settings={destinationSettings}
+            loading={destinationSettingsLoading}
+            pending={destinationSettingsPending}
+            locked={destinationSettingsLocked}
+            error={destinationSettingsError}
+            onChooseRoot={() => void handleChooseRootMediaFolder()}
+            onClearRoot={() => void handleClearRootMediaFolder()}
+            onSetForceProcessed={(nextValue) => void handleSetForceProcessedFolder(nextValue)}
+          />
+        }
         onChooseFolder={() => void handleChooseFolder()}
         onCancelScan={() => void handleCancelScan()}
         onSelectHistoryRun={(runId) => {
@@ -1055,19 +1067,6 @@ export default function App() {
         onRedoProcessing={(runId) => void handleRedoProcessing(runId)}
         onDeleteProcessing={(runId) => void handleDeleteProcessing(runId)}
       />
-
-      <section className="flex justify-end border-b border-slate-800 bg-slate-900 px-3 py-2">
-        <DestinationSettingsMenu
-          settings={destinationSettings}
-          loading={destinationSettingsLoading}
-          pending={destinationSettingsPending}
-          locked={destinationSettingsLocked}
-          error={destinationSettingsError}
-          onChooseRoot={() => void handleChooseRootMediaFolder()}
-          onClearRoot={() => void handleClearRootMediaFolder()}
-          onSetForceProcessed={(nextValue) => void handleSetForceProcessedFolder(nextValue)}
-        />
-      </section>
 
       <main className="min-h-0 flex-1">
         <FileTable

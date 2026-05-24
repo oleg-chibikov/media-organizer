@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunDetails, HistoryRunStatus } from "../lib/types";
 
@@ -12,6 +13,7 @@ interface ToolbarProps {
   details: HistoryRunDetails | null;
   detailsLoading: boolean;
   detailsError: string | null;
+  settingsMenu?: ReactNode;
   onChooseFolder: () => void;
   onCancelScan: () => void;
   onSelectHistoryRun: (runId: string) => void;
@@ -30,6 +32,7 @@ export function Toolbar({
   details,
   detailsLoading,
   detailsError,
+  settingsMenu,
   onChooseFolder,
   onCancelScan,
   onSelectHistoryRun,
@@ -62,6 +65,7 @@ export function Toolbar({
       >
         Choose Folder
       </button>
+      {settingsMenu}
       {isScanning ? (
         <button
           className="rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700"
