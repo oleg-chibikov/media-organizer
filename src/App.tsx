@@ -935,14 +935,14 @@ export default function App() {
             onClick={handleExecutionAction}
             type="button"
           >
-            {!executionConfirmed
+            {!executionConfirmed || moveCompleted
               ? "Confirm & Execute"
               : isMoveDispatchPaused
                 ? "Resume Dispatch"
                 : "Pause Dispatch"}
           </button>
         </div>
-        {executionConfirmed ? (
+        {executionConfirmed && !moveCompleted ? (
           <p className={`mt-1 ${isMoveDispatchPaused ? "text-amber-400" : "text-emerald-400"}`}>
             {isMoveDispatchPaused
               ? "Move dispatch paused. In-flight jobs may still complete."
