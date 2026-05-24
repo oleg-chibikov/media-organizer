@@ -64,12 +64,8 @@ describe("Toolbar History Menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo TODO Camera" }));
     expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
 
-    fireEvent.click(screen.getByText("History"));
-
     fireEvent.click(screen.getByRole("button", { name: "Redo TODO Drone" }));
     expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
-
-    fireEvent.click(screen.getByText("History"));
 
     fireEvent.click(screen.getByRole("button", { name: "View TODO Drone" }));
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");

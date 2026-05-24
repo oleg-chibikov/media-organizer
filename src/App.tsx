@@ -843,6 +843,7 @@ export default function App() {
       await undoHistoryRun(runId);
       setFolderError(null);
       await reloadHistoryRuns(runId);
+      setSelectedHistoryRunDetails(await getHistoryRun(runId));
     } catch (error) {
       setFolderError(`Failed to undo processing: ${String(error)}`);
     }
@@ -853,6 +854,7 @@ export default function App() {
       await redoHistoryRun(runId);
       setFolderError(null);
       await reloadHistoryRuns(runId);
+      setSelectedHistoryRunDetails(await getHistoryRun(runId));
     } catch (error) {
       setFolderError(`Failed to redo processing: ${String(error)}`);
     }

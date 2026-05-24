@@ -124,7 +124,6 @@ export function Toolbar({
                             className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
                             onClick={() => {
                               onUndoProcessing(run.run_id);
-                              setHistoryOpen(false);
                             }}
                             type="button"
                           >
@@ -136,7 +135,6 @@ export function Toolbar({
                             className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
                             onClick={() => {
                               onRedoProcessing(run.run_id);
-                              setHistoryOpen(false);
                             }}
                             type="button"
                           >
