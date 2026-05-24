@@ -49,12 +49,12 @@
 
 ## Phase 6: Redo
 
-- [ ] T030 Add redo eligibility calculation for undone run records.
-- [ ] T031 Implement redo validation for source exists, destination path is free, size matches when available, and no overwrite.
-- [ ] T032 Execute redo using the originally recorded destination paths without recalculating destinations.
-- [ ] T033 Append redo operation results to the same run history log.
-- [ ] T034 Emit redo progress events.
-- [ ] T035 Add Rust tests for successful redo and blocked redo cases.
+- [x] T030 Add redo eligibility calculation for undone run records.
+- [x] T031 Implement redo validation for source exists, destination path is free, size matches when available, and no overwrite.
+- [x] T032 Execute redo using the originally recorded destination paths without recalculating destinations.
+- [x] T033 Append redo operation results to the same run history log.
+- [x] T034 Emit redo progress events.
+- [x] T035 Add Rust tests for successful redo and blocked redo cases.
 
 ## Phase 7: Validation
 

@@ -29,7 +29,7 @@ const RUNS: HistoryIndexEntry[] = [
 ];
 
 describe("Toolbar History Menu", () => {
-  it("shows history runs and enables/disables undo/redo actions", () => {
+  it("shows a single undo or redo action next to each run", () => {
     const onSelectHistoryRun = vi.fn();
     const onUndoProcessing = vi.fn();
     const onRedoProcessing = vi.fn();
@@ -42,8 +42,6 @@ describe("Toolbar History Menu", () => {
         historyRuns={RUNS}
         selectedHistoryRunId={"run-a"}
         historyLoading={false}
-        undoEnabled={true}
-        redoEnabled={false}
         onChooseFolder={vi.fn()}
         onCancelScan={vi.fn()}
         onSelectHistoryRun={onSelectHistoryRun}
@@ -56,16 +54,16 @@ describe("Toolbar History Menu", () => {
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();
     expect(screen.getByText("TODO Drone")).toBeInTheDocument();
 
-    const undoButton = screen.getByRole("button", { name: "Undo Processing" });
-    const redoButton = screen.getByRole("button", { name: "Redo Processing" });
-
-    expect(undoButton).toBeEnabled();
-    expect(redoButton).toBeDisabled();
+    const undoButton = screen.getByRole("button", { name: "Undo TODO Camera" });
+    const redoButton = screen.getByRole("button", { name: "Redo TODO Drone" });
 
     fireEvent.click(undoButton);
-    expect(onUndoProcessing).toHaveBeenCalledTimes(1);
+    expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
 
-    fireEvent.click(screen.getByRole("button", { name: /TODO Drone/i }));
+    fireEvent.click(redoButton);
+    expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
+
+    fireEvent.click(screen.getByRole("button", { name: "View TODO Drone" }));
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");
   });
 });

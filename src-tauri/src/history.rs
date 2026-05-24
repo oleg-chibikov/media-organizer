@@ -323,7 +323,7 @@ fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
     matches!(
         recovered.run.run_status,
         HistoryRunStatus::Undone | HistoryRunStatus::PartiallyUndone
-    )
+    ) && !collect_redoable_operations(&recovered.operations).is_empty()
 }
 
 pub fn collect_undoable_operations(operations: &[HistoryOperation]) -> Vec<HistoryOperation> {
@@ -360,6 +360,41 @@ pub fn collect_undoable_operations(operations: &[HistoryOperation]) -> Vec<Histo
 
     undoable.sort_by(|left, right| left.operation_id.cmp(&right.operation_id));
     undoable
+}
+
+pub fn collect_redoable_operations(operations: &[HistoryOperation]) -> Vec<HistoryOperation> {
+    let mut last_succeeded_by_file = std::collections::HashMap::<String, &HistoryOperation>::new();
+
+    for operation in operations {
+        if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
+            continue;
+        }
+        if !matches!(
+            operation.operation_kind,
+            HistoryOperationKind::Process | HistoryOperationKind::Undo | HistoryOperationKind::Redo
+        ) {
+            continue;
+        }
+        last_succeeded_by_file.insert(operation.file_id.clone(), operation);
+    }
+
+    let mut redoable = last_succeeded_by_file
+        .values()
+        .filter_map(|operation| {
+            if matches!(operation.operation_kind, HistoryOperationKind::Undo)
+                && matches!(
+                    operation.move_strategy,
+                    MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+                )
+            {
+                return Some((*operation).clone());
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    redoable.sort_by(|left, right| left.operation_id.cmp(&right.operation_id));
+    redoable
 }
 
 fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistoryRun {
@@ -896,6 +931,93 @@ mod tests {
 
         let undoable = collect_undoable_operations(&operations);
         assert!(undoable.is_empty());
+    }
+
+    #[test]
+    fn collects_redoable_operations_when_latest_success_is_undo() {
+        let operations = vec![
+            HistoryOperation {
+                operation_id: "run-3-01".to_string(),
+                run_id: "run-3".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\photo.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:03:03Z".to_string(),
+            },
+            HistoryOperation {
+                operation_id: "run-3-02".to_string(),
+                run_id: "run-3".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Undo,
+                source_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                destination_path: r"C:\todo\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:06:03Z".to_string(),
+            },
+        ];
+
+        let redoable = collect_redoable_operations(&operations);
+        assert_eq!(redoable.len(), 1);
+        assert_eq!(redoable[0].file_id, "file-1");
+        assert!(matches!(
+            redoable[0].operation_kind,
+            crate::models::HistoryOperationKind::Undo
+        ));
+    }
+
+    #[test]
+    fn excludes_successfully_redone_operations_from_redo_candidates() {
+        let operations = vec![
+            HistoryOperation {
+                operation_id: "run-4-01".to_string(),
+                run_id: "run-4".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Undo,
+                source_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                destination_path: r"C:\todo\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:06:03Z".to_string(),
+            },
+            HistoryOperation {
+                operation_id: "run-4-02".to_string(),
+                run_id: "run-4".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Redo,
+                source_path: r"C:\todo\photo.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:07:03Z".to_string(),
+            },
+        ];
+
+        let redoable = collect_redoable_operations(&operations);
+        assert!(redoable.is_empty());
     }
 
     #[test]

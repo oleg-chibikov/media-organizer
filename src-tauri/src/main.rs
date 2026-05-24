@@ -29,6 +29,7 @@ pub fn run() {
             commands::list_history_runs,
             commands::get_history_run,
             commands::undo_history_run,
+            commands::redo_history_run,
             commands::execute_move_plan,
             commands::reveal_file_in_explorer
         ])

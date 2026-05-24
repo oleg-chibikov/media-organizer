@@ -87,14 +87,6 @@ export default function App() {
   const isPlanning = activePlanRequests > 0;
   const planCompleted =
     completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0;
-  const undoEligibleRun = useMemo(
-    () => historyRuns.find((run) => run.undo_available) ?? null,
-    [historyRuns]
-  );
-  const redoEligibleRun = useMemo(
-    () => historyRuns.find((run) => run.redo_available) ?? null,
-    [historyRuns]
-  );
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -846,27 +838,21 @@ export default function App() {
     handleConfirmExecution();
   };
 
-  const handleUndoProcessing = async () => {
-    if (!undoEligibleRun) {
-      return;
-    }
+  const handleUndoProcessing = async (runId: string) => {
     try {
-      await undoHistoryRun(undoEligibleRun.run_id);
+      await undoHistoryRun(runId);
       setFolderError(null);
-      await reloadHistoryRuns(undoEligibleRun.run_id);
+      await reloadHistoryRuns(runId);
     } catch (error) {
       setFolderError(`Failed to undo processing: ${String(error)}`);
     }
   };
 
-  const handleRedoProcessing = async () => {
-    if (!redoEligibleRun) {
-      return;
-    }
+  const handleRedoProcessing = async (runId: string) => {
     try {
-      await redoHistoryRun(redoEligibleRun.run_id);
+      await redoHistoryRun(runId);
       setFolderError(null);
-      await reloadHistoryRuns(redoEligibleRun.run_id);
+      await reloadHistoryRuns(runId);
     } catch (error) {
       setFolderError(`Failed to redo processing: ${String(error)}`);
     }
@@ -886,16 +872,14 @@ export default function App() {
         historyRuns={historyRuns}
         selectedHistoryRunId={selectedHistoryRunId}
         historyLoading={historyLoading}
-        undoEnabled={Boolean(undoEligibleRun)}
-        redoEnabled={Boolean(redoEligibleRun)}
         onChooseFolder={() => void handleChooseFolder()}
         onCancelScan={() => void handleCancelScan()}
         onSelectHistoryRun={(runId) => {
           setSelectedHistoryRunId(runId);
           setSelectedHistoryRunDetails(null);
         }}
-        onUndoProcessing={() => void handleUndoProcessing()}
-        onRedoProcessing={() => void handleRedoProcessing()}
+        onUndoProcessing={(runId) => void handleUndoProcessing(runId)}
+        onRedoProcessing={(runId) => void handleRedoProcessing(runId)}
       />
 
       <main className="min-h-0 flex-1">
