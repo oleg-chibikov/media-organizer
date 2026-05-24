@@ -5,7 +5,9 @@ import type {
   FileRecord,
   HistoryIndexEntry,
   HistoryIndexUpdatedEvent,
+  HistoryRedoProgressEvent,
   HistoryRunDetails,
+  HistoryUndoProgressEvent,
   MetadataReadRequest,
   MetadataResult,
   MoveConfirmationSummary,
@@ -58,7 +60,9 @@ export const MOVE_EVENTS = {
 } as const;
 
 export const HISTORY_EVENTS = {
-  indexUpdated: "history:index-updated"
+  indexUpdated: "history:index-updated",
+  undoProgress: "history:undo-progress",
+  redoProgress: "history:redo-progress"
 } as const;
 
 export const healthCheck = () => invokeCommand<string>("health_check");
@@ -142,6 +146,8 @@ export interface MoveListeners {
 
 export interface HistoryListeners {
   onIndexUpdated: (payload: HistoryIndexUpdatedEvent) => void;
+  onUndoProgress?: (payload: HistoryUndoProgressEvent) => void;
+  onRedoProgress?: (payload: HistoryRedoProgressEvent) => void;
 }
 
 export async function attachScanListeners(handlers: ScanListeners): Promise<UnlistenFn[]> {
@@ -189,6 +195,20 @@ export async function attachHistoryListeners(handlers: HistoryListeners): Promis
       handlers.onIndexUpdated(event.payload)
     )
   ]);
+  if (handlers.onUndoProgress) {
+    listeners.push(
+      await listen<HistoryUndoProgressEvent>(HISTORY_EVENTS.undoProgress, (event) =>
+        handlers.onUndoProgress?.(event.payload)
+      )
+    );
+  }
+  if (handlers.onRedoProgress) {
+    listeners.push(
+      await listen<HistoryRedoProgressEvent>(HISTORY_EVENTS.redoProgress, (event) =>
+        handlers.onRedoProgress?.(event.payload)
+      )
+    );
+  }
 
   return listeners;
 }

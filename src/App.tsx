@@ -24,7 +24,9 @@ import {
 import type {
   FileRecord,
   HistoryIndexEntry,
+  HistoryRedoProgressEvent,
   HistoryRunDetails,
+  HistoryUndoProgressEvent,
   MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
@@ -34,6 +36,7 @@ import type {
 
 const MOVE_DISPATCH_CONCURRENCY = 1;
 const METADATA_BATCH_SIZE = 8;
+type HistoryActionKind = "undo" | "redo";
 
 function isProcessedPath(folder: string): boolean {
   return folder
@@ -104,6 +107,11 @@ export default function App() {
   const trackedMoveIdsRef = useRef<Set<string>>(new Set());
   const activeMoveRequestsRef = useRef(0);
   const pumpMoveQueueRef = useRef<() => void>(() => undefined);
+  const activeHistoryActionRef = useRef<{
+    runId: string;
+    action: HistoryActionKind;
+    blockedOrFailed: number;
+  } | null>(null);
   const pendingExecutableCount = Object.values(movePlansByFileId).filter((plan) => {
     if (plan.plan_status !== "ready") {
       return false;
@@ -433,9 +441,46 @@ export default function App() {
     let unsubs: (() => void)[] = [];
     let disposed = false;
 
+    const handleHistoryProgress = (
+      action: HistoryActionKind,
+      payload: HistoryUndoProgressEvent | HistoryRedoProgressEvent
+    ) => {
+      const active = activeHistoryActionRef.current;
+      if (!active || active.action !== action || active.runId !== payload.run_id) {
+        return;
+      }
+
+      if (payload.operation.status === "blocked" || payload.operation.status === "failed") {
+        activeHistoryActionRef.current = {
+          ...active,
+          blockedOrFailed: active.blockedOrFailed + 1
+        };
+      }
+
+      if (payload.completed_operations < payload.total_operations) {
+        return;
+      }
+
+      const completed = activeHistoryActionRef.current;
+      if (completed && completed.action === action && completed.runId === payload.run_id) {
+        if (completed.blockedOrFailed > 0) {
+          setFolderError(
+            `${action === "undo" ? "Undo" : "Redo"} could not be completed: ${completed.blockedOrFailed} operation(s) were blocked or failed.`
+          );
+        }
+        activeHistoryActionRef.current = null;
+      }
+    };
+
     void attachHistoryListeners({
       onIndexUpdated: ({ run_id }) => {
         void reloadHistoryRuns(run_id);
+      },
+      onUndoProgress: (payload) => {
+        handleHistoryProgress("undo", payload);
+      },
+      onRedoProgress: (payload) => {
+        handleHistoryProgress("redo", payload);
       }
     })
       .then((listeners) => {
@@ -840,22 +885,34 @@ export default function App() {
 
   const handleUndoProcessing = async (runId: string) => {
     try {
+      activeHistoryActionRef.current = {
+        runId,
+        action: "undo",
+        blockedOrFailed: 0
+      };
       await undoHistoryRun(runId);
       setFolderError(null);
       await reloadHistoryRuns(runId);
       setSelectedHistoryRunDetails(await getHistoryRun(runId));
     } catch (error) {
+      activeHistoryActionRef.current = null;
       setFolderError(`Failed to undo processing: ${String(error)}`);
     }
   };
 
   const handleRedoProcessing = async (runId: string) => {
     try {
+      activeHistoryActionRef.current = {
+        runId,
+        action: "redo",
+        blockedOrFailed: 0
+      };
       await redoHistoryRun(runId);
       setFolderError(null);
       await reloadHistoryRuns(runId);
       setSelectedHistoryRunDetails(await getHistoryRun(runId));
     } catch (error) {
+      activeHistoryActionRef.current = null;
       setFolderError(`Failed to redo processing: ${String(error)}`);
     }
   };
