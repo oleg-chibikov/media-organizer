@@ -386,7 +386,9 @@ fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistory
         unsafe_for_undo_redo = true;
     } else if let Some(completed) = parse_result.completed_record {
         run.completed_at = Some(completed.completed_at);
-        run.run_status = completed.run_status;
+        // Prefer index.json status over log's RunCompleted, since undo/redo
+        // no longer append to the log file. The index.json is the source of truth.
+        run.run_status = entry.run_status.clone();
     }
 
     if recovery_error.is_some() {
