@@ -1,9 +1,16 @@
+import { revealFileInExplorer } from "../lib/api";
 import type { HistoryRunDetails } from "../lib/types";
 
 interface HistoryDetailsPanelProps {
   details: HistoryRunDetails | null;
   loading: boolean;
   error: string | null;
+}
+
+function handleReveal(path: string) {
+  revealFileInExplorer(path).catch(() => {
+    // file no longer exists — silently ignore
+  });
 }
 
 export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsPanelProps) {
@@ -38,6 +45,7 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
                   <th className="px-2 py-1">Status</th>
                   <th className="px-2 py-1">Source</th>
                   <th className="px-2 py-1">Destination</th>
+                  <th className="px-2 py-1">Open</th>
                   <th className="px-2 py-1">Error</th>
                 </tr>
               </thead>
@@ -55,6 +63,16 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
                     </td>
                     <td className="max-w-[14rem] truncate px-2 py-1 font-mono text-slate-400">
                       {operation.destination_path}
+                    </td>
+                    <td className="px-2 py-1">
+                      <button
+                        aria-label={`Reveal ${operation.original_name} in explorer`}
+                        className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                        onClick={() => handleReveal(operation.destination_path)}
+                        type="button"
+                      >
+                        Open
+                      </button>
                     </td>
                     <td className="max-w-[16rem] truncate px-2 py-1 text-rose-400">
                       {operation.error ?? "-"}
