@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  DestinationSettings,
   FileKind,
   FileRecord,
   HistoryIndexEntry,
@@ -67,6 +68,16 @@ export const HISTORY_EVENTS = {
 
 export const healthCheck = () => invokeCommand<string>("health_check");
 export const getProcessingConfig = () => invokeCommand<ProcessingConfig>("get_processing_config");
+export const getDestinationSettings = () =>
+  invokeCommand<DestinationSettings>("get_destination_settings");
+export const chooseRootMediaFolder = () =>
+  invokeCommand<DestinationSettings | null>("choose_root_media_folder");
+export const clearRootMediaFolder = () =>
+  invokeCommand<DestinationSettings>("clear_root_media_folder");
+export const setForceProcessedFolder = (forceProcessedFolder: boolean) =>
+  invokeCommand<DestinationSettings>("set_force_processed_folder", {
+    forceProcessedFolder
+  });
 export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
   invokeCommand<void>("start_scan", { selectedPath });

@@ -2,26 +2,32 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
+import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
 import {
   attachHistoryListeners,
   attachMoveListeners,
   attachPlanListeners,
   attachScanListeners,
   cancelScan,
+  chooseRootMediaFolder,
   chooseFolder,
+  clearRootMediaFolder,
   createMovePlan,
   deleteHistoryRun,
   executeMovePlan,
+  getDestinationSettings,
   getHistoryRun,
   getProcessingConfig,
   healthCheck,
   listHistoryRuns,
   redoHistoryRun,
   readMetadataForFiles,
+  setForceProcessedFolder,
   startScan,
   undoHistoryRun
 } from "./lib/api";
 import type {
+  DestinationSettings,
   FileRecord,
   HistoryIndexEntry,
   HistoryRedoProgressEvent,
@@ -87,9 +93,14 @@ export default function App() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDetailsLoading, setHistoryDetailsLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [destinationSettings, setDestinationSettings] = useState<DestinationSettings | null>(null);
+  const [destinationSettingsLoading, setDestinationSettingsLoading] = useState(true);
+  const [destinationSettingsPending, setDestinationSettingsPending] = useState(false);
+  const [destinationSettingsError, setDestinationSettingsError] = useState<string | null>(null);
   const isPlanning = activePlanRequests > 0;
   const planCompleted =
     completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0;
+  const destinationSettingsLocked = isExecutingMoves;
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -409,6 +420,70 @@ export default function App() {
     pumpMoveQueueRef.current = pumpMoveQueue;
   }, [pumpMoveQueue]);
 
+  const replanForCurrentDestinationSettings = useCallback(() => {
+    if (!selectedFolder || isExecutingMoves || executionConfirmed) {
+      return;
+    }
+
+    const metadataResults = rows
+      .map((row) => metadataByFileId[row.id])
+      .filter((metadata): metadata is MetadataResult => metadata !== undefined);
+    if (metadataResults.length === 0) {
+      return;
+    }
+
+    plannedMetadataSignatureByFileIdRef.current = new Map();
+    setMovePlansByFileId({});
+    setMoveResultsByFileId({});
+    setExecutionConfirmed(false);
+    setIsMoveDispatchPaused(false);
+    setMoveCompleted(false);
+    setMovedCount(0);
+    setCopiedCount(0);
+    setMoveSkippedCount(0);
+    setMoveFailedCount(0);
+    queuedMoveIdsRef.current = new Set();
+    moveQueueRef.current = [];
+    inflightMoveIdsRef.current = new Set();
+    completedMoveIdsRef.current = new Set();
+    trackedMoveIdsRef.current = new Set();
+    activeMoveRequestsRef.current = 0;
+
+    requestMovePlansForMetadata(rows, metadataResults);
+  }, [
+    executionConfirmed,
+    isExecutingMoves,
+    metadataByFileId,
+    requestMovePlansForMetadata,
+    rows,
+    selectedFolder
+  ]);
+
+  const applyDestinationSettingsChange = useCallback(
+    async (operation: () => Promise<DestinationSettings | null>) => {
+      if (destinationSettingsLocked) {
+        return;
+      }
+
+      setDestinationSettingsPending(true);
+      try {
+        const nextSettings = await operation();
+        if (nextSettings) {
+          setDestinationSettings(nextSettings);
+        } else {
+          setDestinationSettings(await getDestinationSettings());
+        }
+        setDestinationSettingsError(null);
+        replanForCurrentDestinationSettings();
+      } catch (error: unknown) {
+        setDestinationSettingsError(`Failed to update destination settings: ${String(error)}`);
+      } finally {
+        setDestinationSettingsPending(false);
+      }
+    },
+    [destinationSettingsLocked, replanForCurrentDestinationSettings]
+  );
+
   const reloadHistoryRuns = useCallback(async (preferredRunId: string | null = null) => {
     setHistoryLoading(true);
     try {
@@ -542,17 +617,27 @@ export default function App() {
 
   useEffect(() => {
     let ignore = false;
-    Promise.all([healthCheck(), getProcessingConfig()])
-      .then(([value, config]) => {
+    Promise.all([healthCheck(), getProcessingConfig(), getDestinationSettings()])
+      .then(([value, config, settings]) => {
         if (ignore) {
           return;
         }
         setHealth(value);
         setMetadataConcurrency(config.metadata_concurrency);
         setMetadataQueueCapacity(config.metadata_queue_capacity);
+        setDestinationSettings(settings);
+        setDestinationSettingsError(null);
       })
       .catch((error: unknown) => {
-        if (!ignore) setHealth(`error: ${String(error)}`);
+        if (!ignore) {
+          setHealth(`error: ${String(error)}`);
+          setDestinationSettingsError(`Failed to load destination settings: ${String(error)}`);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setDestinationSettingsLoading(false);
+        }
       });
     return () => {
       ignore = true;
@@ -778,6 +863,18 @@ export default function App() {
     pumpMetadataQueue();
   }, [metadataByFileId, metadataQueueCapacity, pumpMetadataQueue, rows]);
 
+  const handleChooseRootMediaFolder = async () => {
+    await applyDestinationSettingsChange(async () => chooseRootMediaFolder());
+  };
+
+  const handleClearRootMediaFolder = async () => {
+    await applyDestinationSettingsChange(async () => clearRootMediaFolder());
+  };
+
+  const handleSetForceProcessedFolder = async (nextValue: boolean) => {
+    await applyDestinationSettingsChange(async () => setForceProcessedFolder(nextValue));
+  };
+
   const handleChooseFolder = async () => {
     try {
       const chosen = await chooseFolder();
@@ -958,6 +1055,19 @@ export default function App() {
         onRedoProcessing={(runId) => void handleRedoProcessing(runId)}
         onDeleteProcessing={(runId) => void handleDeleteProcessing(runId)}
       />
+
+      <section className="flex justify-end border-b border-slate-800 bg-slate-900 px-3 py-2">
+        <DestinationSettingsMenu
+          settings={destinationSettings}
+          loading={destinationSettingsLoading}
+          pending={destinationSettingsPending}
+          locked={destinationSettingsLocked}
+          error={destinationSettingsError}
+          onChooseRoot={() => void handleChooseRootMediaFolder()}
+          onClearRoot={() => void handleClearRootMediaFolder()}
+          onSetForceProcessed={(nextValue) => void handleSetForceProcessedFolder(nextValue)}
+        />
+      </section>
 
       <main className="min-h-0 flex-1">
         <FileTable
