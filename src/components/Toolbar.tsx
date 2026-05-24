@@ -153,5 +153,16 @@ function formatHistoryTimestamp(timestamp: string): string {
     return timestamp;
   }
 
-  return date.toLocaleString();
+  const dateStr = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+  return `${dateStr}  ${timeStr}`;
 }

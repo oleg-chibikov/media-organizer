@@ -35,6 +35,7 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
                   <th className="px-2 py-1">Time</th>
                   <th className="px-2 py-1">Kind</th>
                   <th className="px-2 py-1">File</th>
+                  <th className="px-2 py-1">Size</th>
                   <th className="px-2 py-1">Status</th>
                   <th className="px-2 py-1">Source</th>
                   <th className="px-2 py-1">Destination</th>
@@ -49,14 +50,19 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
                     </td>
                     <td className="px-2 py-1">{formatOperationKind(operation.operation_kind)}</td>
                     <td className="px-2 py-1">{operation.original_name}</td>
+                    <td className="px-2 py-1 font-mono text-slate-400">
+                      {formatFileSize(
+                        operation.expected_destination_size ?? operation.expected_source_size
+                      )}
+                    </td>
                     <td className="px-2 py-1">{formatOperationStatus(operation.status)}</td>
-                    <td className="max-w-[14rem] truncate px-2 py-1 font-mono text-slate-400">
+                    <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
                       {operation.source_path}
                     </td>
-                    <td className="max-w-[14rem] truncate px-2 py-1 font-mono text-slate-400">
+                    <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
                       {operation.destination_path}
                     </td>
-                    <td className="max-w-[16rem] truncate px-2 py-1 text-rose-400">
+                    <td className="max-w-[14rem] truncate px-2 py-1 text-rose-400">
                       {operation.error ?? "-"}
                     </td>
                   </tr>
@@ -79,7 +85,26 @@ function formatHistoryTime(timestamp: string): string {
   if (Number.isNaN(date.getTime())) {
     return timestamp;
   }
-  return date.toLocaleString();
+  const dateStr = date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+  return `${dateStr}\u00A0\u00A0${timeStr}`;
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (bytes === null || bytes === undefined) return "-";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function formatOperationKind(kind: string): string {
