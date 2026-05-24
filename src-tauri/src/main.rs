@@ -1,6 +1,7 @@
 mod commands;
 mod events;
 mod filename;
+mod history;
 mod logging;
 mod metadata;
 mod models;

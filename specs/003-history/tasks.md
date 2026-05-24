@@ -5,13 +5,13 @@
 
 ## Phase 1: History Storage
 
-- [ ] T001 Add Rust history models for `HistoryRun`, `HistoryOperation`, and `HistoryIndexEntry`.
-- [ ] T002 Add appData history path resolution using Tauri's app data directory.
-- [ ] T003 Create `appData/history/runs/` when processing starts.
-- [ ] T004 Generate stable sortable run log filenames with timestamp and run id.
-- [ ] T005 Write run start and run completion records to append-only JSONL.
-- [ ] T006 Maintain `appData/history/index.json` with bounded recent-run summaries.
-- [ ] T007 Add Rust tests for path construction, run filename generation, JSONL append, and index sorting.
+- [x] T001 Add Rust history models for `HistoryRun`, `HistoryOperation`, and `HistoryIndexEntry`.
+- [x] T002 Add appData history path resolution using Tauri's app data directory.
+- [x] T003 Create `appData/history/runs/` when processing starts.
+- [x] T004 Generate stable sortable run log filenames with timestamp and run id.
+- [x] T005 Write run start and run completion records to append-only JSONL.
+- [x] T006 Maintain `appData/history/index.json` with bounded recent-run summaries.
+- [x] T007 Add Rust tests for path construction, run filename generation, JSONL append, and index sorting.
 
 ## Phase 2: Processing Integration
 

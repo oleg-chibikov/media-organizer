@@ -15,11 +15,11 @@ use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    events, logging, metadata,
+    events, history, logging, metadata,
     models::{
-        FileKind, FileRecord, MetadataReadRequest, MetadataResult, MetadataStatus,
-        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult,
-        MoveResultStatus, ProcessingConfig,
+        FileKind, FileRecord, HistoryRunStatus, MetadataReadRequest, MetadataResult,
+        MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan,
+        MoveResult, MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -381,6 +381,7 @@ pub fn execute_move_plan(
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
     let log_file = logging::open_processing_log_for_append(&selected_folder)?;
+    let mut history_run = history::start_history_run(&app, &selected_folder)?;
 
     tauri::async_runtime::spawn(async move {
         let prepared = mover::prepare_move_operations(&files, &plans);
@@ -442,6 +443,13 @@ pub fn execute_move_plan(
         }
 
         cleanup_empty_source_directories(&selected_folder, &moved_source_directories);
+
+        let run_status = if failed > 0 {
+            HistoryRunStatus::CompletedWithErrors
+        } else {
+            HistoryRunStatus::Completed
+        };
+        let _ = history::complete_history_run(&mut history_run, run_status);
 
         let _ = events::emit_move_finished(
             &app,

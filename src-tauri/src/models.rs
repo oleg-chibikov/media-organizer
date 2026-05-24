@@ -198,3 +198,99 @@ pub struct MoveConfirmationSummary {
     pub photos_ready: u64,
     pub videos_ready: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
+pub enum HistoryRunStatus {
+    Running,
+    Completed,
+    CompletedWithErrors,
+    Undone,
+    PartiallyUndone,
+    Redone,
+    Partial,
+    Corrupt,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
+pub enum HistoryOperationKind {
+    Process,
+    Undo,
+    Redo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
+pub enum HistoryOperationStatus {
+    Succeeded,
+    Skipped,
+    Blocked,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryRun {
+    pub run_id: String,
+    pub history_version: u32,
+    pub app_version: String,
+    pub selected_folder: String,
+    pub folder_label: String,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub run_status: HistoryRunStatus,
+    pub history_file_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryOperation {
+    pub operation_id: String,
+    pub run_id: String,
+    pub file_id: String,
+    pub operation_kind: HistoryOperationKind,
+    pub source_path: String,
+    pub destination_path: String,
+    pub expected_source_size: Option<u64>,
+    pub expected_destination_size: Option<u64>,
+    pub metadata_date: Option<String>,
+    pub original_name: String,
+    pub move_strategy: MoveStrategy,
+    pub status: HistoryOperationStatus,
+    pub error: Option<String>,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryIndexEntry {
+    pub run_id: String,
+    pub folder_label: String,
+    pub selected_folder: String,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+    pub run_status: HistoryRunStatus,
+    pub undo_available: bool,
+    pub redo_available: bool,
+    pub history_file_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "record_type", rename_all = "snake_case")]
+#[allow(dead_code)]
+pub enum HistoryRecord {
+    RunStarted { run: HistoryRun },
+    RunCompleted(HistoryRunCompletedRecord),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct HistoryRunCompletedRecord {
+    pub run_id: String,
+    pub completed_at: String,
+    pub run_status: HistoryRunStatus,
+}
