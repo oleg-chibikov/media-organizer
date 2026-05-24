@@ -30,13 +30,6 @@ pub struct ActiveHistoryRun {
     log_file: File,
 }
 
-#[derive(Debug)]
-pub struct ExistingHistoryRun {
-    run_id: String,
-    history_root: PathBuf,
-    log_file: File,
-}
-
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct HistoryIndexFile {
     history_version: u32,
@@ -172,74 +165,20 @@ pub fn append_history_operation(
     )
 }
 
-pub fn open_existing_history_run_for_append(
+pub fn update_history_run_status(
     app: &AppHandle,
     run_id: &str,
-) -> Result<ExistingHistoryRun, String> {
-    let history_root = history_root_for_app(app)?;
-    let index = load_history_index(&history_root)?;
-    let entry = index
-        .runs
-        .into_iter()
-        .find(|entry| entry.run_id == run_id)
-        .ok_or_else(|| format!("History run '{run_id}' was not found in index."))?;
-    let log_path = PathBuf::from(&entry.history_file_path);
-    let log_file = OpenOptions::new()
-        .append(true)
-        .open(&log_path)
-        .map_err(|error| {
-            format!(
-                "Failed to open history run log at '{}': {error}",
-                log_path.display()
-            )
-        })?;
-
-    Ok(ExistingHistoryRun {
-        run_id: run_id.to_string(),
-        history_root,
-        log_file,
-    })
-}
-
-pub fn append_history_operation_for_existing_run(
-    active_run: &mut ExistingHistoryRun,
-    operation: HistoryOperation,
-) -> Result<(), String> {
-    append_history_record(
-        &mut active_run.log_file,
-        &HistoryRecord::Operation(operation),
-    )
-}
-
-pub fn complete_existing_history_run(
-    active_run: &mut ExistingHistoryRun,
     run_status: HistoryRunStatus,
 ) -> Result<(), String> {
-    let completed_at = Utc::now().to_rfc3339();
-    append_history_record(
-        &mut active_run.log_file,
-        &HistoryRecord::RunCompleted(HistoryRunCompletedRecord {
-            run_id: active_run.run_id.clone(),
-            completed_at: completed_at.clone(),
-            run_status: run_status.clone(),
-        }),
-    )?;
-
-    let mut index = load_history_index(&active_run.history_root)?;
-    let Some(entry) = index
-        .runs
-        .iter_mut()
-        .find(|entry| entry.run_id == active_run.run_id)
-    else {
-        return Err(format!(
-            "History run '{}' was not found while updating completion status.",
-            active_run.run_id
-        ));
+    let history_root = history_root_for_app(app)?;
+    let mut index = load_history_index(&history_root)?;
+    let Some(entry) = index.runs.iter_mut().find(|entry| entry.run_id == run_id) else {
+        return Err(format!("History run '{}' was not found in index.", run_id));
     };
 
-    entry.completed_at = Some(completed_at);
+    entry.completed_at = Some(Utc::now().to_rfc3339());
     entry.run_status = run_status;
-    write_history_index(&active_run.history_root, &index)
+    write_history_index(&history_root, &index)
 }
 
 pub fn list_history_runs(app: &AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
@@ -304,7 +243,11 @@ fn get_history_run_from_root(
     let recovered = recover_history_run_from_entry(entry);
     Ok(Some(HistoryRunDetails {
         run: recovered.run,
-        operations: recovered.operations,
+        operations: recovered
+            .operations
+            .into_iter()
+            .filter(|op| matches!(op.operation_kind, HistoryOperationKind::Process))
+            .collect(),
         unsafe_for_undo_redo: recovered.unsafe_for_undo_redo,
         recovery_error: recovered.recovery_error,
     }))
@@ -327,71 +270,98 @@ fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
 }
 
 pub fn collect_undoable_operations(operations: &[HistoryOperation]) -> Vec<HistoryOperation> {
-    let mut last_succeeded_by_file = std::collections::HashMap::<String, &HistoryOperation>::new();
+    let has_undo_redo_ops = operations.iter().any(|op| {
+        matches!(
+            op.operation_kind,
+            HistoryOperationKind::Undo | HistoryOperationKind::Redo
+        )
+    });
 
-    for operation in operations {
-        if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
-            continue;
-        }
-        if !matches!(
-            operation.operation_kind,
-            HistoryOperationKind::Process | HistoryOperationKind::Undo | HistoryOperationKind::Redo
-        ) {
-            continue;
-        }
-        last_succeeded_by_file.insert(operation.file_id.clone(), operation);
-    }
-
-    let mut undoable = last_succeeded_by_file
-        .values()
-        .filter_map(|operation| {
-            if matches!(
-                operation.operation_kind,
-                HistoryOperationKind::Process | HistoryOperationKind::Redo
-            ) && matches!(
-                operation.move_strategy,
-                MoveStrategy::Rename | MoveStrategy::CopyKeepSource
-            ) {
-                return Some((*operation).clone());
+    let mut undoable: Vec<HistoryOperation> = if has_undo_redo_ops {
+        let mut last_succeeded_by_file =
+            std::collections::HashMap::<String, &HistoryOperation>::new();
+        for operation in operations {
+            if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
+                continue;
             }
-            None
-        })
-        .collect::<Vec<_>>();
+            last_succeeded_by_file.insert(operation.file_id.clone(), operation);
+        }
+        last_succeeded_by_file
+            .values()
+            .filter_map(|operation| {
+                if matches!(
+                    operation.operation_kind,
+                    HistoryOperationKind::Process | HistoryOperationKind::Redo
+                ) && matches!(
+                    operation.move_strategy,
+                    MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+                ) {
+                    return Some((*operation).clone());
+                }
+                None
+            })
+            .collect()
+    } else {
+        operations
+            .iter()
+            .filter(|op| {
+                matches!(op.status, HistoryOperationStatus::Succeeded)
+                    && matches!(op.operation_kind, HistoryOperationKind::Process)
+                    && matches!(
+                        op.move_strategy,
+                        MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+                    )
+            })
+            .cloned()
+            .collect()
+    };
 
     undoable.sort_by(|left, right| left.operation_id.cmp(&right.operation_id));
     undoable
 }
 
 pub fn collect_redoable_operations(operations: &[HistoryOperation]) -> Vec<HistoryOperation> {
-    let mut last_succeeded_by_file = std::collections::HashMap::<String, &HistoryOperation>::new();
+    let has_undo_ops = operations
+        .iter()
+        .any(|op| matches!(op.operation_kind, HistoryOperationKind::Undo));
 
-    for operation in operations {
-        if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
-            continue;
-        }
-        if !matches!(
-            operation.operation_kind,
-            HistoryOperationKind::Process | HistoryOperationKind::Undo | HistoryOperationKind::Redo
-        ) {
-            continue;
-        }
-        last_succeeded_by_file.insert(operation.file_id.clone(), operation);
-    }
-
-    let mut redoable = last_succeeded_by_file
-        .values()
-        .filter_map(|operation| {
-            if matches!(operation.operation_kind, HistoryOperationKind::Undo)
-                && matches!(
-                    operation.move_strategy,
-                    MoveStrategy::Rename | MoveStrategy::CopyKeepSource
-                )
-            {
-                return Some((*operation).clone());
+    let mut redoable: Vec<HistoryOperation> = if has_undo_ops {
+        let mut last_succeeded_by_file =
+            std::collections::HashMap::<String, &HistoryOperation>::new();
+        for operation in operations {
+            if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
+                continue;
             }
-            None
-        })
-        .collect::<Vec<_>>();
+            last_succeeded_by_file.insert(operation.file_id.clone(), operation);
+        }
+        last_succeeded_by_file
+            .values()
+            .filter_map(|operation| {
+                if matches!(operation.operation_kind, HistoryOperationKind::Undo)
+                    && matches!(
+                        operation.move_strategy,
+                        MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+                    )
+                {
+                    return Some((*operation).clone());
+                }
+                None
+            })
+            .collect()
+    } else {
+        operations
+            .iter()
+            .filter(|op| {
+                matches!(op.status, HistoryOperationStatus::Succeeded)
+                    && matches!(op.operation_kind, HistoryOperationKind::Process)
+                    && matches!(
+                        op.move_strategy,
+                        MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+                    )
+            })
+            .cloned()
+            .collect()
+    };
 
     redoable.sort_by(|left, right| left.operation_id.cmp(&right.operation_id));
     redoable

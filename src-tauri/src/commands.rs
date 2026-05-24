@@ -420,16 +420,12 @@ pub fn undo_history_run(run_id: String, app: tauri::AppHandle) -> Result<(), Str
 
     let initial_status = details.run.run_status.clone();
     let run_id_for_task = run_id.clone();
-    let mut run_log = history::open_existing_history_run_for_append(&app, &run_id)?;
     tauri::async_runtime::spawn(async move {
-        let summary =
-            execute_undo_operations(&app, &run_id_for_task, &mut run_log, &undoable_operations);
+        let summary = execute_undo_operations(&app, &run_id_for_task, &undoable_operations);
 
         let final_status = undo_completion_status(initial_status, &summary);
-        if summary.history_log_error.is_none() && final_status != details.run.run_status {
-            let _ = history::complete_existing_history_run(&mut run_log, final_status);
-        } else if summary.history_log_error.is_some() {
-            let _ = history::complete_existing_history_run(&mut run_log, HistoryRunStatus::Corrupt);
+        if final_status != details.run.run_status {
+            let _ = history::update_history_run_status(&app, &run_id_for_task, final_status);
         }
 
         let _ = events::emit_history_index_updated(
@@ -464,16 +460,12 @@ pub fn redo_history_run(run_id: String, app: tauri::AppHandle) -> Result<(), Str
 
     let initial_status = details.run.run_status.clone();
     let run_id_for_task = run_id.clone();
-    let mut run_log = history::open_existing_history_run_for_append(&app, &run_id)?;
     tauri::async_runtime::spawn(async move {
-        let summary =
-            execute_redo_operations(&app, &run_id_for_task, &mut run_log, &redoable_operations);
+        let summary = execute_redo_operations(&app, &run_id_for_task, &redoable_operations);
 
         let final_status = redo_completion_status(initial_status, &summary);
-        if summary.history_log_error.is_none() && final_status != details.run.run_status {
-            let _ = history::complete_existing_history_run(&mut run_log, final_status);
-        } else if summary.history_log_error.is_some() {
-            let _ = history::complete_existing_history_run(&mut run_log, HistoryRunStatus::Corrupt);
+        if final_status != details.run.run_status {
+            let _ = history::update_history_run_status(&app, &run_id_for_task, final_status);
         }
 
         let _ = events::emit_history_index_updated(
@@ -615,13 +607,11 @@ struct UndoExecutionSummary {
     succeeded: u64,
     blocked: u64,
     failed: u64,
-    history_log_error: Option<String>,
 }
 
 fn execute_undo_operations(
     app: &tauri::AppHandle,
     run_id: &str,
-    run_log: &mut history::ExistingHistoryRun,
     operations: &[HistoryOperation],
 ) -> UndoExecutionSummary {
     let total_operations = operations.len() as u64;
@@ -631,20 +621,12 @@ fn execute_undo_operations(
         succeeded: 0,
         blocked: 0,
         failed: 0,
-        history_log_error: None,
     };
 
     for operation in operations {
         completed_operations += 1;
         let execution_result = execute_undo_operation(operation);
         let history_operation = build_undo_history_operation(run_id, operation, &execution_result);
-
-        if let Err(error) =
-            history::append_history_operation_for_existing_run(run_log, history_operation.clone())
-        {
-            summary.history_log_error = Some(error);
-            break;
-        }
 
         match history_operation.status {
             HistoryOperationStatus::Succeeded => summary.succeeded += 1,
@@ -860,9 +842,6 @@ fn undo_completion_status(
     initial_status: HistoryRunStatus,
     summary: &UndoExecutionSummary,
 ) -> HistoryRunStatus {
-    if summary.history_log_error.is_some() {
-        return HistoryRunStatus::Corrupt;
-    }
     if summary.succeeded == 0 {
         return initial_status;
     }
@@ -878,13 +857,11 @@ struct RedoExecutionSummary {
     succeeded: u64,
     blocked: u64,
     failed: u64,
-    history_log_error: Option<String>,
 }
 
 fn execute_redo_operations(
     app: &tauri::AppHandle,
     run_id: &str,
-    run_log: &mut history::ExistingHistoryRun,
     operations: &[HistoryOperation],
 ) -> RedoExecutionSummary {
     let total_operations = operations.len() as u64;
@@ -894,20 +871,12 @@ fn execute_redo_operations(
         succeeded: 0,
         blocked: 0,
         failed: 0,
-        history_log_error: None,
     };
 
     for operation in operations {
         completed_operations += 1;
         let execution_result = execute_redo_operation(operation);
         let history_operation = build_redo_history_operation(run_id, operation, &execution_result);
-
-        if let Err(error) =
-            history::append_history_operation_for_existing_run(run_log, history_operation.clone())
-        {
-            summary.history_log_error = Some(error);
-            break;
-        }
 
         match history_operation.status {
             HistoryOperationStatus::Succeeded => summary.succeeded += 1,
@@ -1114,9 +1083,6 @@ fn redo_completion_status(
     initial_status: HistoryRunStatus,
     summary: &RedoExecutionSummary,
 ) -> HistoryRunStatus {
-    if summary.history_log_error.is_some() {
-        return HistoryRunStatus::Corrupt;
-    }
     if summary.succeeded == 0 {
         return initial_status;
     }
