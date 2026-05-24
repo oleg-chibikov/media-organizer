@@ -984,19 +984,17 @@ export default function App() {
           )}
           <button
             className="ml-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700"
-            disabled={
-              executionConfirmed
-                ? moveCompleted && !hasPendingExecutableItems
-                : !hasPendingExecutableItems
-            }
+            disabled={moveCompleted || !hasPendingExecutableItems}
             onClick={handleExecutionAction}
             type="button"
           >
-            {!executionConfirmed || moveCompleted
-              ? "Confirm & Execute"
-              : isMoveDispatchPaused
-                ? "Resume Dispatch"
-                : "Pause Dispatch"}
+            {moveCompleted
+              ? "Complete"
+              : !executionConfirmed
+                ? "Confirm & Execute"
+                : isMoveDispatchPaused
+                  ? "Resume Dispatch"
+                  : "Pause Dispatch"}
           </button>
         </div>
         {executionConfirmed && !moveCompleted ? (
