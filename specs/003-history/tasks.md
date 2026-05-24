@@ -15,11 +15,11 @@
 
 ## Phase 2: Processing Integration
 
-- [ ] T008 Start a history run when confirmed move processing begins.
-- [ ] T009 Append one processing operation record for every attempted move.
-- [ ] T010 Record original source path, final destination path, expected sizes, metadata date, original name, strategy, status, error, and timestamp.
-- [ ] T011 Mark runs as completed, completed with errors, partial, or corrupt based on processing and log state.
-- [ ] T012 Keep `Processed/processing-log.jsonl` as optional compatibility output while making appData history the undo/redo source of truth.
+- [x] T008 Start a history run when confirmed move processing begins.
+- [x] T009 Append one processing operation record for every attempted move.
+- [x] T010 Record original source path, final destination path, expected sizes, metadata date, original name, strategy, status, error, and timestamp.
+- [x] T011 Mark runs as completed, completed with errors, partial, or corrupt based on processing and log state.
+- [x] T012 Keep `Processed/processing-log.jsonl` as optional compatibility output while making appData history the undo/redo source of truth.
 
 ## Phase 3: History Loading
 

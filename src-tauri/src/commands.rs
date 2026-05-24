@@ -10,16 +10,17 @@ use std::{
     time::Duration,
 };
 
-use chrono::Local;
+use chrono::{Local, Utc};
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
     events, history, logging, metadata,
     models::{
-        FileKind, FileRecord, HistoryRunStatus, MetadataReadRequest, MetadataResult,
-        MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan,
-        MoveResult, MoveResultStatus, ProcessingConfig,
+        FileKind, FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
+        HistoryRunStatus, MetadataReadRequest, MetadataResult, MetadataStatus,
+        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult,
+        MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -380,7 +381,7 @@ pub fn execute_move_plan(
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
-    let log_file = logging::open_processing_log_for_append(&selected_folder)?;
+    let log_file = logging::open_processing_log_for_append(&selected_folder).ok();
     let mut history_run = history::start_history_run(&app, &selected_folder)?;
 
     tauri::async_runtime::spawn(async move {
@@ -397,12 +398,23 @@ pub fn execute_move_plan(
             .collect();
         let files_by_id: HashMap<&str, &FileRecord> =
             files.iter().map(|file| (file.id.as_str(), file)).collect();
+        let expected_source_sizes: HashMap<&str, Option<u64>> = files
+            .iter()
+            .map(|file| {
+                (
+                    file.id.as_str(),
+                    fs::metadata(&file.source_path).ok().map(|meta| meta.len()),
+                )
+            })
+            .collect();
         let mut moved = 0u64;
         let mut copied = 0u64;
         let mut skipped = 0u64;
         let mut failed = 0u64;
         let mut moved_source_directories = Vec::new();
-        let mut log_file = Some(log_file);
+        let mut log_file = log_file;
+        let mut compatibility_log_had_error = log_file.is_none();
+        let mut history_log_had_error = false;
 
         for result in prepared
             .skipped
@@ -410,13 +422,29 @@ pub fn execute_move_plan(
             .chain(safety_checked.skipped)
             .chain(rechecked.skipped)
         {
-            append_move_result_to_log(
+            if append_move_result_to_log(
                 &mut log_file,
                 &result,
                 &metadata_by_id,
                 &plans_by_id,
                 &files_by_id,
-            );
+            )
+            .is_err()
+            {
+                compatibility_log_had_error = true;
+            }
+            if append_move_result_to_history(
+                &mut history_run,
+                &result,
+                &metadata_by_id,
+                &plans_by_id,
+                &files_by_id,
+                &expected_source_sizes,
+            )
+            .is_err()
+            {
+                history_log_had_error = true;
+            }
             count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
@@ -431,24 +459,40 @@ pub fn execute_move_plan(
                     moved_source_directories.push(parent);
                 }
             }
-            append_move_result_to_log(
+            if append_move_result_to_log(
                 &mut log_file,
                 &result,
                 &metadata_by_id,
                 &plans_by_id,
                 &files_by_id,
-            );
+            )
+            .is_err()
+            {
+                compatibility_log_had_error = true;
+            }
+            if append_move_result_to_history(
+                &mut history_run,
+                &result,
+                &metadata_by_id,
+                &plans_by_id,
+                &files_by_id,
+                &expected_source_sizes,
+            )
+            .is_err()
+            {
+                history_log_had_error = true;
+            }
             count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
         cleanup_empty_source_directories(&selected_folder, &moved_source_directories);
 
-        let run_status = if failed > 0 {
-            HistoryRunStatus::CompletedWithErrors
-        } else {
-            HistoryRunStatus::Completed
-        };
+        let run_status = history_run_status_for_completion(
+            failed,
+            compatibility_log_had_error,
+            history_log_had_error,
+        );
         let _ = history::complete_history_run(&mut history_run, run_status);
 
         let _ = events::emit_move_finished(
@@ -481,9 +525,9 @@ fn append_move_result_to_log(
     metadata_by_id: &HashMap<&str, &MetadataResult>,
     plans_by_id: &HashMap<&str, &MovePlan>,
     files_by_id: &HashMap<&str, &FileRecord>,
-) {
+) -> Result<(), String> {
     let Some(file) = log_file.as_mut() else {
-        return;
+        return Ok(());
     };
 
     let metadata_date = metadata_by_id
@@ -511,7 +555,113 @@ fn append_move_result_to_log(
         Local::now(),
     );
 
-    let _ = logging::append_record(file, &record);
+    if let Err(error) = logging::append_record(file, &record) {
+        *log_file = None;
+        return Err(error);
+    }
+
+    Ok(())
+}
+
+fn append_move_result_to_history(
+    history_run: &mut history::ActiveHistoryRun,
+    result: &MoveResult,
+    metadata_by_id: &HashMap<&str, &MetadataResult>,
+    plans_by_id: &HashMap<&str, &MovePlan>,
+    files_by_id: &HashMap<&str, &FileRecord>,
+    expected_source_sizes: &HashMap<&str, Option<u64>>,
+) -> Result<(), String> {
+    let operation = build_history_operation_for_result(
+        &history_run.run.run_id,
+        result,
+        metadata_by_id,
+        plans_by_id,
+        files_by_id,
+        expected_source_sizes,
+    );
+
+    history::append_history_operation(history_run, operation)
+}
+
+fn build_history_operation_for_result(
+    run_id: &str,
+    result: &MoveResult,
+    metadata_by_id: &HashMap<&str, &MetadataResult>,
+    plans_by_id: &HashMap<&str, &MovePlan>,
+    files_by_id: &HashMap<&str, &FileRecord>,
+    expected_source_sizes: &HashMap<&str, Option<u64>>,
+) -> HistoryOperation {
+    let metadata_date = metadata_by_id
+        .get(result.file_id.as_str())
+        .and_then(|metadata| metadata.chosen_date.clone());
+    let original_name = plans_by_id
+        .get(result.file_id.as_str())
+        .map(|plan| plan.original_name.clone())
+        .or_else(|| {
+            files_by_id
+                .get(result.file_id.as_str())
+                .map(|file| file.original_name.clone())
+        })
+        .unwrap_or_else(|| result.file_id.clone());
+    let expected_source_size = expected_source_sizes
+        .get(result.file_id.as_str())
+        .copied()
+        .flatten();
+
+    HistoryOperation {
+        operation_id: history::next_operation_id(run_id),
+        run_id: run_id.to_string(),
+        file_id: result.file_id.clone(),
+        operation_kind: HistoryOperationKind::Process,
+        source_path: result.attempted_source_path.clone(),
+        destination_path: result.attempted_destination_path.clone(),
+        expected_source_size,
+        expected_destination_size: expected_destination_size_from_result(result),
+        metadata_date,
+        original_name,
+        move_strategy: result.move_strategy.clone(),
+        status: history_operation_status_for_move_result(&result.result_status),
+        error: result.error.clone(),
+        timestamp: Utc::now().to_rfc3339(),
+    }
+}
+
+fn expected_destination_size_from_result(result: &MoveResult) -> Option<u64> {
+    match result.result_status {
+        MoveResultStatus::Moved | MoveResultStatus::Copied => {
+            fs::metadata(&result.attempted_destination_path)
+                .ok()
+                .map(|meta| meta.len())
+        }
+        MoveResultStatus::Skipped | MoveResultStatus::Failed => None,
+    }
+}
+
+fn history_operation_status_for_move_result(
+    result_status: &MoveResultStatus,
+) -> HistoryOperationStatus {
+    match result_status {
+        MoveResultStatus::Moved | MoveResultStatus::Copied => HistoryOperationStatus::Succeeded,
+        MoveResultStatus::Skipped => HistoryOperationStatus::Skipped,
+        MoveResultStatus::Failed => HistoryOperationStatus::Failed,
+    }
+}
+
+fn history_run_status_for_completion(
+    failed: u64,
+    compatibility_log_had_error: bool,
+    history_log_had_error: bool,
+) -> HistoryRunStatus {
+    if history_log_had_error {
+        return HistoryRunStatus::Corrupt;
+    }
+    if compatibility_log_had_error {
+        return HistoryRunStatus::Partial;
+    }
+    if failed > 0 {
+        return HistoryRunStatus::CompletedWithErrors;
+    }
+    HistoryRunStatus::Completed
 }
 
 fn select_metadata_worker(state: &AppState) -> Arc<Mutex<metadata::ExifToolWorkerManager>> {
@@ -726,11 +876,19 @@ fn normalized_path_string(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{collections::HashMap, fs};
 
     use tempfile::tempdir;
 
-    use super::cleanup_empty_source_directories;
+    use super::{
+        build_history_operation_for_result, cleanup_empty_source_directories,
+        history_operation_status_for_move_result, history_run_status_for_completion,
+    };
+    use crate::models::{
+        FileKind, FileRecord, HistoryOperationKind, HistoryOperationStatus, HistoryRunStatus,
+        MetadataResult, MetadataStatus, MovePlan, MoveResult, MoveResultStatus, MoveStrategy,
+        PlanStatus, ScanStatus,
+    };
 
     #[test]
     fn removes_empty_source_directory_chain_after_moves() {
@@ -769,6 +927,135 @@ mod tests {
         cleanup_empty_source_directories(selected_root, &[selected_root.to_path_buf()]);
 
         assert!(selected_root.exists());
+    }
+
+    #[test]
+    fn builds_processing_history_operation_with_required_fields() {
+        let temp = tempdir().expect("temp dir");
+        let destination_path = temp.path().join("processed.jpg");
+        fs::write(&destination_path, b"data").expect("write destination");
+
+        let result = MoveResult {
+            file_id: "photo-1".to_string(),
+            attempted_source_path: r"C:\todo\photo-1.jpg".to_string(),
+            attempted_destination_path: destination_path.to_string_lossy().to_string(),
+            move_strategy: MoveStrategy::Rename,
+            result_status: MoveResultStatus::Moved,
+            error: None,
+        };
+
+        let metadata = MetadataResult {
+            file_id: "photo-1".to_string(),
+            chosen_date: Some("2026-05-24T01:02:03Z".to_string()),
+            chosen_date_source: Some("DateTimeOriginal".to_string()),
+            date_kind: None,
+            raw_metadata_date: None,
+            device_name: None,
+            metadata_status: MetadataStatus::Ready,
+            error: None,
+        };
+        let plan = MovePlan {
+            file_id: "photo-1".to_string(),
+            original_name: "IMG_0001".to_string(),
+            destination_dir: r"C:\todo\Processed\2026\05\24".to_string(),
+            destination_filename: "IMG_0001.jpg".to_string(),
+            destination_path: destination_path.to_string_lossy().to_string(),
+            conflict_status: crate::models::ConflictStatus::None,
+            plan_status: PlanStatus::Ready,
+        };
+        let file = FileRecord {
+            id: "photo-1".to_string(),
+            source_path: r"C:\todo\photo-1.jpg".to_string(),
+            relative_path: "photo-1.jpg".to_string(),
+            extension: "jpg".to_string(),
+            original_name: "fallback_name".to_string(),
+            kind: FileKind::Photo,
+            scan_status: ScanStatus::Discovered,
+        };
+
+        let metadata_by_id = HashMap::from([("photo-1", &metadata)]);
+        let plans_by_id = HashMap::from([("photo-1", &plan)]);
+        let files_by_id = HashMap::from([("photo-1", &file)]);
+        let expected_source_sizes = HashMap::from([("photo-1", Some(4096_u64))]);
+
+        let operation = build_history_operation_for_result(
+            "run-1",
+            &result,
+            &metadata_by_id,
+            &plans_by_id,
+            &files_by_id,
+            &expected_source_sizes,
+        );
+
+        assert_eq!(operation.run_id, "run-1");
+        assert!(matches!(
+            operation.operation_kind,
+            HistoryOperationKind::Process
+        ));
+        assert_eq!(operation.file_id, "photo-1");
+        assert_eq!(operation.source_path, r"C:\todo\photo-1.jpg");
+        assert_eq!(
+            operation.destination_path,
+            destination_path.to_string_lossy()
+        );
+        assert_eq!(operation.expected_source_size, Some(4096));
+        assert_eq!(operation.expected_destination_size, Some(4));
+        assert_eq!(
+            operation.metadata_date.as_deref(),
+            Some("2026-05-24T01:02:03Z")
+        );
+        assert_eq!(operation.original_name, "IMG_0001");
+        assert!(matches!(operation.move_strategy, MoveStrategy::Rename));
+        assert!(matches!(
+            operation.status,
+            HistoryOperationStatus::Succeeded
+        ));
+        assert!(operation.error.is_none());
+        assert!(!operation.timestamp.is_empty());
+    }
+
+    #[test]
+    fn maps_move_result_statuses_to_history_operation_statuses() {
+        assert!(matches!(
+            history_operation_status_for_move_result(&MoveResultStatus::Moved),
+            HistoryOperationStatus::Succeeded
+        ));
+        assert!(matches!(
+            history_operation_status_for_move_result(&MoveResultStatus::Copied),
+            HistoryOperationStatus::Succeeded
+        ));
+        assert!(matches!(
+            history_operation_status_for_move_result(&MoveResultStatus::Skipped),
+            HistoryOperationStatus::Skipped
+        ));
+        assert!(matches!(
+            history_operation_status_for_move_result(&MoveResultStatus::Failed),
+            HistoryOperationStatus::Failed
+        ));
+    }
+
+    #[test]
+    fn chooses_history_run_status_from_processing_and_log_state() {
+        assert!(matches!(
+            history_run_status_for_completion(0, false, false),
+            HistoryRunStatus::Completed
+        ));
+        assert!(matches!(
+            history_run_status_for_completion(1, false, false),
+            HistoryRunStatus::CompletedWithErrors
+        ));
+        assert!(matches!(
+            history_run_status_for_completion(0, true, false),
+            HistoryRunStatus::Partial
+        ));
+        assert!(matches!(
+            history_run_status_for_completion(0, false, true),
+            HistoryRunStatus::Corrupt
+        ));
+        assert!(matches!(
+            history_run_status_for_completion(5, true, true),
+            HistoryRunStatus::Corrupt
+        ));
     }
 
     #[cfg(target_os = "windows")]

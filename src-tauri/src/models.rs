@@ -284,6 +284,7 @@ pub struct HistoryIndexEntry {
 #[allow(dead_code)]
 pub enum HistoryRecord {
     RunStarted { run: HistoryRun },
+    Operation(HistoryOperation),
     RunCompleted(HistoryRunCompletedRecord),
 }
 

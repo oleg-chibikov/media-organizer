@@ -9,7 +9,8 @@ use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager};
 
 use crate::models::{
-    HistoryIndexEntry, HistoryRecord, HistoryRun, HistoryRunCompletedRecord, HistoryRunStatus,
+    HistoryIndexEntry, HistoryOperation, HistoryRecord, HistoryRun, HistoryRunCompletedRecord,
+    HistoryRunStatus,
 };
 
 pub const HISTORY_VERSION: u32 = 1;
@@ -19,6 +20,7 @@ pub const HISTORY_INDEX_FILENAME: &str = "index.json";
 pub const MAX_INDEX_RUNS: usize = 200;
 
 static RUN_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static OPERATION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
 pub struct ActiveHistoryRun {
@@ -136,6 +138,21 @@ pub fn complete_history_run(
     upsert_history_index_entry(
         &active_run.history_root,
         index_entry_from_run(&active_run.run),
+    )
+}
+
+pub fn next_operation_id(run_id: &str) -> String {
+    let sequence = OPERATION_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    format!("{run_id}-{:016x}", sequence)
+}
+
+pub fn append_history_operation(
+    active_run: &mut ActiveHistoryRun,
+    operation: HistoryOperation,
+) -> Result<(), String> {
+    append_history_record(
+        &mut active_run.log_file,
+        &HistoryRecord::Operation(operation),
     )
 }
 
@@ -311,16 +328,34 @@ mod tests {
             completed_at: "2026-05-24T01:05:00Z".to_string(),
             run_status: HistoryRunStatus::Completed,
         });
+        let operation_record = HistoryRecord::Operation(HistoryOperation {
+            operation_id: "run-1-0000000000000001".to_string(),
+            run_id: "run-1".to_string(),
+            file_id: "photo-1".to_string(),
+            operation_kind: crate::models::HistoryOperationKind::Process,
+            source_path: r"C:\todo\photo.jpg".to_string(),
+            destination_path: r"C:\todo\Processed\2026\05\24\photo.jpg".to_string(),
+            expected_source_size: Some(1024),
+            expected_destination_size: Some(1024),
+            metadata_date: Some("2026-05-24T01:02:03Z".to_string()),
+            original_name: "photo".to_string(),
+            move_strategy: crate::models::MoveStrategy::Rename,
+            status: crate::models::HistoryOperationStatus::Succeeded,
+            error: None,
+            timestamp: "2026-05-24T01:03:03Z".to_string(),
+        });
 
         append_history_record(&mut file, &started_record).expect("append start");
+        append_history_record(&mut file, &operation_record).expect("append operation");
         append_history_record(&mut file, &completed_record).expect("append complete");
         drop(file);
 
         let contents = fs::read_to_string(&log_path).expect("read log");
         let lines: Vec<&str> = contents.lines().collect();
-        assert_eq!(lines.len(), 2);
+        assert_eq!(lines.len(), 3);
         assert!(lines[0].contains(r#""record_type":"run_started""#));
-        assert!(lines[1].contains(r#""record_type":"run_completed""#));
+        assert!(lines[1].contains(r#""record_type":"operation""#));
+        assert!(lines[2].contains(r#""record_type":"run_completed""#));
     }
 
     #[test]
