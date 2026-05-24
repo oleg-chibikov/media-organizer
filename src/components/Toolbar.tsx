@@ -1,3 +1,4 @@
+import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunStatus } from "../lib/types";
 
 interface ToolbarProps {
@@ -96,6 +97,14 @@ export function Toolbar({
                       Redo
                     </button>
                   ) : null}
+                  <button
+                    aria-label={`Open log for ${run.folder_label}`}
+                    className="shrink-0 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                    onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
+                    type="button"
+                  >
+                    Log
+                  </button>
                 </div>
               ))
             )}
