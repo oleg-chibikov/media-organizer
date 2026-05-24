@@ -5,20 +5,20 @@
 
 ## Phase 1: Backend Settings
 
-- [ ] T001 Add Rust destination settings models for persisted settings and effective destination root responses.
-- [ ] T002 Add appData destination settings path resolution and default settings loading.
-- [ ] T003 Add read/write persistence for `destination-settings.json`.
+- [x] T001 Add Rust destination settings models for persisted settings and effective destination root responses.
+- [x] T002 Add appData destination settings path resolution and default settings loading.
+- [x] T003 Add read/write persistence for `destination-settings.json`.
 - [ ] T004 Add commands to get destination settings, choose/set/clear root Media folder, and set force `Processed`.
 - [ ] T005 Register destination settings commands in Tauri.
-- [ ] T006 Add Rust tests for default settings, persistence, clearing, and force toggle updates.
+- [x] T006 Add Rust tests for default settings, persistence, clearing, and force toggle updates.
 
 ## Phase 2: Destination Root Resolution
 
-- [ ] T007 Add a shared effective destination root resolver for a selected TODO folder plus destination settings.
-- [ ] T008 Validate configured root Media folder existence, directory type, and readability.
-- [ ] T009 Preserve legacy `<selected folder>/Processed` behavior when no custom root is set.
-- [ ] T010 Force `<selected folder>/Processed` when the force toggle is enabled even if a custom root is set.
-- [ ] T011 Add Rust tests for custom root, legacy fallback, forced legacy, and invalid custom root resolution.
+- [x] T007 Add a shared effective destination root resolver for a selected TODO folder plus destination settings.
+- [x] T008 Validate configured root Media folder existence, directory type, and readability.
+- [x] T009 Preserve legacy `<selected folder>/Processed` behavior when no custom root is set.
+- [x] T010 Force `<selected folder>/Processed` when the force toggle is enabled even if a custom root is set.
+- [x] T011 Add Rust tests for custom root, legacy fallback, forced legacy, and invalid custom root resolution.
 
 ## Phase 3: Planning Integration
 

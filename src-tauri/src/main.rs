@@ -7,6 +7,7 @@ mod models;
 mod mover;
 mod planner;
 mod scanner;
+mod settings;
 
 use commands::AppState;
 
