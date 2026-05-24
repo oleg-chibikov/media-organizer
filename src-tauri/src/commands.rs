@@ -10,12 +10,12 @@ use std::{
     time::Duration,
 };
 
-use chrono::{Local, Utc};
+use chrono::Utc;
 use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    events, history, logging, metadata,
+    events, history, metadata,
     models::{
         FileKind, FileRecord, HistoryIndexEntry, HistoryIndexUpdatedEvent, HistoryOperation,
         HistoryOperationKind, HistoryOperationStatus, HistoryRedoProgressEvent, HistoryRunDetails,
@@ -485,7 +485,6 @@ pub fn execute_move_plan(
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
-    let log_file = logging::open_processing_log_for_append(&selected_folder).ok();
     let mut history_run = history::start_history_run(&app, &selected_folder)?;
     let _ = events::emit_history_index_updated(
         &app,
@@ -522,8 +521,6 @@ pub fn execute_move_plan(
         let mut skipped = 0u64;
         let mut failed = 0u64;
         let mut moved_source_directories = Vec::new();
-        let mut log_file = log_file;
-        let mut compatibility_log_had_error = log_file.is_none();
         let mut history_log_had_error = false;
 
         for result in prepared
@@ -532,17 +529,6 @@ pub fn execute_move_plan(
             .chain(safety_checked.skipped)
             .chain(rechecked.skipped)
         {
-            if append_move_result_to_log(
-                &mut log_file,
-                &result,
-                &metadata_by_id,
-                &plans_by_id,
-                &files_by_id,
-            )
-            .is_err()
-            {
-                compatibility_log_had_error = true;
-            }
             if append_move_result_to_history(
                 &mut history_run,
                 &result,
@@ -569,17 +555,6 @@ pub fn execute_move_plan(
                     moved_source_directories.push(parent);
                 }
             }
-            if append_move_result_to_log(
-                &mut log_file,
-                &result,
-                &metadata_by_id,
-                &plans_by_id,
-                &files_by_id,
-            )
-            .is_err()
-            {
-                compatibility_log_had_error = true;
-            }
             if append_move_result_to_history(
                 &mut history_run,
                 &result,
@@ -598,11 +573,7 @@ pub fn execute_move_plan(
 
         cleanup_empty_source_directories(&selected_folder, &moved_source_directories);
 
-        let run_status = history_run_status_for_completion(
-            failed,
-            compatibility_log_had_error,
-            history_log_had_error,
-        );
+        let run_status = history_run_status_for_completion(failed, history_log_had_error);
         let history_run_id = history_run.run.run_id.clone();
         let _ = history::complete_history_run(&mut history_run, run_status);
         let _ = events::emit_history_index_updated(
@@ -1153,50 +1124,6 @@ pub fn reveal_file_in_explorer(source_path: String) -> Result<(), String> {
     reveal_path_in_system_explorer(&source)
 }
 
-fn append_move_result_to_log(
-    log_file: &mut Option<fs::File>,
-    result: &MoveResult,
-    metadata_by_id: &HashMap<&str, &MetadataResult>,
-    plans_by_id: &HashMap<&str, &MovePlan>,
-    files_by_id: &HashMap<&str, &FileRecord>,
-) -> Result<(), String> {
-    let Some(file) = log_file.as_mut() else {
-        return Ok(());
-    };
-
-    let metadata_date = metadata_by_id
-        .get(result.file_id.as_str())
-        .and_then(|metadata| metadata.chosen_date.clone());
-
-    let original_name = plans_by_id
-        .get(result.file_id.as_str())
-        .map(|plan| plan.original_name.clone())
-        .or_else(|| {
-            files_by_id
-                .get(result.file_id.as_str())
-                .map(|file| file.original_name.clone())
-        })
-        .unwrap_or_else(|| result.file_id.clone());
-
-    let record = logging::build_processing_log_record(
-        &result.attempted_source_path,
-        &result.attempted_destination_path,
-        metadata_date,
-        original_name,
-        result.move_strategy.clone(),
-        result.result_status.clone(),
-        result.error.clone(),
-        Local::now(),
-    );
-
-    if let Err(error) = logging::append_record(file, &record) {
-        *log_file = None;
-        return Err(error);
-    }
-
-    Ok(())
-}
-
 fn append_move_result_to_history(
     history_run: &mut history::ActiveHistoryRun,
     result: &MoveResult,
@@ -1281,16 +1208,9 @@ fn history_operation_status_for_move_result(
     }
 }
 
-fn history_run_status_for_completion(
-    failed: u64,
-    compatibility_log_had_error: bool,
-    history_log_had_error: bool,
-) -> HistoryRunStatus {
+fn history_run_status_for_completion(failed: u64, history_log_had_error: bool) -> HistoryRunStatus {
     if history_log_had_error {
         return HistoryRunStatus::Corrupt;
-    }
-    if compatibility_log_had_error {
-        return HistoryRunStatus::Partial;
     }
     if failed > 0 {
         return HistoryRunStatus::CompletedWithErrors;
@@ -1671,25 +1591,17 @@ mod tests {
     }
 
     #[test]
-    fn chooses_history_run_status_from_processing_and_log_state() {
+    fn chooses_history_run_status_from_error_state() {
         assert!(matches!(
-            history_run_status_for_completion(0, false, false),
+            history_run_status_for_completion(0, false),
             HistoryRunStatus::Completed
         ));
         assert!(matches!(
-            history_run_status_for_completion(1, false, false),
+            history_run_status_for_completion(1, false),
             HistoryRunStatus::CompletedWithErrors
         ));
         assert!(matches!(
-            history_run_status_for_completion(0, true, false),
-            HistoryRunStatus::Partial
-        ));
-        assert!(matches!(
-            history_run_status_for_completion(0, false, true),
-            HistoryRunStatus::Corrupt
-        ));
-        assert!(matches!(
-            history_run_status_for_completion(5, true, true),
+            history_run_status_for_completion(0, true),
             HistoryRunStatus::Corrupt
         ));
     }
