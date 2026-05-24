@@ -10,6 +10,7 @@ use crate::models::{
     PlanFileEvent, PlanFinishedEvent, PlanStatus,
 };
 
+#[allow(dead_code)]
 pub fn stream_move_plan(
     app: &tauri::AppHandle,
     selected_folder: PathBuf,

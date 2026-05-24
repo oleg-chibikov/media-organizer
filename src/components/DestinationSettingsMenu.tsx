@@ -28,7 +28,11 @@ export function DestinationSettingsMenu({
   const rootPath = settings?.root_media_folder ?? null;
   const warning = settings?.effective_root?.warning ?? settings?.warning ?? null;
   const effectiveMode =
-    settings?.effective_root?.mode === "custom_root" ? "Custom root active" : "Processed active";
+    settings?.force_processed_folder || !rootPath
+      ? "Processed active"
+      : settings?.effective_root?.mode === "processed_folder"
+        ? "Processed active"
+        : "Custom root active";
 
   const handleClickOutside = useCallback((event: MouseEvent) => {
     if (panelRef.current && !panelRef.current.contains(event.target as Node)) {

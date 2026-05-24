@@ -261,6 +261,10 @@ pub struct HistoryRun {
     pub app_version: String,
     pub selected_folder: String,
     pub folder_label: String,
+    #[serde(default)]
+    pub destination_root_mode: Option<DestinationRootMode>,
+    #[serde(default)]
+    pub destination_root_path: Option<String>,
     pub started_at: String,
     pub completed_at: Option<String>,
     pub run_status: HistoryRunStatus,

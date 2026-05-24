@@ -9,9 +9,9 @@ use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager};
 
 use crate::models::{
-    HistoryIndexEntry, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
-    HistoryRecord, HistoryRun, HistoryRunCompletedRecord, HistoryRunDetails, HistoryRunStatus,
-    MoveStrategy,
+    EffectiveDestinationRoot, HistoryIndexEntry, HistoryOperation, HistoryOperationKind,
+    HistoryOperationStatus, HistoryRecord, HistoryRun, HistoryRunCompletedRecord,
+    HistoryRunDetails, HistoryRunStatus, MoveStrategy,
 };
 
 pub const HISTORY_VERSION: u32 = 1;
@@ -72,9 +72,18 @@ pub fn run_log_filename(started_at: DateTime<Utc>, run_id: &str) -> String {
     )
 }
 
+#[allow(dead_code)]
 pub fn start_history_run(
     app: &AppHandle,
     selected_folder: &Path,
+) -> Result<ActiveHistoryRun, String> {
+    start_history_run_with_destination_root(app, selected_folder, None)
+}
+
+pub fn start_history_run_with_destination_root(
+    app: &AppHandle,
+    selected_folder: &Path,
+    destination_root: Option<&EffectiveDestinationRoot>,
 ) -> Result<ActiveHistoryRun, String> {
     let history_root = history_root_for_app(app)?;
     let runs_dir = history_runs_dir(&history_root);
@@ -108,6 +117,8 @@ pub fn start_history_run(
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         selected_folder: selected_folder.to_string_lossy().to_string(),
         folder_label: folder_label_from_path(selected_folder),
+        destination_root_mode: destination_root.map(|root| root.mode.clone()),
+        destination_root_path: destination_root.map(|root| root.root_path.clone()),
         started_at: started_at.to_rfc3339(),
         completed_at: None,
         run_status: HistoryRunStatus::Running,
@@ -462,6 +473,8 @@ fn run_from_index_entry(entry: &HistoryIndexEntry) -> HistoryRun {
         app_version: String::new(),
         selected_folder: entry.selected_folder.clone(),
         folder_label: entry.folder_label.clone(),
+        destination_root_mode: None,
+        destination_root_path: None,
         started_at: entry.started_at.clone(),
         completed_at: entry.completed_at.clone(),
         run_status: entry.run_status.clone(),
@@ -789,6 +802,49 @@ mod tests {
     }
 
     #[test]
+    fn loads_legacy_history_run_without_destination_root_fields() {
+        let raw = r#"{
+            "run_id": "run-legacy",
+            "history_version": 1,
+            "app_version": "0.1.0",
+            "selected_folder": "C:\\todo",
+            "folder_label": "todo",
+            "started_at": "2026-05-24T01:02:03Z",
+            "completed_at": null,
+            "run_status": "running",
+            "history_file_path": "C:\\appdata\\history\\runs\\run-legacy.jsonl"
+        }"#;
+
+        let run: HistoryRun =
+            serde_json::from_str(raw).expect("legacy run should deserialize safely");
+
+        assert_eq!(run.destination_root_mode, None);
+        assert_eq!(run.destination_root_path, None);
+    }
+
+    #[test]
+    fn serializes_history_run_destination_root_fields() {
+        let run = HistoryRun {
+            run_id: "run-custom-root".to_string(),
+            history_version: HISTORY_VERSION,
+            app_version: "0.1.0".to_string(),
+            selected_folder: r"C:\todo".to_string(),
+            folder_label: "todo".to_string(),
+            destination_root_mode: Some(crate::models::DestinationRootMode::CustomRoot),
+            destination_root_path: Some(r"D:\Media".to_string()),
+            started_at: "2026-05-24T01:02:03Z".to_string(),
+            completed_at: None,
+            run_status: HistoryRunStatus::Running,
+            history_file_path: r"C:\appdata\history\runs\run-custom-root.jsonl".to_string(),
+        };
+
+        let serialized = serde_json::to_string(&run).expect("run should serialize");
+
+        assert!(serialized.contains("\"destination_root_mode\":\"custom_root\""));
+        assert!(serialized.contains("\"destination_root_path\":\"D:\\\\Media\""));
+    }
+
+    #[test]
     fn appends_jsonl_history_records() {
         let temp = tempdir().expect("temp dir");
         let log_path = temp.path().join("history.jsonl");
@@ -805,6 +861,8 @@ mod tests {
                 app_version: "0.1.0".to_string(),
                 selected_folder: r"C:\todo".to_string(),
                 folder_label: "todo".to_string(),
+                destination_root_mode: None,
+                destination_root_path: None,
                 started_at: "2026-05-24T01:02:03Z".to_string(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
@@ -1092,6 +1150,8 @@ mod tests {
             app_version: "0.1.0".to_string(),
             selected_folder: r"C:\todo".to_string(),
             folder_label: "todo".to_string(),
+            destination_root_mode: None,
+            destination_root_path: None,
             started_at: "2026-05-24T01:02:03Z".to_string(),
             completed_at: None,
             run_status: HistoryRunStatus::Running,
@@ -1177,6 +1237,8 @@ mod tests {
                     app_version: "0.1.0".to_string(),
                     selected_folder: r"C:\todo".to_string(),
                     folder_label: "todo".to_string(),
+                    destination_root_mode: None,
+                    destination_root_path: None,
                     started_at: "2026-05-24T01:02:03Z".to_string(),
                     completed_at: None,
                     run_status: HistoryRunStatus::Running,

@@ -17,14 +17,16 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     events, history, metadata,
     models::{
-        FileKind, FileRecord, HistoryIndexEntry, HistoryIndexUpdatedEvent, HistoryOperation,
-        HistoryOperationKind, HistoryOperationStatus, HistoryRedoProgressEvent, HistoryRunDetails,
-        HistoryRunStatus, HistoryUndoProgressEvent, MetadataReadRequest, MetadataResult,
-        MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan,
-        MoveResult, MoveResultStatus, MoveStrategy, ProcessingConfig,
+        DestinationSettings, EffectiveDestinationRoot, FileKind, FileRecord, HistoryIndexEntry,
+        HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
+        HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus, HistoryUndoProgressEvent,
+        MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
+        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, MoveStrategy,
+        ProcessingConfig,
     },
-    mover, planner, scanner,
+    mover, planner, scanner, settings,
 };
+use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 const MIN_METADATA_CONCURRENCY: usize = 1;
@@ -99,6 +101,70 @@ pub fn choose_folder(app: tauri::AppHandle) -> Option<String> {
         .file()
         .blocking_pick_folder()
         .map(|path| path.to_string())
+}
+
+#[tauri::command]
+pub fn get_destination_settings(app: AppHandle) -> Result<DestinationSettings, String> {
+    load_destination_settings_for_app(&app)
+}
+
+#[tauri::command]
+pub fn choose_root_media_folder(app: AppHandle) -> Result<Option<DestinationSettings>, String> {
+    let Some(selected_path) = app.dialog().file().blocking_pick_folder() else {
+        return Ok(None);
+    };
+
+    let root_path = PathBuf::from(selected_path.to_string());
+    settings::validate_custom_root_media_folder(&root_path)?;
+
+    let current = load_destination_settings_for_app(&app)?;
+    let updated =
+        settings::set_root_media_folder(&current, Some(root_path.to_string_lossy().to_string()));
+    save_destination_settings_for_app(&app, &updated).map(Some)
+}
+
+#[tauri::command]
+pub fn clear_root_media_folder(app: AppHandle) -> Result<DestinationSettings, String> {
+    let current = load_destination_settings_for_app(&app)?;
+    let updated = settings::clear_root_media_folder(&current);
+    save_destination_settings_for_app(&app, &updated)
+}
+
+#[tauri::command]
+pub fn set_force_processed_folder(
+    force_processed_folder: bool,
+    app: AppHandle,
+) -> Result<DestinationSettings, String> {
+    let current = load_destination_settings_for_app(&app)?;
+    let updated = settings::set_force_processed_folder(&current, force_processed_folder);
+    save_destination_settings_for_app(&app, &updated)
+}
+
+fn load_destination_settings_for_app(app: &AppHandle) -> Result<DestinationSettings, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve appData directory: {error}"))?;
+    settings::load_destination_settings(&app_data_dir)
+}
+
+fn save_destination_settings_for_app(
+    app: &AppHandle,
+    destination_settings: &DestinationSettings,
+) -> Result<DestinationSettings, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve appData directory: {error}"))?;
+    settings::save_destination_settings(&app_data_dir, destination_settings)
+}
+
+fn resolve_effective_destination_root_for_app(
+    app: &AppHandle,
+    selected_folder: &Path,
+) -> Result<EffectiveDestinationRoot, String> {
+    let destination_settings = load_destination_settings_for_app(app)?;
+    settings::resolve_effective_destination_root(selected_folder, &destination_settings)
 }
 
 #[tauri::command]
@@ -351,13 +417,20 @@ pub fn create_move_plan(
     selected_path: String,
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
+    let effective_root = resolve_effective_destination_root_for_app(&app, &selected_folder)?;
+    let destination_root = PathBuf::from(effective_root.root_path);
 
     tauri::async_runtime::spawn(async move {
-        let _ = planner::stream_move_plan(&app, selected_folder, files, metadata_results);
+        let _ = planner::stream_move_plan_with_destination_root(
+            &app,
+            destination_root,
+            files,
+            metadata_results,
+        );
     });
 
     Ok(())
@@ -485,11 +558,17 @@ pub fn execute_move_plan(
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
     plans: Vec<MovePlan>,
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
-    let mut history_run = history::start_history_run(&app, &selected_folder)?;
+    let effective_root = resolve_effective_destination_root_for_app(&app, &selected_folder)?;
+    let destination_root = PathBuf::from(&effective_root.root_path);
+    let mut history_run = history::start_history_run_with_destination_root(
+        &app,
+        &selected_folder,
+        Some(&effective_root),
+    )?;
     let _ = events::emit_history_index_updated(
         &app,
         HistoryIndexUpdatedEvent {
@@ -499,7 +578,11 @@ pub fn execute_move_plan(
 
     tauri::async_runtime::spawn(async move {
         let prepared = mover::prepare_move_operations(&files, &plans);
-        let safety_checked = mover::validate_move_safety(&selected_folder, prepared.operations);
+        let safety_checked = mover::validate_move_safety_with_roots(
+            &selected_folder,
+            &destination_root,
+            prepared.operations,
+        );
         let rechecked = mover::recheck_destination_conflicts(safety_checked.ready);
         let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
             .iter()
