@@ -172,12 +172,39 @@ pub fn update_history_run_status(
 ) -> Result<(), String> {
     let history_root = history_root_for_app(app)?;
     let mut index = load_history_index(&history_root)?;
-    let Some(entry) = index.runs.iter_mut().find(|entry| entry.run_id == run_id) else {
+    let entry = index
+        .runs
+        .iter()
+        .find(|entry| entry.run_id == run_id)
+        .ok_or_else(|| format!("History run '{}' was not found in index.", run_id))?
+        .clone();
+
+    let completed_at = Utc::now().to_rfc3339();
+    let log_path = PathBuf::from(&entry.history_file_path);
+    let mut log_file = OpenOptions::new()
+        .append(true)
+        .open(&log_path)
+        .map_err(|error| {
+            format!(
+                "Failed to open history run log at '{}': {error}",
+                log_path.display()
+            )
+        })?;
+
+    append_history_record(
+        &mut log_file,
+        &HistoryRecord::RunCompleted(HistoryRunCompletedRecord {
+            run_id: run_id.to_string(),
+            completed_at: completed_at.clone(),
+            run_status: run_status.clone(),
+        }),
+    )?;
+
+    let Some(index_entry) = index.runs.iter_mut().find(|entry| entry.run_id == run_id) else {
         return Err(format!("History run '{}' was not found in index.", run_id));
     };
-
-    entry.completed_at = Some(Utc::now().to_rfc3339());
-    entry.run_status = run_status;
+    index_entry.completed_at = Some(completed_at);
+    index_entry.run_status = run_status;
     write_history_index(&history_root, &index)
 }
 
@@ -386,9 +413,7 @@ fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistory
         unsafe_for_undo_redo = true;
     } else if let Some(completed) = parse_result.completed_record {
         run.completed_at = Some(completed.completed_at);
-        // Prefer index.json status over log's RunCompleted, since undo/redo
-        // no longer append to the log file. The index.json is the source of truth.
-        run.run_status = entry.run_status.clone();
+        run.run_status = completed.run_status;
     }
 
     if recovery_error.is_some() {
