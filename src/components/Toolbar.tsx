@@ -62,7 +62,7 @@ export function Toolbar({
               historyRuns.map((run) => (
                 <div
                   key={run.run_id}
-                  className={`mb-1 flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-slate-800 ${selectedHistoryRunId === run.run_id ? "bg-slate-800 text-slate-100" : "text-slate-300"}`}
+                  className={`mb-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-slate-800 ${selectedHistoryRunId === run.run_id ? "bg-sky-800 text-sky-100" : "text-slate-300"}`}
                 >
                   <button
                     aria-label={`View ${run.folder_label}`}

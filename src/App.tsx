@@ -414,7 +414,7 @@ export default function App() {
         if (preferred) {
           return preferred;
         }
-        return runs[0]?.run_id ?? null;
+        return null;
       });
     } catch (error) {
       setHistoryError(`Failed to load history runs: ${String(error)}`);
