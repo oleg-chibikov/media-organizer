@@ -121,9 +121,39 @@ pub fn validate_move_safety(
     selected_root: &Path,
     operations: Vec<MoveOperation>,
 ) -> SafetyCheckedMoves {
+    let processed_root = selected_root.join("Processed");
+    validate_move_safety_internal(
+        selected_root,
+        &processed_root,
+        operations,
+        "Source file is inside the Processed folder.",
+        "Destination file is outside the selected Processed folder.",
+    )
+}
+
+pub fn validate_move_safety_with_roots(
+    selected_source_root: &Path,
+    effective_destination_root: &Path,
+    operations: Vec<MoveOperation>,
+) -> SafetyCheckedMoves {
+    validate_move_safety_internal(
+        selected_source_root,
+        effective_destination_root,
+        operations,
+        "Source file is inside the effective destination root.",
+        "Destination file is outside the effective destination root.",
+    )
+}
+
+fn validate_move_safety_internal(
+    selected_source_root: &Path,
+    effective_destination_root: &Path,
+    operations: Vec<MoveOperation>,
+    source_inside_destination_error: &str,
+    destination_outside_root_error: &str,
+) -> SafetyCheckedMoves {
     let mut ready = Vec::new();
     let mut skipped = Vec::new();
-    let processed_root = selected_root.join("Processed");
 
     for operation in operations {
         let source = Path::new(&operation.source_path);
@@ -149,7 +179,7 @@ pub fn validate_move_safety(
             continue;
         }
 
-        if !path_is_within_case_insensitive(source, selected_root) {
+        if !path_is_within_case_insensitive(source, selected_source_root) {
             skipped.push(skipped_result(
                 &operation.file_id,
                 &operation.source_path,
@@ -159,22 +189,22 @@ pub fn validate_move_safety(
             continue;
         }
 
-        if path_is_within_case_insensitive(source, &processed_root) {
+        if path_is_within_case_insensitive(source, effective_destination_root) {
             skipped.push(skipped_result(
                 &operation.file_id,
                 &operation.source_path,
                 &operation.destination_path,
-                "Source file is inside the Processed folder.",
+                source_inside_destination_error,
             ));
             continue;
         }
 
-        if !path_is_within_case_insensitive(destination, &processed_root) {
+        if !path_is_within_case_insensitive(destination, effective_destination_root) {
             skipped.push(skipped_result(
                 &operation.file_id,
                 &operation.source_path,
                 &operation.destination_path,
-                "Destination file is outside the selected Processed folder.",
+                destination_outside_root_error,
             ));
             continue;
         }
@@ -933,6 +963,67 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("inside the Processed folder"));
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn safety_check_with_custom_root_rejects_destination_outside_effective_root() {
+        let temp = tempdir().expect("temp dir");
+        let source_root = temp.path().join("todo");
+        let destination_root = temp.path().join("media-root");
+        let source = source_root.join("source.jpg");
+        let destination = temp.path().join("outside.jpg");
+        fs::create_dir_all(&source_root).expect("create source root");
+        fs::create_dir_all(&destination_root).expect("create destination root");
+        fs::write(&source, b"source").expect("write source");
+
+        let checked = validate_move_safety_with_roots(
+            &source_root,
+            &destination_root,
+            vec![MoveOperation {
+                file_id: "photo_1".to_string(),
+                source_path: source.to_string_lossy().to_string(),
+                destination_path: destination.to_string_lossy().to_string(),
+            }],
+        );
+
+        assert_eq!(checked.ready.len(), 0);
+        assert_eq!(checked.skipped.len(), 1);
+        assert!(checked.skipped[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("outside the effective destination root"));
+        assert!(source.exists());
+    }
+
+    #[test]
+    fn safety_check_with_custom_root_rejects_source_inside_effective_root() {
+        let temp = tempdir().expect("temp dir");
+        let source_root = temp.path().join("todo");
+        let destination_root = temp.path().to_path_buf();
+        let source = source_root.join("source.jpg");
+        let destination = destination_root.join("2026").join("destination.jpg");
+        fs::create_dir_all(&source_root).expect("create source root");
+        fs::write(&source, b"source").expect("write source");
+
+        let checked = validate_move_safety_with_roots(
+            &source_root,
+            &destination_root,
+            vec![MoveOperation {
+                file_id: "photo_1".to_string(),
+                source_path: source.to_string_lossy().to_string(),
+                destination_path: destination.to_string_lossy().to_string(),
+            }],
+        );
+
+        assert_eq!(checked.ready.len(), 0);
+        assert_eq!(checked.skipped.len(), 1);
+        assert!(checked.skipped[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("inside the effective destination root"));
         assert!(source.exists());
     }
 }

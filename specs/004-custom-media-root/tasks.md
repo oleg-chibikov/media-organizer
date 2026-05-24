@@ -23,18 +23,18 @@
 ## Phase 3: Planning Integration
 
 - [ ] T012 Update move planning commands to resolve and use the effective destination root.
-- [ ] T013 Update `planner.rs` to build date-based destination directories under an injected destination root instead of hard-coded `Processed`.
-- [ ] T014 Preserve existing filename generation, conflict suffixes, metadata date behavior, and streaming plan events.
+- [x] T013 Update `planner.rs` to build date-based destination directories under an injected destination root instead of hard-coded `Processed`.
+- [x] T014 Preserve existing filename generation, conflict suffixes, metadata date behavior, and streaming plan events.
 - [ ] T015 Surface custom-root validation failures as planning errors without falling back silently.
-- [ ] T016 Add Rust tests for planning under custom root and forced `Processed`.
+- [x] T016 Add Rust tests for planning under custom root and forced `Processed`.
 
 ## Phase 4: Move Safety And Execution
 
 - [ ] T017 Update move execution commands to resolve or receive the same effective destination root used by planning.
-- [ ] T018 Update `mover.rs` safety validation to allow destinations inside the effective destination root.
-- [ ] T019 Update `mover.rs` safety validation to reject sources inside the effective destination root.
-- [ ] T020 Keep no-overwrite and parent-directory safety behavior unchanged.
-- [ ] T021 Add Rust tests for custom-root move validation, outside-root rejection, and source-inside-root rejection.
+- [x] T018 Update `mover.rs` safety validation to allow destinations inside the effective destination root.
+- [x] T019 Update `mover.rs` safety validation to reject sources inside the effective destination root.
+- [x] T020 Keep no-overwrite and parent-directory safety behavior unchanged.
+- [x] T021 Add Rust tests for custom-root move validation, outside-root rejection, and source-inside-root rejection.
 
 ## Phase 5: History Compatibility
 
@@ -45,13 +45,13 @@
 
 ## Phase 6: Frontend Settings Menu
 
-- [ ] T026 Add TypeScript types and API helpers for destination settings commands.
-- [ ] T027 Load destination settings on app startup.
-- [ ] T028 Add a right-side settings menu showing root Media folder status and validation errors.
-- [ ] T029 Add choose root, clear root, and force `Processed` controls.
-- [ ] T030 Disable or defer settings changes while move execution is active.
-- [ ] T031 Ensure planning and execution use current destination settings behavior.
-- [ ] T032 Add frontend tests for settings menu rendering and interactions.
+- [x] T026 Add TypeScript types and API helpers for destination settings commands.
+- [x] T027 Load destination settings on app startup.
+- [x] T028 Add a right-side settings menu showing root Media folder status and validation errors.
+- [x] T029 Add choose root, clear root, and force `Processed` controls.
+- [x] T030 Disable or defer settings changes while move execution is active.
+- [x] T031 Ensure planning and execution use current destination settings behavior.
+- [x] T032 Add frontend tests for settings menu rendering and interactions.
 
 ## Phase 7: Validation
 

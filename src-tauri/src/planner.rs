@@ -16,6 +16,16 @@ pub fn stream_move_plan(
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
 ) -> Result<(), String> {
+    let destination_root = selected_folder.join("Processed");
+    stream_move_plan_with_destination_root(app, destination_root, files, metadata_results)
+}
+
+pub fn stream_move_plan_with_destination_root(
+    app: &tauri::AppHandle,
+    destination_root: PathBuf,
+    files: Vec<FileRecord>,
+    metadata_results: Vec<MetadataResult>,
+) -> Result<(), String> {
     let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
         .iter()
         .map(|result| (result.file_id.as_str(), result))
@@ -30,7 +40,7 @@ pub fn stream_move_plan(
         }
 
         let metadata = metadata_by_id.get(file.id.as_str()).copied();
-        match create_plan_for_file(&selected_folder, &file, metadata, &mut reserved_paths) {
+        match create_plan_for_file(&destination_root, &file, metadata, &mut reserved_paths) {
             Ok(plan) => {
                 planned += 1;
                 events::emit_plan_file(app, PlanFileEvent { plan })?;
@@ -52,7 +62,7 @@ pub fn stream_move_plan(
 }
 
 fn create_plan_for_file(
-    selected_folder: &Path,
+    destination_root: &Path,
     file: &FileRecord,
     metadata: Option<&MetadataResult>,
     reserved_paths: &mut HashSet<String>,
@@ -76,8 +86,7 @@ fn create_plan_for_file(
     let parsed_date = NaiveDateTime::parse_from_str(chosen_date, "%Y-%m-%d %H:%M:%S")
         .map_err(|error| format!("Invalid chosen date for {}: {error}", file.source_path))?;
 
-    let destination_dir = selected_folder
-        .join("Processed")
+    let destination_dir = destination_root
         .join(parsed_date.format("%Y").to_string())
         .join(parsed_date.month().to_string())
         .join(parsed_date.day().to_string());
@@ -201,14 +210,18 @@ mod tests {
     }
 
     #[test]
-    fn plans_processed_destination_and_filename() {
+    fn plans_forced_legacy_processed_root_destination_and_filename() {
         let mut reserved = HashSet::new();
         let file = file_record("IMG_1001", "mp4");
         let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
 
-        let plan =
-            create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
-                .expect("plan should be created");
+        let plan = create_plan_for_file(
+            Path::new(r"C:\todo\Processed"),
+            &file,
+            Some(&metadata),
+            &mut reserved,
+        )
+        .expect("plan should be created");
 
         assert!(plan.destination_dir.ends_with(r"Processed\2026\3\5"));
         assert_eq!(
@@ -218,14 +231,30 @@ mod tests {
     }
 
     #[test]
+    fn plans_custom_root_destination_and_filename() {
+        let mut reserved = HashSet::new();
+        let file = file_record("IMG_1001", "mp4");
+        let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
+
+        let plan = create_plan_for_file(
+            Path::new(r"C:\MediaRoot"),
+            &file,
+            Some(&metadata),
+            &mut reserved,
+        )
+        .expect("plan should be created");
+
+        assert!(plan.destination_dir.ends_with(r"MediaRoot\2026\3\5"));
+        assert_eq!(
+            plan.destination_filename,
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
+        );
+    }
+
+    #[test]
     fn applies_suffix_for_existing_destination_file() {
         let temp_dir = tempfile::tempdir().expect("temp dir should be created");
-        let destination_dir = temp_dir
-            .path()
-            .join("Processed")
-            .join("2026")
-            .join("3")
-            .join("5");
+        let destination_dir = temp_dir.path().join("2026").join("3").join("5");
         std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
         std::fs::write(
             destination_dir.join("2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"),
@@ -289,12 +318,7 @@ mod tests {
             .expect("plan should be created");
 
         assert!(matches!(plan.plan_status, PlanStatus::Ready));
-        let destination_dir = temp_dir
-            .path()
-            .join("Processed")
-            .join("2026")
-            .join("3")
-            .join("5");
+        let destination_dir = temp_dir.path().join("2026").join("3").join("5");
         assert!(
             !destination_dir.exists(),
             "planner dry-run must not create filesystem directories"
