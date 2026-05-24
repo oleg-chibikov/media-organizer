@@ -116,6 +116,8 @@ export const revealFileInExplorer = (sourcePath: string) =>
 export const listHistoryRuns = () => invokeCommand<HistoryIndexEntry[]>("list_history_runs");
 export const getHistoryRun = (runId: string) =>
   invokeCommand<HistoryRunDetails | null>("get_history_run", { runId });
+export const undoHistoryRun = (runId: string) => invokeCommand<void>("undo_history_run", { runId });
+export const redoHistoryRun = (runId: string) => invokeCommand<void>("redo_history_run", { runId });
 
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;

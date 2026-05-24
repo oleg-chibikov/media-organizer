@@ -16,8 +16,10 @@ import {
   getProcessingConfig,
   healthCheck,
   listHistoryRuns,
+  redoHistoryRun,
   readMetadataForFiles,
-  startScan
+  startScan,
+  undoHistoryRun
 } from "./lib/api";
 import type {
   FileRecord,
@@ -821,22 +823,30 @@ export default function App() {
     handleConfirmExecution();
   };
 
-  const handleUndoProcessing = () => {
+  const handleUndoProcessing = async () => {
     if (!undoEligibleRun) {
       return;
     }
-    setFolderError(
-      `Undo Processing is available for run ${undoEligibleRun.run_id}, but execution is implemented in Phase 5.`
-    );
+    try {
+      await undoHistoryRun(undoEligibleRun.run_id);
+      setFolderError(null);
+      await reloadHistoryRuns(undoEligibleRun.run_id);
+    } catch (error) {
+      setFolderError(`Failed to undo processing: ${String(error)}`);
+    }
   };
 
-  const handleRedoProcessing = () => {
+  const handleRedoProcessing = async () => {
     if (!redoEligibleRun) {
       return;
     }
-    setFolderError(
-      `Redo Processing is available for run ${redoEligibleRun.run_id}, but execution is implemented in Phase 5.`
-    );
+    try {
+      await redoHistoryRun(redoEligibleRun.run_id);
+      setFolderError(null);
+      await reloadHistoryRuns(redoEligibleRun.run_id);
+    } catch (error) {
+      setFolderError(`Failed to redo processing: ${String(error)}`);
+    }
   };
 
   const visibleHistoryDetails =
@@ -861,8 +871,8 @@ export default function App() {
           setSelectedHistoryRunId(runId);
           setSelectedHistoryRunDetails(null);
         }}
-        onUndoProcessing={handleUndoProcessing}
-        onRedoProcessing={handleRedoProcessing}
+        onUndoProcessing={() => void handleUndoProcessing()}
+        onRedoProcessing={() => void handleRedoProcessing()}
       />
 
       <main className="min-h-0 flex-1">
