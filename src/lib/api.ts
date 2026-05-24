@@ -113,6 +113,8 @@ export const executeMovePlan = (
 
 export const revealFileInExplorer = (sourcePath: string) =>
   invokeCommand<void>("reveal_file_in_explorer", { sourcePath });
+export const deleteHistoryRun = (runId: string) =>
+  invokeCommand<void>("delete_history_run", { runId });
 export const listHistoryRuns = () => invokeCommand<HistoryIndexEntry[]>("list_history_runs");
 export const getHistoryRun = (runId: string) =>
   invokeCommand<HistoryRunDetails | null>("get_history_run", { runId });

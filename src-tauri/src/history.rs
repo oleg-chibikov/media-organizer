@@ -699,6 +699,33 @@ fn index_entry_from_run(run: &HistoryRun) -> HistoryIndexEntry {
     }
 }
 
+pub fn delete_history_run(app: &AppHandle, run_id: &str) -> Result<(), String> {
+    let history_root = history_root_for_app(app)?;
+    let mut index = load_history_index(&history_root)?;
+
+    let entry = index
+        .runs
+        .iter()
+        .find(|entry| entry.run_id == run_id)
+        .ok_or_else(|| format!("History run '{run_id}' was not found in index."))?
+        .clone();
+
+    index.runs.retain(|entry| entry.run_id != run_id);
+    write_history_index(&history_root, &index)?;
+
+    let log_path = PathBuf::from(&entry.history_file_path);
+    if log_path.exists() {
+        fs::remove_file(&log_path).map_err(|error| {
+            format!(
+                "Failed to remove history log file at '{}': {error}",
+                log_path.display()
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

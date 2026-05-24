@@ -373,6 +373,18 @@ pub fn get_move_confirmation_summary(
 }
 
 #[tauri::command]
+pub fn delete_history_run(run_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    history::delete_history_run(&app, &run_id)?;
+    let _ = events::emit_history_index_updated(
+        &app,
+        HistoryIndexUpdatedEvent {
+            run_id: Some(run_id),
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
 pub fn list_history_runs(app: tauri::AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
     history::list_history_runs(&app)
 }

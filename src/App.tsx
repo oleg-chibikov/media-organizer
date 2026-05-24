@@ -11,6 +11,7 @@ import {
   cancelScan,
   chooseFolder,
   createMovePlan,
+  deleteHistoryRun,
   executeMovePlan,
   getHistoryRun,
   getProcessingConfig,
@@ -858,6 +859,18 @@ export default function App() {
     }
   };
 
+  const handleDeleteProcessing = async (runId: string) => {
+    try {
+      await deleteHistoryRun(runId);
+      setSelectedHistoryRunDetails((prev) => (prev?.run.run_id === runId ? null : prev));
+      setSelectedHistoryRunId((prev) => (prev === runId ? null : prev));
+      setFolderError(null);
+      await reloadHistoryRuns();
+    } catch (error) {
+      setFolderError(`Failed to delete history entry: ${String(error)}`);
+    }
+  };
+
   const visibleHistoryDetails =
     selectedHistoryRunId && selectedHistoryRunDetails?.run.run_id === selectedHistoryRunId
       ? selectedHistoryRunDetails
@@ -880,6 +893,7 @@ export default function App() {
         }}
         onUndoProcessing={(runId) => void handleUndoProcessing(runId)}
         onRedoProcessing={(runId) => void handleRedoProcessing(runId)}
+        onDeleteProcessing={(runId) => void handleDeleteProcessing(runId)}
       />
 
       <main className="min-h-0 flex-1">

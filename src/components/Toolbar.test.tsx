@@ -47,21 +47,26 @@ describe("Toolbar History Menu", () => {
         onSelectHistoryRun={onSelectHistoryRun}
         onUndoProcessing={onUndoProcessing}
         onRedoProcessing={onRedoProcessing}
+        onDeleteProcessing={vi.fn()}
       />
     );
 
     expect(screen.getByText("History")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("History"));
+
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();
     expect(screen.getByText("TODO Drone")).toBeInTheDocument();
 
-    const undoButton = screen.getByRole("button", { name: "Undo TODO Camera" });
-    const redoButton = screen.getByRole("button", { name: "Redo TODO Drone" });
-
-    fireEvent.click(undoButton);
+    fireEvent.click(screen.getByRole("button", { name: "Undo TODO Camera" }));
     expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
 
-    fireEvent.click(redoButton);
+    fireEvent.click(screen.getByText("History"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Redo TODO Drone" }));
     expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
+
+    fireEvent.click(screen.getByText("History"));
 
     fireEvent.click(screen.getByRole("button", { name: "View TODO Drone" }));
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");
