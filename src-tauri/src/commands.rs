@@ -627,6 +627,7 @@ fn execute_undo_operations(
         completed_operations += 1;
         let execution_result = execute_undo_operation(operation);
         let history_operation = build_undo_history_operation(run_id, operation, &execution_result);
+        let _ = history::append_history_operation_for_run(app, run_id, history_operation.clone());
 
         match history_operation.status {
             HistoryOperationStatus::Succeeded => summary.succeeded += 1,
@@ -877,6 +878,7 @@ fn execute_redo_operations(
         completed_operations += 1;
         let execution_result = execute_redo_operation(operation);
         let history_operation = build_redo_history_operation(run_id, operation, &execution_result);
+        let _ = history::append_history_operation_for_run(app, run_id, history_operation.clone());
 
         match history_operation.status {
             HistoryOperationStatus::Succeeded => summary.succeeded += 1,
@@ -917,13 +919,12 @@ fn execute_redo_operation(operation: &HistoryOperation) -> RedoExecutionResult {
 }
 
 fn redo_rename_operation(operation: &HistoryOperation) -> RedoExecutionResult {
-    let redo_source = Path::new(&operation.destination_path);
-    let redo_destination = Path::new(&operation.source_path);
+    let (redo_source, redo_destination) = redo_paths_for_operation(operation);
 
     if !redo_source.is_file() {
         return RedoExecutionResult {
             status: HistoryOperationStatus::Blocked,
-            error: Some("Redo blocked: original source file is missing.".to_string()),
+            error: Some("Redo blocked: source file is missing.".to_string()),
         };
     }
 
@@ -983,13 +984,12 @@ fn redo_rename_operation(operation: &HistoryOperation) -> RedoExecutionResult {
 }
 
 fn redo_copy_keep_source_operation(operation: &HistoryOperation) -> RedoExecutionResult {
-    let redo_source = Path::new(&operation.destination_path);
-    let redo_destination = Path::new(&operation.source_path);
+    let (redo_source, redo_destination) = redo_paths_for_operation(operation);
 
     if !redo_source.is_file() {
         return RedoExecutionResult {
             status: HistoryOperationStatus::Blocked,
-            error: Some("Redo blocked: original source file is missing.".to_string()),
+            error: Some("Redo blocked: source file is missing.".to_string()),
         };
     }
 
@@ -1049,30 +1049,58 @@ fn redo_copy_keep_source_operation(operation: &HistoryOperation) -> RedoExecutio
 }
 
 fn expected_redo_source_size(operation: &HistoryOperation) -> Option<u64> {
-    operation
-        .expected_destination_size
-        .or(operation.expected_source_size)
+    match operation.operation_kind {
+        HistoryOperationKind::Process => operation
+            .expected_source_size
+            .or(operation.expected_destination_size),
+        _ => operation
+            .expected_destination_size
+            .or(operation.expected_source_size),
+    }
+}
+
+fn redo_paths_for_operation(operation: &HistoryOperation) -> (&Path, &Path) {
+    match operation.operation_kind {
+        HistoryOperationKind::Process => (
+            Path::new(&operation.source_path),
+            Path::new(&operation.destination_path),
+        ),
+        _ => (
+            Path::new(&operation.destination_path),
+            Path::new(&operation.source_path),
+        ),
+    }
 }
 
 fn build_redo_history_operation(
     run_id: &str,
-    undo_operation: &HistoryOperation,
+    operation: &HistoryOperation,
     result: &RedoExecutionResult,
 ) -> HistoryOperation {
-    let expected_source_size = expected_redo_source_size(undo_operation);
+    let expected_source_size = expected_redo_source_size(operation);
+    let (source_path, destination_path) = match operation.operation_kind {
+        HistoryOperationKind::Process => (
+            operation.source_path.clone(),
+            operation.destination_path.clone(),
+        ),
+        _ => (
+            operation.destination_path.clone(),
+            operation.source_path.clone(),
+        ),
+    };
 
     HistoryOperation {
         operation_id: history::next_operation_id(run_id),
         run_id: run_id.to_string(),
-        file_id: undo_operation.file_id.clone(),
+        file_id: operation.file_id.clone(),
         operation_kind: HistoryOperationKind::Redo,
-        source_path: undo_operation.destination_path.clone(),
-        destination_path: undo_operation.source_path.clone(),
+        source_path,
+        destination_path,
         expected_source_size,
         expected_destination_size: expected_source_size,
-        metadata_date: undo_operation.metadata_date.clone(),
-        original_name: undo_operation.original_name.clone(),
-        move_strategy: undo_operation.move_strategy.clone(),
+        metadata_date: operation.metadata_date.clone(),
+        original_name: operation.original_name.clone(),
+        move_strategy: operation.move_strategy.clone(),
         status: result.status.clone(),
         error: result.error.clone(),
         timestamp: Utc::now().to_rfc3339(),
@@ -1739,6 +1767,52 @@ mod tests {
         ));
         assert_eq!(redo_operation.source_path, undo_operation.destination_path);
         assert_eq!(redo_operation.destination_path, undo_operation.source_path);
+    }
+
+    #[test]
+    fn redoes_rename_operation_from_process_record_for_legacy_history() {
+        let temp = tempdir().expect("temp dir");
+        let original_source = temp.path().join("todo").join("photo.jpg");
+        let processed_destination = temp
+            .path()
+            .join("todo")
+            .join("Processed")
+            .join("2026")
+            .join("05")
+            .join("24")
+            .join("photo.jpg");
+        fs::create_dir_all(original_source.parent().expect("source should have parent"))
+            .expect("create source parent");
+        fs::write(&original_source, b"image-bytes").expect("write original source");
+
+        let process_operation = HistoryOperation {
+            operation_id: "run-1-op-1".to_string(),
+            run_id: "run-1".to_string(),
+            file_id: "file-1".to_string(),
+            operation_kind: HistoryOperationKind::Process,
+            source_path: original_source.to_string_lossy().to_string(),
+            destination_path: processed_destination.to_string_lossy().to_string(),
+            expected_source_size: Some(11),
+            expected_destination_size: Some(11),
+            metadata_date: Some("2026-05-24T01:02:03Z".to_string()),
+            original_name: "photo".to_string(),
+            move_strategy: MoveStrategy::Rename,
+            status: HistoryOperationStatus::Succeeded,
+            error: None,
+            timestamp: "2026-05-24T01:03:03Z".to_string(),
+        };
+
+        let result = execute_redo_operation(&process_operation);
+        let redo_operation = build_redo_history_operation("run-1", &process_operation, &result);
+
+        assert!(matches!(result.status, HistoryOperationStatus::Succeeded));
+        assert!(!original_source.exists());
+        assert!(processed_destination.exists());
+        assert_eq!(redo_operation.source_path, process_operation.source_path);
+        assert_eq!(
+            redo_operation.destination_path,
+            process_operation.destination_path
+        );
     }
 
     #[test]

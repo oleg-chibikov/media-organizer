@@ -165,6 +165,33 @@ pub fn append_history_operation(
     )
 }
 
+pub fn append_history_operation_for_run(
+    app: &AppHandle,
+    run_id: &str,
+    operation: HistoryOperation,
+) -> Result<(), String> {
+    let history_root = history_root_for_app(app)?;
+    let index = load_history_index(&history_root)?;
+    let entry = index
+        .runs
+        .iter()
+        .find(|entry| entry.run_id == run_id)
+        .ok_or_else(|| format!("History run '{}' was not found in index.", run_id))?;
+
+    let log_path = PathBuf::from(&entry.history_file_path);
+    let mut log_file = OpenOptions::new()
+        .append(true)
+        .open(&log_path)
+        .map_err(|error| {
+            format!(
+                "Failed to open history run log at '{}': {error}",
+                log_path.display()
+            )
+        })?;
+
+    append_history_record(&mut log_file, &HistoryRecord::Operation(operation))
+}
+
 pub fn update_history_run_status(
     app: &AppHandle,
     run_id: &str,
