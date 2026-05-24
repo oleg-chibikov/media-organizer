@@ -9,8 +9,9 @@ use chrono::{DateTime, Utc};
 use tauri::{AppHandle, Manager};
 
 use crate::models::{
-    HistoryIndexEntry, HistoryOperation, HistoryRecord, HistoryRun, HistoryRunCompletedRecord,
-    HistoryRunDetails, HistoryRunStatus,
+    HistoryIndexEntry, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
+    HistoryRecord, HistoryRun, HistoryRunCompletedRecord, HistoryRunDetails, HistoryRunStatus,
+    MoveStrategy,
 };
 
 pub const HISTORY_VERSION: u32 = 1;
@@ -25,6 +26,13 @@ static OPERATION_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 #[derive(Debug)]
 pub struct ActiveHistoryRun {
     pub run: HistoryRun,
+    history_root: PathBuf,
+    log_file: File,
+}
+
+#[derive(Debug)]
+pub struct ExistingHistoryRun {
+    run_id: String,
     history_root: PathBuf,
     log_file: File,
 }
@@ -164,6 +172,76 @@ pub fn append_history_operation(
     )
 }
 
+pub fn open_existing_history_run_for_append(
+    app: &AppHandle,
+    run_id: &str,
+) -> Result<ExistingHistoryRun, String> {
+    let history_root = history_root_for_app(app)?;
+    let index = load_history_index(&history_root)?;
+    let entry = index
+        .runs
+        .into_iter()
+        .find(|entry| entry.run_id == run_id)
+        .ok_or_else(|| format!("History run '{run_id}' was not found in index."))?;
+    let log_path = PathBuf::from(&entry.history_file_path);
+    let log_file = OpenOptions::new()
+        .append(true)
+        .open(&log_path)
+        .map_err(|error| {
+            format!(
+                "Failed to open history run log at '{}': {error}",
+                log_path.display()
+            )
+        })?;
+
+    Ok(ExistingHistoryRun {
+        run_id: run_id.to_string(),
+        history_root,
+        log_file,
+    })
+}
+
+pub fn append_history_operation_for_existing_run(
+    active_run: &mut ExistingHistoryRun,
+    operation: HistoryOperation,
+) -> Result<(), String> {
+    append_history_record(
+        &mut active_run.log_file,
+        &HistoryRecord::Operation(operation),
+    )
+}
+
+pub fn complete_existing_history_run(
+    active_run: &mut ExistingHistoryRun,
+    run_status: HistoryRunStatus,
+) -> Result<(), String> {
+    let completed_at = Utc::now().to_rfc3339();
+    append_history_record(
+        &mut active_run.log_file,
+        &HistoryRecord::RunCompleted(HistoryRunCompletedRecord {
+            run_id: active_run.run_id.clone(),
+            completed_at: completed_at.clone(),
+            run_status: run_status.clone(),
+        }),
+    )?;
+
+    let mut index = load_history_index(&active_run.history_root)?;
+    let Some(entry) = index
+        .runs
+        .iter_mut()
+        .find(|entry| entry.run_id == active_run.run_id)
+    else {
+        return Err(format!(
+            "History run '{}' was not found while updating completion status.",
+            active_run.run_id
+        ));
+    };
+
+    entry.completed_at = Some(completed_at);
+    entry.run_status = run_status;
+    write_history_index(&active_run.history_root, &index)
+}
+
 pub fn list_history_runs(app: &AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
     let history_root = history_root_for_app(app)?;
     list_history_runs_from_root(&history_root)
@@ -238,10 +316,7 @@ fn undo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
         HistoryRunStatus::Completed
             | HistoryRunStatus::CompletedWithErrors
             | HistoryRunStatus::Redone
-    ) && recovered
-        .operations
-        .iter()
-        .any(|operation| operation.status == crate::models::HistoryOperationStatus::Succeeded)
+    ) && !collect_undoable_operations(&recovered.operations).is_empty()
 }
 
 fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
@@ -249,6 +324,42 @@ fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
         recovered.run.run_status,
         HistoryRunStatus::Undone | HistoryRunStatus::PartiallyUndone
     )
+}
+
+pub fn collect_undoable_operations(operations: &[HistoryOperation]) -> Vec<HistoryOperation> {
+    let mut last_succeeded_by_file = std::collections::HashMap::<String, &HistoryOperation>::new();
+
+    for operation in operations {
+        if !matches!(operation.status, HistoryOperationStatus::Succeeded) {
+            continue;
+        }
+        if !matches!(
+            operation.operation_kind,
+            HistoryOperationKind::Process | HistoryOperationKind::Undo | HistoryOperationKind::Redo
+        ) {
+            continue;
+        }
+        last_succeeded_by_file.insert(operation.file_id.clone(), operation);
+    }
+
+    let mut undoable = last_succeeded_by_file
+        .values()
+        .filter_map(|operation| {
+            if matches!(
+                operation.operation_kind,
+                HistoryOperationKind::Process | HistoryOperationKind::Redo
+            ) && matches!(
+                operation.move_strategy,
+                MoveStrategy::Rename | MoveStrategy::CopyKeepSource
+            ) {
+                return Some((*operation).clone());
+            }
+            None
+        })
+        .collect::<Vec<_>>();
+
+    undoable.sort_by(|left, right| left.operation_id.cmp(&right.operation_id));
+    undoable
 }
 
 fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistoryRun {
@@ -681,6 +792,110 @@ mod tests {
         assert_eq!(index.runs.len(), MAX_INDEX_RUNS);
         assert_eq!(index.runs[0].run_id, format!("run-{}", MAX_INDEX_RUNS + 4));
         assert_eq!(index.runs[MAX_INDEX_RUNS - 1].run_id, "run-5");
+    }
+
+    #[test]
+    fn collects_undoable_operations_for_supported_strategies_only() {
+        let operations = vec![
+            HistoryOperation {
+                operation_id: "run-1-01".to_string(),
+                run_id: "run-1".to_string(),
+                file_id: "rename-file".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\rename.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\rename.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "rename".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:03:03Z".to_string(),
+            },
+            HistoryOperation {
+                operation_id: "run-1-02".to_string(),
+                run_id: "run-1".to_string(),
+                file_id: "copy-file".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\copy.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\copy.jpg".to_string(),
+                expected_source_size: Some(11),
+                expected_destination_size: Some(11),
+                metadata_date: None,
+                original_name: "copy".to_string(),
+                move_strategy: crate::models::MoveStrategy::CopyKeepSource,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:04:03Z".to_string(),
+            },
+            HistoryOperation {
+                operation_id: "run-1-03".to_string(),
+                run_id: "run-1".to_string(),
+                file_id: "skipped-file".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\skip.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\skip.jpg".to_string(),
+                expected_source_size: Some(12),
+                expected_destination_size: Some(12),
+                metadata_date: None,
+                original_name: "skip".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Skipped,
+                error: None,
+                timestamp: "2026-05-24T01:05:03Z".to_string(),
+            },
+        ];
+
+        let undoable = collect_undoable_operations(&operations);
+        assert_eq!(undoable.len(), 2);
+        assert!(undoable
+            .iter()
+            .any(|operation| operation.file_id == "rename-file"));
+        assert!(undoable
+            .iter()
+            .any(|operation| operation.file_id == "copy-file"));
+    }
+
+    #[test]
+    fn excludes_successfully_undone_operations_from_undo_candidates() {
+        let operations = vec![
+            HistoryOperation {
+                operation_id: "run-2-01".to_string(),
+                run_id: "run-2".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Process,
+                source_path: r"C:\todo\photo.jpg".to_string(),
+                destination_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:03:03Z".to_string(),
+            },
+            HistoryOperation {
+                operation_id: "run-2-02".to_string(),
+                run_id: "run-2".to_string(),
+                file_id: "file-1".to_string(),
+                operation_kind: crate::models::HistoryOperationKind::Undo,
+                source_path: r"C:\todo\Processed\photo.jpg".to_string(),
+                destination_path: r"C:\todo\photo.jpg".to_string(),
+                expected_source_size: Some(10),
+                expected_destination_size: Some(10),
+                metadata_date: None,
+                original_name: "photo".to_string(),
+                move_strategy: crate::models::MoveStrategy::Rename,
+                status: crate::models::HistoryOperationStatus::Succeeded,
+                error: None,
+                timestamp: "2026-05-24T01:06:03Z".to_string(),
+            },
+        ];
+
+        let undoable = collect_undoable_operations(&operations);
+        assert!(undoable.is_empty());
     }
 
     #[test]

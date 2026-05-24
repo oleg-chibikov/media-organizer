@@ -1,8 +1,9 @@
 use tauri::{AppHandle, Emitter};
 
 use crate::models::{
-    HistoryIndexUpdatedEvent, MoveFileEvent, MoveFinishedEvent, PlanErrorEvent, PlanFileEvent,
-    PlanFinishedEvent, ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
+    HistoryIndexUpdatedEvent, HistoryUndoProgressEvent, MoveFileEvent, MoveFinishedEvent,
+    PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent, ScanFileEvent,
+    ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -16,6 +17,7 @@ pub const PLAN_FINISHED: &str = "plan:finished";
 pub const MOVE_FILE: &str = "move:file";
 pub const MOVE_FINISHED: &str = "move:finished";
 pub const HISTORY_INDEX_UPDATED: &str = "history:index-updated";
+pub const HISTORY_UNDO_PROGRESS: &str = "history:undo-progress";
 
 pub fn emit_scan_started(app: &AppHandle, payload: ScanStartedEvent) -> Result<(), String> {
     app.emit(SCAN_STARTED, payload).map_err(|e| e.to_string())
@@ -62,5 +64,13 @@ pub fn emit_history_index_updated(
     payload: HistoryIndexUpdatedEvent,
 ) -> Result<(), String> {
     app.emit(HISTORY_INDEX_UPDATED, payload)
+        .map_err(|e| e.to_string())
+}
+
+pub fn emit_history_undo_progress(
+    app: &AppHandle,
+    payload: HistoryUndoProgressEvent,
+) -> Result<(), String> {
+    app.emit(HISTORY_UNDO_PROGRESS, payload)
         .map_err(|e| e.to_string())
 }

@@ -191,6 +191,14 @@ pub struct HistoryIndexUpdatedEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryUndoProgressEvent {
+    pub run_id: String,
+    pub total_operations: u64,
+    pub completed_operations: u64,
+    pub operation: HistoryOperation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoveConfirmationSummary {
     pub total_plans: u64,
     pub ready_operations: u64,

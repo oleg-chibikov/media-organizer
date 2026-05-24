@@ -40,12 +40,12 @@
 
 ## Phase 5: Undo
 
-- [ ] T024 Add undo eligibility calculation for completed run records, including different handling for `rename` and `copy_keep_source` results.
-- [ ] T025 Implement undo validation for destination exists, source path is free for `rename`, original source still exists for `copy_keep_source`, size matches when available, and no overwrite.
-- [ ] T026 Execute undo by moving recorded `rename` destinations back to recorded source paths and removing copied destinations only after `copy_keep_source` validation passes.
-- [ ] T027 Append undo operation results to the same run history log.
-- [ ] T028 Emit undo progress events.
-- [ ] T029 Add Rust tests for successful undo and blocked undo cases.
+- [x] T024 Add undo eligibility calculation for completed run records, including different handling for `rename` and `copy_keep_source` results.
+- [x] T025 Implement undo validation for destination exists, source path is free for `rename`, original source still exists for `copy_keep_source`, size matches when available, and no overwrite.
+- [x] T026 Execute undo by moving recorded `rename` destinations back to recorded source paths and removing copied destinations only after `copy_keep_source` validation passes.
+- [x] T027 Append undo operation results to the same run history log.
+- [x] T028 Emit undo progress events.
+- [x] T029 Add Rust tests for successful undo and blocked undo cases.
 
 ## Phase 6: Redo
 

@@ -19,8 +19,9 @@ use crate::{
     models::{
         FileKind, FileRecord, HistoryIndexEntry, HistoryIndexUpdatedEvent, HistoryOperation,
         HistoryOperationKind, HistoryOperationStatus, HistoryRunDetails, HistoryRunStatus,
-        MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
-        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
+        HistoryUndoProgressEvent, MetadataReadRequest, MetadataResult, MetadataStatus,
+        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult,
+        MoveResultStatus, MoveStrategy, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -385,6 +386,52 @@ pub fn get_history_run(
 }
 
 #[tauri::command]
+pub fn undo_history_run(run_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    let details = history::get_history_run(&app, &run_id)?
+        .ok_or_else(|| format!("History run '{run_id}' was not found."))?;
+    if details.unsafe_for_undo_redo {
+        return Err("History run is marked unsafe for undo/redo.".to_string());
+    }
+    if !matches!(
+        details.run.run_status,
+        HistoryRunStatus::Completed
+            | HistoryRunStatus::CompletedWithErrors
+            | HistoryRunStatus::Redone
+    ) {
+        return Err("Undo is only available for completed or redone runs.".to_string());
+    }
+
+    let undoable_operations = history::collect_undoable_operations(&details.operations);
+    if undoable_operations.is_empty() {
+        return Err("No undoable operations were found for this history run.".to_string());
+    }
+
+    let initial_status = details.run.run_status.clone();
+    let run_id_for_task = run_id.clone();
+    let mut run_log = history::open_existing_history_run_for_append(&app, &run_id)?;
+    tauri::async_runtime::spawn(async move {
+        let summary =
+            execute_undo_operations(&app, &run_id_for_task, &mut run_log, &undoable_operations);
+
+        let final_status = undo_completion_status(initial_status, &summary);
+        if summary.history_log_error.is_none() && final_status != details.run.run_status {
+            let _ = history::complete_existing_history_run(&mut run_log, final_status);
+        } else if summary.history_log_error.is_some() {
+            let _ = history::complete_existing_history_run(&mut run_log, HistoryRunStatus::Corrupt);
+        }
+
+        let _ = events::emit_history_index_updated(
+            &app,
+            HistoryIndexUpdatedEvent {
+                run_id: Some(run_id_for_task),
+            },
+        );
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn execute_move_plan(
     selected_path: String,
     files: Vec<FileRecord>,
@@ -533,6 +580,269 @@ pub fn execute_move_plan(
     });
 
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct UndoExecutionSummary {
+    attempted: u64,
+    succeeded: u64,
+    blocked: u64,
+    failed: u64,
+    history_log_error: Option<String>,
+}
+
+fn execute_undo_operations(
+    app: &tauri::AppHandle,
+    run_id: &str,
+    run_log: &mut history::ExistingHistoryRun,
+    operations: &[HistoryOperation],
+) -> UndoExecutionSummary {
+    let total_operations = operations.len() as u64;
+    let mut completed_operations = 0u64;
+    let mut summary = UndoExecutionSummary {
+        attempted: total_operations,
+        succeeded: 0,
+        blocked: 0,
+        failed: 0,
+        history_log_error: None,
+    };
+
+    for operation in operations {
+        completed_operations += 1;
+        let execution_result = execute_undo_operation(operation);
+        let history_operation = build_undo_history_operation(run_id, operation, &execution_result);
+
+        if let Err(error) =
+            history::append_history_operation_for_existing_run(run_log, history_operation.clone())
+        {
+            summary.history_log_error = Some(error);
+            break;
+        }
+
+        match history_operation.status {
+            HistoryOperationStatus::Succeeded => summary.succeeded += 1,
+            HistoryOperationStatus::Blocked => summary.blocked += 1,
+            HistoryOperationStatus::Failed => summary.failed += 1,
+            HistoryOperationStatus::Skipped => {}
+        }
+
+        let _ = events::emit_history_undo_progress(
+            app,
+            HistoryUndoProgressEvent {
+                run_id: run_id.to_string(),
+                total_operations,
+                completed_operations,
+                operation: history_operation,
+            },
+        );
+    }
+
+    summary
+}
+
+#[derive(Debug, Clone)]
+struct UndoExecutionResult {
+    status: HistoryOperationStatus,
+    error: Option<String>,
+}
+
+fn execute_undo_operation(operation: &HistoryOperation) -> UndoExecutionResult {
+    match operation.move_strategy {
+        MoveStrategy::Rename => undo_rename_operation(operation),
+        MoveStrategy::CopyKeepSource => undo_copy_keep_source_operation(operation),
+        MoveStrategy::NotAttempted => UndoExecutionResult {
+            status: HistoryOperationStatus::Blocked,
+            error: Some("Operation strategy is not undoable.".to_string()),
+        },
+    }
+}
+
+fn undo_rename_operation(operation: &HistoryOperation) -> UndoExecutionResult {
+    let undo_source = Path::new(&operation.destination_path);
+    let undo_destination = Path::new(&operation.source_path);
+
+    if !undo_source.is_file() {
+        return UndoExecutionResult {
+            status: HistoryOperationStatus::Blocked,
+            error: Some("Undo blocked: processed destination file is missing.".to_string()),
+        };
+    }
+
+    if undo_destination.exists() {
+        return UndoExecutionResult {
+            status: HistoryOperationStatus::Blocked,
+            error: Some("Undo blocked: original source path already exists.".to_string()),
+        };
+    }
+
+    if let Some(expected_size) = operation.expected_destination_size {
+        match fs::metadata(undo_source) {
+            Ok(meta) if meta.len() == expected_size => {}
+            Ok(meta) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: destination size mismatch (expected {expected_size}, found {}).",
+                        meta.len()
+                    )),
+                };
+            }
+            Err(error) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: cannot read destination metadata: {error}"
+                    )),
+                };
+            }
+        }
+    }
+
+    if let Some(parent) = undo_destination.parent() {
+        if let Err(error) = fs::create_dir_all(parent) {
+            return UndoExecutionResult {
+                status: HistoryOperationStatus::Failed,
+                error: Some(format!(
+                    "Undo failed: could not create source parent directory: {error}"
+                )),
+            };
+        }
+    }
+
+    match fs::rename(undo_source, undo_destination) {
+        Ok(()) => UndoExecutionResult {
+            status: HistoryOperationStatus::Succeeded,
+            error: None,
+        },
+        Err(error) => UndoExecutionResult {
+            status: HistoryOperationStatus::Failed,
+            error: Some(format!(
+                "Undo failed: could not move file back to source: {error}"
+            )),
+        },
+    }
+}
+
+fn undo_copy_keep_source_operation(operation: &HistoryOperation) -> UndoExecutionResult {
+    let copied_destination = Path::new(&operation.destination_path);
+    let original_source = Path::new(&operation.source_path);
+
+    if !original_source.is_file() {
+        return UndoExecutionResult {
+            status: HistoryOperationStatus::Blocked,
+            error: Some("Undo blocked: original source file is missing.".to_string()),
+        };
+    }
+
+    if !copied_destination.is_file() {
+        return UndoExecutionResult {
+            status: HistoryOperationStatus::Blocked,
+            error: Some("Undo blocked: copied destination file is missing.".to_string()),
+        };
+    }
+
+    if let Some(expected_size) = operation.expected_source_size {
+        match fs::metadata(original_source) {
+            Ok(meta) if meta.len() == expected_size => {}
+            Ok(meta) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: source size mismatch (expected {expected_size}, found {}).",
+                        meta.len()
+                    )),
+                };
+            }
+            Err(error) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: cannot read source metadata: {error}"
+                    )),
+                };
+            }
+        }
+    }
+
+    if let Some(expected_size) = operation.expected_destination_size {
+        match fs::metadata(copied_destination) {
+            Ok(meta) if meta.len() == expected_size => {}
+            Ok(meta) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: destination size mismatch (expected {expected_size}, found {}).",
+                        meta.len()
+                    )),
+                };
+            }
+            Err(error) => {
+                return UndoExecutionResult {
+                    status: HistoryOperationStatus::Blocked,
+                    error: Some(format!(
+                        "Undo blocked: cannot read destination metadata: {error}"
+                    )),
+                };
+            }
+        }
+    }
+
+    match fs::remove_file(copied_destination) {
+        Ok(()) => UndoExecutionResult {
+            status: HistoryOperationStatus::Succeeded,
+            error: None,
+        },
+        Err(error) => UndoExecutionResult {
+            status: HistoryOperationStatus::Failed,
+            error: Some(format!(
+                "Undo failed: could not remove copied destination: {error}"
+            )),
+        },
+    }
+}
+
+fn build_undo_history_operation(
+    run_id: &str,
+    process_operation: &HistoryOperation,
+    result: &UndoExecutionResult,
+) -> HistoryOperation {
+    let expected_destination_size = match process_operation.move_strategy {
+        MoveStrategy::Rename => process_operation.expected_source_size,
+        MoveStrategy::CopyKeepSource | MoveStrategy::NotAttempted => None,
+    };
+
+    HistoryOperation {
+        operation_id: history::next_operation_id(run_id),
+        run_id: run_id.to_string(),
+        file_id: process_operation.file_id.clone(),
+        operation_kind: HistoryOperationKind::Undo,
+        source_path: process_operation.destination_path.clone(),
+        destination_path: process_operation.source_path.clone(),
+        expected_source_size: process_operation.expected_destination_size,
+        expected_destination_size,
+        metadata_date: process_operation.metadata_date.clone(),
+        original_name: process_operation.original_name.clone(),
+        move_strategy: process_operation.move_strategy.clone(),
+        status: result.status.clone(),
+        error: result.error.clone(),
+        timestamp: Utc::now().to_rfc3339(),
+    }
+}
+
+fn undo_completion_status(
+    initial_status: HistoryRunStatus,
+    summary: &UndoExecutionSummary,
+) -> HistoryRunStatus {
+    if summary.history_log_error.is_some() {
+        return HistoryRunStatus::Corrupt;
+    }
+    if summary.succeeded == 0 {
+        return initial_status;
+    }
+    if summary.succeeded == summary.attempted {
+        return HistoryRunStatus::Undone;
+    }
+    HistoryRunStatus::PartiallyUndone
 }
 
 #[tauri::command]
@@ -907,13 +1217,14 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_history_operation_for_result, cleanup_empty_source_directories,
+        build_history_operation_for_result, build_undo_history_operation,
+        cleanup_empty_source_directories, execute_undo_operation,
         history_operation_status_for_move_result, history_run_status_for_completion,
     };
     use crate::models::{
-        FileKind, FileRecord, HistoryOperationKind, HistoryOperationStatus, HistoryRunStatus,
-        MetadataResult, MetadataStatus, MovePlan, MoveResult, MoveResultStatus, MoveStrategy,
-        PlanStatus, ScanStatus,
+        FileKind, FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
+        HistoryRunStatus, MetadataResult, MetadataStatus, MovePlan, MoveResult, MoveResultStatus,
+        MoveStrategy, PlanStatus, ScanStatus,
     };
 
     #[test]
@@ -1082,6 +1393,116 @@ mod tests {
             history_run_status_for_completion(5, true, true),
             HistoryRunStatus::Corrupt
         ));
+    }
+
+    #[test]
+    fn undoes_rename_operation_when_validation_passes() {
+        let temp = tempdir().expect("temp dir");
+        let original_source = temp.path().join("todo").join("photo.jpg");
+        let processed_destination = temp
+            .path()
+            .join("todo")
+            .join("Processed")
+            .join("2026")
+            .join("05")
+            .join("24")
+            .join("photo.jpg");
+        fs::create_dir_all(
+            processed_destination
+                .parent()
+                .expect("destination should have parent"),
+        )
+        .expect("create destination parent");
+        fs::write(&processed_destination, b"image-bytes").expect("write processed destination");
+
+        let process_operation = HistoryOperation {
+            operation_id: "run-1-op-1".to_string(),
+            run_id: "run-1".to_string(),
+            file_id: "file-1".to_string(),
+            operation_kind: HistoryOperationKind::Process,
+            source_path: original_source.to_string_lossy().to_string(),
+            destination_path: processed_destination.to_string_lossy().to_string(),
+            expected_source_size: Some(11),
+            expected_destination_size: Some(11),
+            metadata_date: Some("2026-05-24T01:02:03Z".to_string()),
+            original_name: "photo".to_string(),
+            move_strategy: MoveStrategy::Rename,
+            status: HistoryOperationStatus::Succeeded,
+            error: None,
+            timestamp: "2026-05-24T01:03:03Z".to_string(),
+        };
+
+        let result = execute_undo_operation(&process_operation);
+        let undo_operation = build_undo_history_operation("run-1", &process_operation, &result);
+
+        assert!(matches!(result.status, HistoryOperationStatus::Succeeded));
+        assert!(original_source.exists());
+        assert!(!processed_destination.exists());
+        assert!(matches!(
+            undo_operation.operation_kind,
+            HistoryOperationKind::Undo
+        ));
+        assert_eq!(
+            undo_operation.source_path,
+            process_operation.destination_path
+        );
+        assert_eq!(
+            undo_operation.destination_path,
+            process_operation.source_path
+        );
+    }
+
+    #[test]
+    fn blocks_undo_when_rename_source_already_exists() {
+        let temp = tempdir().expect("temp dir");
+        let original_source = temp.path().join("todo").join("photo.jpg");
+        let processed_destination = temp
+            .path()
+            .join("todo")
+            .join("Processed")
+            .join("2026")
+            .join("05")
+            .join("24")
+            .join("photo.jpg");
+        fs::create_dir_all(
+            processed_destination
+                .parent()
+                .expect("destination should have parent"),
+        )
+        .expect("create destination parent");
+        fs::create_dir_all(original_source.parent().expect("source should have parent"))
+            .expect("create source parent");
+        fs::write(&processed_destination, b"image-bytes").expect("write processed destination");
+        fs::write(&original_source, b"existing-source").expect("write existing source");
+
+        let process_operation = HistoryOperation {
+            operation_id: "run-1-op-1".to_string(),
+            run_id: "run-1".to_string(),
+            file_id: "file-1".to_string(),
+            operation_kind: HistoryOperationKind::Process,
+            source_path: original_source.to_string_lossy().to_string(),
+            destination_path: processed_destination.to_string_lossy().to_string(),
+            expected_source_size: Some(11),
+            expected_destination_size: Some(11),
+            metadata_date: Some("2026-05-24T01:02:03Z".to_string()),
+            original_name: "photo".to_string(),
+            move_strategy: MoveStrategy::Rename,
+            status: HistoryOperationStatus::Succeeded,
+            error: None,
+            timestamp: "2026-05-24T01:03:03Z".to_string(),
+        };
+
+        let result = execute_undo_operation(&process_operation);
+        let undo_operation = build_undo_history_operation("run-1", &process_operation, &result);
+
+        assert!(matches!(result.status, HistoryOperationStatus::Blocked));
+        assert!(undo_operation
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("already exists"));
+        assert!(original_source.exists());
+        assert!(processed_destination.exists());
     }
 
     #[cfg(target_os = "windows")]
