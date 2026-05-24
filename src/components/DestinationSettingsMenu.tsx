@@ -50,11 +50,20 @@ export function DestinationSettingsMenu({
   return (
     <div ref={panelRef} className="relative">
       <button
-        className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700"
+        aria-label="Settings"
+        className="rounded bg-slate-800 p-1.5 text-slate-100 hover:bg-slate-700"
         onClick={() => setOpen((previous) => !previous)}
         type="button"
       >
-        Settings
+        <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm9 3.5-.9-.5a8.6 8.6 0 0 0-.3-1.2l.6-.8a1 1 0 0 0-.1-1.3l-1.5-1.5a1 1 0 0 0-1.3-.1l-.8.6c-.4-.1-.8-.3-1.2-.3L15 3a1 1 0 0 0-1-.8h-2a1 1 0 0 0-1 .8l-.2 1.1c-.4.1-.8.2-1.2.3l-.8-.6a1 1 0 0 0-1.3.1L6 5.4a1 1 0 0 0-.1 1.3l.6.8c-.1.4-.3.8-.3 1.2L5 9a1 1 0 0 0-.8 1v2a1 1 0 0 0 .8 1l1.1.2c.1.4.2.8.3 1.2l-.6.8a1 1 0 0 0 .1 1.3l1.5 1.5a1 1 0 0 0 1.3.1l.8-.6c.4.1.8.3 1.2.3l.2 1.1a1 1 0 0 0 1 .8h2a1 1 0 0 0 1-.8l.2-1.1c.4-.1.8-.2 1.2-.3l.8.6a1 1 0 0 0 1.3-.1l1.5-1.5a1 1 0 0 0 .1-1.3l-.6-.8c.1-.4.3-.8.3-1.2l1.1-.2a1 1 0 0 0 .8-1v-2a1 1 0 0 0-.8-1Z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       {open ? (
         <section className="absolute right-0 z-30 mt-1 w-96 rounded border border-slate-700 bg-slate-900 p-3 shadow-lg">

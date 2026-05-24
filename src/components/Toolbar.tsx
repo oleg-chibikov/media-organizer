@@ -65,7 +65,6 @@ export function Toolbar({
       >
         Choose Folder
       </button>
-      {settingsMenu}
       {isScanning ? (
         <button
           className="rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700"
@@ -262,6 +261,8 @@ export function Toolbar({
         )}
         {folderError ? <p className="text-rose-400">{folderError}</p> : null}
       </div>
+
+      {settingsMenu ? <div className="ml-auto shrink-0">{settingsMenu}</div> : null}
     </header>
   );
 }
