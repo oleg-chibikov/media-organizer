@@ -51,7 +51,7 @@ export function Toolbar({
         <summary className="cursor-pointer list-none rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700">
           History
         </summary>
-        <div className="absolute left-0 z-20 mt-1 w-[28rem] rounded border border-slate-700 bg-slate-900 p-2 shadow-lg">
+        <div className="absolute left-0 z-20 mt-1 w-[32rem] rounded border border-slate-700 bg-slate-900 p-2 shadow-lg">
           <p className="mb-1 text-xs text-slate-400">Recent Runs</p>
           <div className="max-h-56 overflow-y-auto">
             {historyLoading ? (
@@ -59,54 +59,64 @@ export function Toolbar({
             ) : historyRuns.length === 0 ? (
               <p className="px-2 py-1 text-xs text-slate-500">No history runs</p>
             ) : (
-              historyRuns.map((run) => (
-                <div
-                  key={run.run_id}
-                  className={`mb-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-slate-800 ${selectedHistoryRunId === run.run_id ? "bg-sky-800 text-sky-100" : "text-slate-300"}`}
-                >
-                  <button
-                    aria-label={`View ${run.folder_label}`}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                    onClick={() => onSelectHistoryRun(run.run_id)}
-                    type="button"
-                  >
-                    <span className="w-40 shrink-0 font-mono text-[11px]">
-                      {formatHistoryTimestamp(run.started_at)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{run.folder_label}</span>
-                    <span className="shrink-0 text-[11px] text-slate-400">
-                      {formatRunStatus(run.run_status)}
-                    </span>
-                  </button>
-                  {run.undo_available ? (
-                    <button
-                      aria-label={`Undo ${run.folder_label}`}
-                      className="shrink-0 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                      onClick={() => onUndoProcessing(run.run_id)}
-                      type="button"
-                    >
-                      Undo
-                    </button>
-                  ) : run.redo_available ? (
-                    <button
-                      aria-label={`Redo ${run.folder_label}`}
-                      className="shrink-0 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                      onClick={() => onRedoProcessing(run.run_id)}
-                      type="button"
-                    >
-                      Redo
-                    </button>
-                  ) : null}
-                  <button
-                    aria-label={`Open log for ${run.folder_label}`}
-                    className="shrink-0 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                    onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
-                    type="button"
-                  >
-                    Log
-                  </button>
+              <>
+                <div className="flex items-center gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  <span className="w-44 shrink-0">Date / Time</span>
+                  <span className="min-w-0 flex-1">Folder</span>
+                  <span className="w-20 shrink-0">Status</span>
+                  <span className="w-16 shrink-0 text-right">Actions</span>
                 </div>
-              ))
+                {historyRuns.map((run) => (
+                  <div
+                    key={run.run_id}
+                    className={`mb-1 flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-slate-800 ${selectedHistoryRunId === run.run_id ? "bg-sky-800 text-sky-100" : "text-slate-300"}`}
+                  >
+                    <button
+                      aria-label={`View ${run.folder_label}`}
+                      className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+                      onClick={() => onSelectHistoryRun(run.run_id)}
+                      type="button"
+                    >
+                      <span className="w-44 shrink-0 font-mono text-[11px]">
+                        {formatHistoryTimestamp(run.started_at)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{run.folder_label}</span>
+                      <span className="w-20 shrink-0 text-[11px] text-slate-400">
+                        {formatRunStatus(run.run_status)}
+                      </span>
+                    </button>
+                    <div className="flex w-16 shrink-0 justify-end gap-1">
+                      {run.undo_available ? (
+                        <button
+                          aria-label={`Undo ${run.folder_label}`}
+                          className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                          onClick={() => onUndoProcessing(run.run_id)}
+                          type="button"
+                        >
+                          Undo
+                        </button>
+                      ) : run.redo_available ? (
+                        <button
+                          aria-label={`Redo ${run.folder_label}`}
+                          className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                          onClick={() => onRedoProcessing(run.run_id)}
+                          type="button"
+                        >
+                          Redo
+                        </button>
+                      ) : null}
+                      <button
+                        aria-label={`Open log for ${run.folder_label}`}
+                        className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                        onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
+                        type="button"
+                      >
+                        Log
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
         </div>
