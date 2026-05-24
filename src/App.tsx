@@ -334,45 +334,68 @@ export default function App() {
       activeMoveRequestsRef.current < MOVE_DISPATCH_CONCURRENCY &&
       moveQueueRef.current.length > 0
     ) {
-      const nextFileId = moveQueueRef.current.shift();
-      if (!nextFileId) {
-        break;
-      }
-      queuedMoveIdsRef.current.delete(nextFileId);
+      const batchRows: FileRecord[] = [];
+      const batchMetadata: MetadataResult[] = [];
+      const batchPlans: MovePlan[] = [];
+      const batchFileIds: string[] = [];
 
-      if (
-        inflightMoveIdsRef.current.has(nextFileId) ||
-        completedMoveIdsRef.current.has(nextFileId)
-      ) {
-        continue;
+      while (moveQueueRef.current.length > 0) {
+        const nextFileId = moveQueueRef.current.shift();
+        if (!nextFileId) {
+          continue;
+        }
+
+        queuedMoveIdsRef.current.delete(nextFileId);
+
+        if (
+          inflightMoveIdsRef.current.has(nextFileId) ||
+          completedMoveIdsRef.current.has(nextFileId)
+        ) {
+          continue;
+        }
+
+        const row = rowByIdRef.current.get(nextFileId);
+        const metadata = metadataByFileId[nextFileId];
+        const plan = movePlansByFileId[nextFileId];
+        if (!row || !metadata || !plan || plan.plan_status !== "ready") {
+          trackedMoveIdsRef.current.delete(nextFileId);
+          continue;
+        }
+
+        batchRows.push(row);
+        batchMetadata.push(metadata);
+        batchPlans.push(plan);
+        batchFileIds.push(nextFileId);
       }
 
-      const row = rowByIdRef.current.get(nextFileId);
-      const metadata = metadataByFileId[nextFileId];
-      const plan = movePlansByFileId[nextFileId];
-      if (!row || !metadata || !plan || plan.plan_status !== "ready") {
-        trackedMoveIdsRef.current.delete(nextFileId);
+      if (batchRows.length === 0) {
         continue;
       }
 
       activeMoveRequestsRef.current += 1;
-      inflightMoveIdsRef.current.add(nextFileId);
+      for (const fileId of batchFileIds) {
+        inflightMoveIdsRef.current.add(fileId);
+      }
       setIsExecutingMoves(true);
       setMoveCompleted(false);
 
-      void executeMovePlan(selectedFolder, [row], [metadata], [plan]).catch((error: unknown) => {
-        activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
-        inflightMoveIdsRef.current.delete(nextFileId);
-        trackedMoveIdsRef.current.delete(nextFileId);
-        setFolderError(`Failed to execute move plan: ${String(error)}`);
-        if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
-          setIsExecutingMoves(false);
-          setMoveCompleted(true);
+      void executeMovePlan(selectedFolder, batchRows, batchMetadata, batchPlans).catch(
+        (error: unknown) => {
+          activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
+          for (const fileId of batchFileIds) {
+            inflightMoveIdsRef.current.delete(fileId);
+            trackedMoveIdsRef.current.delete(fileId);
+          }
+          setFolderError(`Failed to execute move plan: ${String(error)}`);
+          if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
+            setIsExecutingMoves(false);
+            setMoveCompleted(true);
+          }
+          queueMicrotask(() => {
+            pumpMoveQueueRef.current();
+          });
         }
-        queueMicrotask(() => {
-          pumpMoveQueueRef.current();
-        });
-      });
+      );
     }
   }, [
     executionConfirmed,
