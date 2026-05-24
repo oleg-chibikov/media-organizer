@@ -3,6 +3,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FileKind,
   FileRecord,
+  HistoryIndexEntry,
+  HistoryIndexUpdatedEvent,
+  HistoryRunDetails,
   MetadataReadRequest,
   MetadataResult,
   MoveConfirmationSummary,
@@ -52,6 +55,10 @@ export const PLAN_EVENTS = {
 export const MOVE_EVENTS = {
   file: "move:file",
   finished: "move:finished"
+} as const;
+
+export const HISTORY_EVENTS = {
+  indexUpdated: "history:index-updated"
 } as const;
 
 export const healthCheck = () => invokeCommand<string>("health_check");
@@ -106,6 +113,9 @@ export const executeMovePlan = (
 
 export const revealFileInExplorer = (sourcePath: string) =>
   invokeCommand<void>("reveal_file_in_explorer", { sourcePath });
+export const listHistoryRuns = () => invokeCommand<HistoryIndexEntry[]>("list_history_runs");
+export const getHistoryRun = (runId: string) =>
+  invokeCommand<HistoryRunDetails | null>("get_history_run", { runId });
 
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;
@@ -124,6 +134,10 @@ export interface PlanListeners {
 export interface MoveListeners {
   onFile: (payload: MoveFileEvent) => void;
   onFinished: (payload: MoveFinishedEvent) => void;
+}
+
+export interface HistoryListeners {
+  onIndexUpdated: (payload: HistoryIndexUpdatedEvent) => void;
 }
 
 export async function attachScanListeners(handlers: ScanListeners): Promise<UnlistenFn[]> {
@@ -158,6 +172,18 @@ export async function attachMoveListeners(handlers: MoveListeners): Promise<Unli
   const listeners = await Promise.all([
     listen<MoveFileEvent>(MOVE_EVENTS.file, (event) => handlers.onFile(event.payload)),
     listen<MoveFinishedEvent>(MOVE_EVENTS.finished, (event) => handlers.onFinished(event.payload))
+  ]);
+
+  return listeners;
+}
+
+export async function attachHistoryListeners(handlers: HistoryListeners): Promise<UnlistenFn[]> {
+  ensureTauriRuntime();
+
+  const listeners = await Promise.all([
+    listen<HistoryIndexUpdatedEvent>(HISTORY_EVENTS.indexUpdated, (event) =>
+      handlers.onIndexUpdated(event.payload)
+    )
   ]);
 
   return listeners;

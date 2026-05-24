@@ -17,10 +17,10 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     events, history, logging, metadata,
     models::{
-        FileKind, FileRecord, HistoryIndexEntry, HistoryOperation, HistoryOperationKind,
-        HistoryOperationStatus, HistoryRunDetails, HistoryRunStatus, MetadataReadRequest,
-        MetadataResult, MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent,
-        MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
+        FileKind, FileRecord, HistoryIndexEntry, HistoryIndexUpdatedEvent, HistoryOperation,
+        HistoryOperationKind, HistoryOperationStatus, HistoryRunDetails, HistoryRunStatus,
+        MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
+        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, ProcessingConfig,
     },
     mover, planner, scanner,
 };
@@ -396,6 +396,12 @@ pub fn execute_move_plan(
     validate_folder(&selected_folder)?;
     let log_file = logging::open_processing_log_for_append(&selected_folder).ok();
     let mut history_run = history::start_history_run(&app, &selected_folder)?;
+    let _ = events::emit_history_index_updated(
+        &app,
+        HistoryIndexUpdatedEvent {
+            run_id: Some(history_run.run.run_id.clone()),
+        },
+    );
 
     tauri::async_runtime::spawn(async move {
         let prepared = mover::prepare_move_operations(&files, &plans);
@@ -506,7 +512,14 @@ pub fn execute_move_plan(
             compatibility_log_had_error,
             history_log_had_error,
         );
+        let history_run_id = history_run.run.run_id.clone();
         let _ = history::complete_history_run(&mut history_run, run_status);
+        let _ = events::emit_history_index_updated(
+            &app,
+            HistoryIndexUpdatedEvent {
+                run_id: Some(history_run_id),
+            },
+        );
 
         let _ = events::emit_move_finished(
             &app,

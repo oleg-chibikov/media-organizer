@@ -186,6 +186,11 @@ pub struct MoveFinishedEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryIndexUpdatedEvent {
+    pub run_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoveConfirmationSummary {
     pub total_plans: u64,
     pub ready_operations: u64,

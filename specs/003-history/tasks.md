@@ -31,12 +31,12 @@
 
 ## Phase 4: History Menu And Details
 
-- [ ] T018 Add a History menu to the app menu bar.
-- [ ] T019 List recent runs with timestamp, folder label, and status.
-- [ ] T020 Add disabled states for Undo Processing and Redo Processing when no eligible run exists.
-- [ ] T021 Add a history details view for per-file processing, undo, and redo records.
-- [ ] T022 Load history asynchronously after app startup and when history update events arrive.
-- [ ] T023 Add frontend tests for menu availability and details rendering.
+- [x] T018 Add a History menu to the app menu bar.
+- [x] T019 List recent runs with timestamp, folder label, and status.
+- [x] T020 Add disabled states for Undo Processing and Redo Processing when no eligible run exists.
+- [x] T021 Add a history details view for per-file processing, undo, and redo records.
+- [x] T022 Load history asynchronously after app startup and when history update events arrive.
+- [x] T023 Add frontend tests for menu availability and details rendering.
 
 ## Phase 5: Undo
 

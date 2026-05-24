@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileTable } from "./components/FileTable";
+import { HistoryDetailsPanel } from "./components/HistoryDetailsPanel";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import {
+  attachHistoryListeners,
   attachMoveListeners,
   attachPlanListeners,
   attachScanListeners,
@@ -10,13 +12,17 @@ import {
   chooseFolder,
   createMovePlan,
   executeMovePlan,
+  getHistoryRun,
   getProcessingConfig,
   healthCheck,
+  listHistoryRuns,
   readMetadataForFiles,
   startScan
 } from "./lib/api";
 import type {
   FileRecord,
+  HistoryIndexEntry,
+  HistoryRunDetails,
   MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
@@ -69,9 +75,24 @@ export default function App() {
   const [copiedCount, setCopiedCount] = useState(0);
   const [moveSkippedCount, setMoveSkippedCount] = useState(0);
   const [moveFailedCount, setMoveFailedCount] = useState(0);
+  const [historyRuns, setHistoryRuns] = useState<HistoryIndexEntry[]>([]);
+  const [selectedHistoryRunId, setSelectedHistoryRunId] = useState<string | null>(null);
+  const [selectedHistoryRunDetails, setSelectedHistoryRunDetails] =
+    useState<HistoryRunDetails | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDetailsLoading, setHistoryDetailsLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const isPlanning = activePlanRequests > 0;
   const planCompleted =
     completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0;
+  const undoEligibleRun = useMemo(
+    () => historyRuns.find((run) => run.undo_available) ?? null,
+    [historyRuns]
+  );
+  const redoEligibleRun = useMemo(
+    () => historyRuns.find((run) => run.redo_available) ?? null,
+    [historyRuns]
+  );
 
   const seenRowIdsRef = useRef<Set<string>>(new Set());
   const requestedMetadataIdsRef = useRef<Set<string>>(new Set());
@@ -362,6 +383,100 @@ export default function App() {
   useEffect(() => {
     pumpMoveQueueRef.current = pumpMoveQueue;
   }, [pumpMoveQueue]);
+
+  const reloadHistoryRuns = useCallback(async (preferredRunId: string | null = null) => {
+    setHistoryLoading(true);
+    try {
+      const runs = await listHistoryRuns();
+      setHistoryRuns(runs);
+      setHistoryError(null);
+      setSelectedHistoryRunId((previous) => {
+        const preferred =
+          preferredRunId ??
+          (previous && runs.some((run) => run.run_id === previous) ? previous : null);
+        if (preferred) {
+          return preferred;
+        }
+        return runs[0]?.run_id ?? null;
+      });
+    } catch (error) {
+      setHistoryError(`Failed to load history runs: ${String(error)}`);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void reloadHistoryRuns();
+    });
+  }, [reloadHistoryRuns]);
+
+  useEffect(() => {
+    let unsubs: (() => void)[] = [];
+    let disposed = false;
+
+    void attachHistoryListeners({
+      onIndexUpdated: ({ run_id }) => {
+        void reloadHistoryRuns(run_id);
+      }
+    })
+      .then((listeners) => {
+        if (disposed) {
+          for (const unlisten of listeners) {
+            unlisten();
+          }
+          return;
+        }
+        unsubs = listeners;
+      })
+      .catch((error: unknown) => {
+        if (!disposed) {
+          setHistoryError(`Failed to attach history listeners: ${String(error)}`);
+        }
+      });
+
+    return () => {
+      disposed = true;
+      for (const unlisten of unsubs) {
+        unlisten();
+      }
+    };
+  }, [reloadHistoryRuns]);
+
+  useEffect(() => {
+    if (!selectedHistoryRunId) {
+      return;
+    }
+
+    let ignore = false;
+    queueMicrotask(() => {
+      if (!ignore) {
+        setHistoryDetailsLoading(true);
+      }
+    });
+    void getHistoryRun(selectedHistoryRunId)
+      .then((details) => {
+        if (ignore) {
+          return;
+        }
+        setSelectedHistoryRunDetails(details);
+      })
+      .catch((error: unknown) => {
+        if (!ignore) {
+          setHistoryError(`Failed to load history details: ${String(error)}`);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setHistoryDetailsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedHistoryRunId]);
 
   useEffect(() => {
     let ignore = false;
@@ -706,14 +821,48 @@ export default function App() {
     handleConfirmExecution();
   };
 
+  const handleUndoProcessing = () => {
+    if (!undoEligibleRun) {
+      return;
+    }
+    setFolderError(
+      `Undo Processing is available for run ${undoEligibleRun.run_id}, but execution is implemented in Phase 5.`
+    );
+  };
+
+  const handleRedoProcessing = () => {
+    if (!redoEligibleRun) {
+      return;
+    }
+    setFolderError(
+      `Redo Processing is available for run ${redoEligibleRun.run_id}, but execution is implemented in Phase 5.`
+    );
+  };
+
+  const visibleHistoryDetails =
+    selectedHistoryRunId && selectedHistoryRunDetails?.run.run_id === selectedHistoryRunId
+      ? selectedHistoryRunDetails
+      : null;
+
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       <Toolbar
         selectedFolder={selectedFolder}
         folderError={folderError}
         isScanning={isScanning}
+        historyRuns={historyRuns}
+        selectedHistoryRunId={selectedHistoryRunId}
+        historyLoading={historyLoading}
+        undoEnabled={Boolean(undoEligibleRun)}
+        redoEnabled={Boolean(redoEligibleRun)}
         onChooseFolder={() => void handleChooseFolder()}
         onCancelScan={() => void handleCancelScan()}
+        onSelectHistoryRun={(runId) => {
+          setSelectedHistoryRunId(runId);
+          setSelectedHistoryRunDetails(null);
+        }}
+        onUndoProcessing={handleUndoProcessing}
+        onRedoProcessing={handleRedoProcessing}
       />
 
       <main className="min-h-0 flex-1">
@@ -725,6 +874,12 @@ export default function App() {
           selectedFolder={selectedFolder}
         />
       </main>
+
+      <HistoryDetailsPanel
+        details={visibleHistoryDetails}
+        loading={historyDetailsLoading}
+        error={historyError}
+      />
 
       <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
         <div className="flex flex-wrap items-center gap-3">

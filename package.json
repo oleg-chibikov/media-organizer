@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest run",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
@@ -38,6 +39,8 @@
     "@tauri-apps/cli": "^2.11.2",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.5.0",
     "eslint": "^10.4.0",
@@ -52,6 +55,8 @@
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4",
-    "vite": "^8.0.14"
+    "vite": "^8.0.14",
+    "vitest": "^4.0.8",
+    "jsdom": "^27.2.0"
   }
 }
