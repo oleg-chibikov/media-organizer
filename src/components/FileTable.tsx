@@ -1,12 +1,6 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  flexRender,
-  getCoreRowModel,
-  type ColumnDef,
-  type ColumnSizingState,
-  useReactTable
-} from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
+import { useCallback, useMemo } from "react";
+import { ResizableVirtualTable } from "./ResizableVirtualTable";
 import { revealFileInExplorer } from "../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
@@ -107,14 +101,13 @@ export function FileTable({
   moveResultsByFileId,
   selectedFolder
 }: FileTableProps) {
-  const parentRef = useRef<HTMLDivElement | null>(null);
-  const manuallyResizedColumnsRef = useRef<Set<ColumnKey>>(new Set());
-
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() =>
-    COLUMNS.reduce<ColumnSizingState>((accumulator, column) => {
-      accumulator[column.key] = COLUMN_HORIZONTAL_PADDING;
-      return accumulator;
-    }, {})
+  const defaultColumnSizing = useMemo<ColumnSizingState>(
+    () =>
+      COLUMNS.reduce<ColumnSizingState>((accumulator, column) => {
+        accumulator[column.key] = COLUMN_HORIZONTAL_PADDING;
+        return accumulator;
+      }, {}),
+    []
   );
 
   const tableRows = useMemo<TableRowData[]>(
@@ -178,52 +171,7 @@ export function FileTable({
     []
   );
 
-  const table = useReactTable({
-    data: tableRows,
-    columns: tableColumns,
-    getCoreRowModel: getCoreRowModel(),
-    columnResizeMode: "onChange",
-    enableColumnResizing: true,
-    state: { columnSizing },
-    onColumnSizingChange: setColumnSizing
-  });
-
-  const gridTemplateColumns = table
-    .getVisibleLeafColumns()
-    .map((column) => `${column.getSize()}px`)
-    .join(" ");
-
-  const tableMinWidth = table.getTotalSize();
-  const tableWidth = `max(100%, ${tableMinWidth}px)`;
-
-  const rowVirtualizer = useVirtualizer({
-    count: tableRows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 38,
-    overscan: 20
-  });
-
-  const markColumnAsResized = useCallback((columnKey: ColumnKey) => {
-    manuallyResizedColumnsRef.current.add(columnKey);
-    document.body.classList.add("cursor-col-resize", "select-none");
-  }, []);
-
-  useEffect(() => {
-    if (rows.length === 0) {
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    const measureWidth = (value: string, font: string) => {
-      context.font = font;
-      return Math.ceil(context.measureText(value).width);
-    };
-
+  const calculateAutoSizedColumns = useCallback(() => {
     const desiredWidths: Record<ColumnKey, number> = {
       source: HEADER_MIN_WIDTHS.source,
       destination: HEADER_MIN_WIDTHS.destination,
@@ -232,6 +180,21 @@ export function FileTable({
       originalName: HEADER_MIN_WIDTHS.originalName,
       metadataDate: HEADER_MIN_WIDTHS.metadataDate,
       notes: HEADER_MIN_WIDTHS.notes
+    };
+
+    if (rows.length === 0) {
+      return desiredWidths;
+    }
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return desiredWidths;
+    }
+
+    const measureWidth = (value: string, font: string) => {
+      context.font = font;
+      return Math.ceil(context.measureText(value).width);
     };
 
     COLUMNS.forEach((column) => {
@@ -246,140 +209,61 @@ export function FileTable({
       );
     });
 
-    setColumnSizing((previous) => {
-      let changed = false;
-      const next: ColumnSizingState = { ...previous };
-
-      for (const column of COLUMNS) {
-        if (manuallyResizedColumnsRef.current.has(column.key)) {
-          continue;
-        }
-
-        const desiredWidth = desiredWidths[column.key];
-        if (next[column.key] !== desiredWidth) {
-          next[column.key] = desiredWidth;
-          changed = true;
-        }
-      }
-
-      return changed ? next : previous;
-    });
+    return desiredWidths;
   }, [rows.length, tableRows]);
 
-  useEffect(() => {
-    const stopResizing = () => {
-      document.body.classList.remove("cursor-col-resize", "select-none");
-    };
-
-    window.addEventListener("pointerup", stopResizing);
-
-    return () => {
-      window.removeEventListener("pointerup", stopResizing);
-      document.body.classList.remove("cursor-col-resize", "select-none");
-    };
-  }, []);
-
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-x-auto">
-        <div className="flex h-full w-full flex-col" style={{ width: tableWidth }}>
+    <ResizableVirtualTable
+      rows={tableRows}
+      columns={COLUMNS}
+      columnDefs={tableColumns}
+      defaultColumnSizing={defaultColumnSizing}
+      onAutoSizeColumns={calculateAutoSizedColumns}
+      getRowClassName={(_, rowIndex) => {
+        const sourceRecord = rows[rowIndex];
+        const metadata = metadataByFileId[sourceRecord.id];
+        const moveResult = moveResultsByFileId[sourceRecord.id];
+        const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
+        const isFallbackWarning = metadata?.date_kind === "fallback";
+        const isMoved = moveResult?.result_status === "moved";
+        const isCopied = moveResult?.result_status === "copied";
+        const isMoveError =
+          moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
+        return `${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`;
+      }}
+      getRowTooltip={(row) => row.source.value}
+      renderCellWrapper={(_, rowIndex, columnId, cell) => {
+        const sourceRecord = rows[rowIndex];
+        const movePlan = movePlansByFileId[sourceRecord.id];
+        const moveResult = moveResultsByFileId[sourceRecord.id];
+        const isSourceCell = columnId === "source";
+        const isDestinationCell = columnId === "destination";
+        const destinationPath =
+          moveResult?.attempted_destination_path ?? movePlan?.destination_path;
+        const revealPath = isSourceCell
+          ? sourceRecord.source_path
+          : isDestinationCell
+            ? destinationPath
+            : null;
+
+        return (
           <div
-            className="grid w-full border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
-            style={{ gridTemplateColumns }}
+            className={isSourceCell || isDestinationCell ? "cursor-pointer" : undefined}
+            onDoubleClick={() => {
+              if (!revealPath) {
+                return;
+              }
+
+              void revealFileInExplorer(revealPath).catch((error: unknown) => {
+                console.error("Failed to reveal file in explorer", error);
+              });
+            }}
           >
-            {table.getHeaderGroups().map((headerGroup) =>
-              headerGroup.headers.map((header) => (
-                <div key={header.id} className="relative px-3 py-2">
-                  <span className="truncate">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Resize ${String(header.column.columnDef.header)} column`}
-                    className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
-                    onMouseDown={(event) => {
-                      markColumnAsResized(header.column.id as ColumnKey);
-                      header.getResizeHandler()(event);
-                    }}
-                    onTouchStart={(event) => {
-                      markColumnAsResized(header.column.id as ColumnKey);
-                      header.getResizeHandler()(event);
-                    }}
-                  />
-                </div>
-              ))
-            )}
+            {cell}
           </div>
-
-          <div
-            ref={parentRef}
-            className="min-h-0 flex-1 overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable]"
-          >
-            <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const row = table.getRowModel().rows[virtualRow.index];
-                const sourceRecord = rows[virtualRow.index];
-                const metadata = metadataByFileId[sourceRecord.id];
-                const movePlan = movePlansByFileId[sourceRecord.id];
-                const moveResult = moveResultsByFileId[sourceRecord.id];
-                const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
-                const isFallbackWarning = metadata?.date_kind === "fallback";
-                const isMoved = moveResult?.result_status === "moved";
-                const isCopied = moveResult?.result_status === "copied";
-                const isMoveError =
-                  moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
-
-                return (
-                  <div
-                    key={row.id}
-                    className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`}
-                    style={{
-                      gridTemplateColumns,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      height: `${virtualRow.size}px`
-                    }}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const isSourceCell = cell.column.id === "source";
-                      const isDestinationCell = cell.column.id === "destination";
-                      const destinationPath =
-                        moveResult?.attempted_destination_path ?? movePlan?.destination_path;
-                      const revealPath = isSourceCell
-                        ? sourceRecord.source_path
-                        : isDestinationCell
-                          ? destinationPath
-                          : null;
-
-                      return (
-                        <div
-                          key={cell.id}
-                          className={
-                            isSourceCell || isDestinationCell ? "cursor-pointer" : undefined
-                          }
-                          onDoubleClick={() => {
-                            if (!revealPath) {
-                              return;
-                            }
-
-                            void revealFileInExplorer(revealPath).catch((error: unknown) => {
-                              console.error("Failed to reveal file in explorer", error);
-                            });
-                          }}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+        );
+      }}
+    />
   );
 }
 
