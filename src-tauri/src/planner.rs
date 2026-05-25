@@ -423,6 +423,22 @@ mod tests {
     }
 
     #[test]
+    fn keeps_plan_ready_when_place_lookup_failed() {
+        let mut reserved = HashSet::new();
+        let file = file_record("IMG_1001", "jpg");
+        let mut metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
+        metadata.place_status = PlaceStatus::Failed;
+        metadata.place_error = Some("provider unavailable".to_string());
+
+        let plan =
+            create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
+                .expect("plan should be created");
+
+        assert!(matches!(plan.plan_status, PlanStatus::Ready));
+        assert!(!plan.destination_path.is_empty());
+    }
+
+    #[test]
     fn dry_run_planning_does_not_create_destination_directories() {
         let temp_dir = tempfile::tempdir().expect("temp dir should be created");
         let mut reserved = HashSet::new();

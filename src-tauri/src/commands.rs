@@ -20,9 +20,10 @@ use crate::{
         DestinationSettings, EffectiveDestinationRoot, FileKind, FileRecord, HistoryIndexEntry,
         HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
         HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus, HistoryUndoProgressEvent,
-        MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
-        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent, MoveProgressPhase,
-        MoveResult, MoveResultStatus, MoveStrategy, PlaceStatus, ProcessingConfig,
+        MetadataReadRequest, MetadataResult, MetadataResultsEvent, MetadataStatus,
+        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent,
+        MoveProgressPhase, MoveResult, MoveResultStatus, MoveStrategy, PlaceStatus,
+        ProcessingConfig,
     },
     mover, planner, scanner, settings,
 };
@@ -288,8 +289,7 @@ async fn read_metadata_batch_internal(
         state
             .metadata_waiting
             .fetch_sub(request_count, Ordering::SeqCst);
-        let mut final_results = unwrap_metadata_results(results);
-        apply_cached_place_results(&app, &mut final_results);
+        let final_results = finalize_metadata_results(&app, results);
         return Ok(final_results);
     }
 
@@ -341,9 +341,23 @@ async fn read_metadata_batch_internal(
         }
     }
 
-    let mut final_results = unwrap_metadata_results(results);
-    apply_cached_place_results(&app, &mut final_results);
+    let final_results = finalize_metadata_results(&app, results);
     Ok(final_results)
+}
+
+fn finalize_metadata_results(
+    app: &AppHandle,
+    results: Vec<Option<MetadataResult>>,
+) -> Vec<MetadataResult> {
+    let mut final_results = unwrap_metadata_results(results);
+    apply_cached_place_results(app, &mut final_results);
+    let _ = events::emit_metadata_results(
+        app,
+        MetadataResultsEvent {
+            results: final_results.clone(),
+        },
+    );
+    final_results
 }
 
 fn metadata_result_from_raw(
@@ -357,7 +371,29 @@ fn metadata_result_from_raw(
 
     let selection = match metadata::select_metadata_date(&request.file_kind, &raw_dates) {
         Ok(value) => value,
-        Err(error) => return metadata_error_result(request.file_id, error),
+        Err(error) => {
+            let error = match restart_warning {
+                Some(warning) => format!("{error} {warning}"),
+                None => error,
+            };
+
+            return MetadataResult {
+                file_id: request.file_id,
+                chosen_date: None,
+                chosen_date_source: None,
+                date_kind: None,
+                raw_metadata_date: None,
+                device_name: raw_dates.device_name,
+                gps_coordinate: gps.as_ref().map(|value| value.gps_coordinate.clone()),
+                gps_source: gps.as_ref().map(|value| value.gps_source.clone()),
+                place_bucket_id: None,
+                place_status: PlaceStatus::NotAvailable,
+                place: None,
+                place_error: None,
+                metadata_status: MetadataStatus::Error,
+                error: Some(error),
+            };
+        }
     };
 
     if let Some(date) = selection {
@@ -1718,12 +1754,18 @@ mod tests {
         build_history_operation_for_result, build_redo_history_operation,
         build_undo_history_operation, cleanup_empty_source_directories, execute_redo_operation,
         execute_undo_operation, history_operation_status_for_move_result,
-        history_run_status_for_completion,
+        history_run_status_for_completion, metadata_result_from_raw,
     };
+    use crate::location::{
+        self, LookupThrottle, PlaceLookupOptions, ReverseGeocodeProvider,
+        ReverseGeocodeRequestMetadata, ReverseGeocodeResult,
+    };
+    use crate::metadata::RawMetadataDates;
     use crate::models::{
-        FileKind, FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
-        HistoryRunStatus, MetadataResult, MetadataStatus, MovePlan, MoveResult, MoveResultStatus,
-        MoveStrategy, PlaceStatus, PlanStatus, ScanStatus,
+        FileKind, FileRecord, GpsCoordinate, HistoryOperation, HistoryOperationKind,
+        HistoryOperationStatus, HistoryRunStatus, MetadataReadRequest, MetadataResult,
+        MetadataStatus, MovePlan, MoveResult, MoveResultStatus, MoveStrategy, PlaceCacheEntry,
+        PlaceComponents, PlaceStatus, PlanStatus, ScanStatus,
     };
 
     #[test]
@@ -2160,6 +2202,239 @@ mod tests {
             .contains("already exists"));
         assert!(original_source.exists());
         assert!(processed_destination.exists());
+    }
+
+    #[test]
+    fn scan_result_resolves_cached_place_for_same_bucket_files() {
+        let temp = tempdir().expect("temp dir");
+        let coordinate_a = GpsCoordinate {
+            latitude: -33.8688,
+            longitude: 151.2093,
+        };
+        let coordinate_b = GpsCoordinate {
+            latitude: -33.8612,
+            longitude: 151.2041,
+        };
+        let bucket = location::bucket_for_coordinate(&coordinate_a).expect("bucket should exist");
+
+        let mut cache_entries = HashMap::new();
+        cache_entries.insert(
+            bucket.bucket_id.clone(),
+            PlaceCacheEntry {
+                version: location::PLACE_CACHE_VERSION,
+                bucket_id: bucket.bucket_id.clone(),
+                place: "Sydney, NSW, Australia".to_string(),
+                components: Some(PlaceComponents {
+                    city: Some("Sydney".to_string()),
+                    region: Some("NSW".to_string()),
+                    country: Some("Australia".to_string()),
+                }),
+                provider: "test".to_string(),
+                resolved_at: "2026-05-25T00:00:00Z".to_string(),
+                last_used_at: "2026-05-25T00:00:00Z".to_string(),
+            },
+        );
+        location::save_place_cache(temp.path(), &cache_entries).expect("cache should save");
+
+        let request_a = metadata_read_request("file-1");
+        let request_b = metadata_read_request("file-2");
+        let raw_a = raw_dates_with_coordinate("2026:03:05 07:20:17", coordinate_a);
+        let raw_b = raw_dates_with_coordinate("2026:03:05 07:20:18", coordinate_b);
+
+        let result_a = metadata_result_from_raw(request_a, raw_a, false);
+        let result_b = metadata_result_from_raw(request_b, raw_b, false);
+        let mut results = vec![result_a, result_b];
+
+        location::resolve_places_for_metadata_results(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: false,
+            },
+        )
+        .expect("cache-only resolution should succeed");
+
+        assert!(matches!(results[0].metadata_status, MetadataStatus::Ready));
+        assert!(matches!(results[1].metadata_status, MetadataStatus::Ready));
+        assert!(results[0].gps_coordinate.is_some());
+        assert!(results[1].gps_coordinate.is_some());
+        assert_eq!(results[0].place_bucket_id, results[1].place_bucket_id);
+        assert_eq!(results[0].place_status, PlaceStatus::Resolved);
+        assert_eq!(results[1].place_status, PlaceStatus::Resolved);
+        assert_eq!(results[0].place.as_deref(), Some("Sydney, NSW, Australia"));
+        assert_eq!(results[1].place.as_deref(), Some("Sydney, NSW, Australia"));
+    }
+
+    #[test]
+    fn scan_result_keeps_location_unavailable_when_gps_missing() {
+        let temp = tempdir().expect("temp dir");
+        let request = metadata_read_request("file-1");
+        let raw = RawMetadataDates {
+            date_time_original: Some("2026:03:05 07:20:17".to_string()),
+            ..raw_dates_empty()
+        };
+
+        let mut results = vec![metadata_result_from_raw(request, raw, false)];
+        location::resolve_places_for_metadata_results(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: false,
+            },
+        )
+        .expect("resolution should succeed");
+
+        assert!(results[0].gps_coordinate.is_none());
+        assert!(results[0].place_bucket_id.is_none());
+        assert_eq!(results[0].place_status, PlaceStatus::NotAvailable);
+        assert!(results[0].place.is_none());
+        assert!(results[0].place_error.is_none());
+    }
+
+    #[test]
+    fn scan_result_keeps_uncached_place_pending_when_lookup_disabled() {
+        let temp = tempdir().expect("temp dir");
+        let request = metadata_read_request("file-1");
+        let coordinate = GpsCoordinate {
+            latitude: -33.8688,
+            longitude: 151.2093,
+        };
+
+        let mut results = vec![metadata_result_from_raw(
+            request,
+            raw_dates_with_coordinate("2026:03:05 07:20:17", coordinate),
+            false,
+        )];
+        location::resolve_places_for_metadata_results(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: false,
+            },
+        )
+        .expect("resolution should succeed");
+
+        assert!(matches!(results[0].metadata_status, MetadataStatus::Ready));
+        assert!(results[0].place_bucket_id.is_some());
+        assert_eq!(results[0].place_status, PlaceStatus::Pending);
+        assert!(results[0].place.is_none());
+        assert!(results[0].place_error.is_none());
+    }
+
+    #[test]
+    fn scan_result_marks_lookup_failure_without_blocking_ready_metadata() {
+        let temp = tempdir().expect("temp dir");
+        let request = metadata_read_request("file-1");
+        let coordinate = GpsCoordinate {
+            latitude: -33.8688,
+            longitude: 151.2093,
+        };
+        let mut results = vec![metadata_result_from_raw(
+            request,
+            raw_dates_with_coordinate("2026:03:05 07:20:17", coordinate),
+            false,
+        )];
+
+        let provider = FailingProvider;
+        let mut throttle = NoopThrottle;
+        location::apply_place_resolution_with_provider(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: true,
+            },
+            &provider,
+            &mut throttle,
+        )
+        .expect("lookup failures should remain non-blocking");
+
+        assert!(matches!(results[0].metadata_status, MetadataStatus::Ready));
+        assert_eq!(results[0].place_status, PlaceStatus::Failed);
+        assert!(results[0].place.is_none());
+        assert_eq!(
+            results[0].place_error.as_deref(),
+            Some("provider unavailable")
+        );
+    }
+
+    #[test]
+    fn scan_result_keeps_gps_when_date_values_are_unparseable() {
+        let request = metadata_read_request("file-1");
+        let raw = RawMetadataDates {
+            date_time_original: Some("not-a-date".to_string()),
+            gps_latitude: Some("-33.8688".to_string()),
+            gps_longitude: Some("151.2093".to_string()),
+            ..raw_dates_empty()
+        };
+
+        let result = metadata_result_from_raw(request, raw, false);
+        assert!(matches!(result.metadata_status, MetadataStatus::Error));
+        assert!(result.gps_coordinate.is_some());
+        assert_eq!(result.place_status, PlaceStatus::NotAvailable);
+    }
+
+    fn metadata_read_request(file_id: &str) -> MetadataReadRequest {
+        MetadataReadRequest {
+            file_id: file_id.to_string(),
+            source_path: format!(r"C:\todo\{file_id}.jpg"),
+            file_kind: FileKind::Photo,
+        }
+    }
+
+    fn raw_dates_with_coordinate(date: &str, coordinate: GpsCoordinate) -> RawMetadataDates {
+        RawMetadataDates {
+            date_time_original: Some(date.to_string()),
+            gps_latitude: Some(coordinate.latitude.to_string()),
+            gps_longitude: Some(coordinate.longitude.to_string()),
+            ..raw_dates_empty()
+        }
+    }
+
+    fn raw_dates_empty() -> RawMetadataDates {
+        RawMetadataDates {
+            sub_sec_date_time_original: None,
+            date_time_original: None,
+            create_date: None,
+            modify_date: None,
+            media_create_date: None,
+            track_create_date: None,
+            file_modify_date: None,
+            device_name: None,
+            gps_latitude: None,
+            gps_longitude: None,
+            gps_latitude_ref: None,
+            gps_longitude_ref: None,
+            gps_position: None,
+            gps_coordinates: None,
+        }
+    }
+
+    struct FailingProvider;
+
+    impl ReverseGeocodeProvider for FailingProvider {
+        fn provider_name(&self) -> &str {
+            "test"
+        }
+
+        fn user_agent(&self) -> &str {
+            "test-agent"
+        }
+
+        fn reverse_geocode(
+            &self,
+            _coordinate: &GpsCoordinate,
+            _metadata: &ReverseGeocodeRequestMetadata,
+        ) -> Result<Option<ReverseGeocodeResult>, String> {
+            Err("provider unavailable".to_string())
+        }
+    }
+
+    struct NoopThrottle;
+
+    impl LookupThrottle for NoopThrottle {
+        fn wait_turn(&mut self) -> Result<(), String> {
+            Ok(())
+        }
     }
 
     #[cfg(target_os = "windows")]

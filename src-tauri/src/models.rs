@@ -215,6 +215,11 @@ pub struct ScanFinishedEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MetadataResultsEvent {
+    pub results: Vec<MetadataResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct PlanFileEvent {
     pub plan: MovePlan,
 }

@@ -34,11 +34,11 @@
 
 ## Phase 5: Backend Integration
 
-- [ ] T018 Integrate GPS extraction into the existing metadata scan flow.
-- [ ] T019 Integrate bucket assignment and cache-first place resolution for GPS-bearing results.
-- [ ] T020 Emit metadata or location updates so every file in a resolved bucket receives the same place result.
-- [ ] T021 Keep place lookup failures non-blocking for planning, moving, history, undo, and redo.
-- [ ] T022 Add targeted integration tests for scan results with resolved, unavailable, pending, and failed place states.
+- [x] T018 Integrate GPS extraction into the existing metadata scan flow.
+- [x] T019 Integrate bucket assignment and cache-first place resolution for GPS-bearing results.
+- [x] T020 Emit metadata or location updates so every file in a resolved bucket receives the same place result.
+- [x] T021 Keep place lookup failures non-blocking for planning, moving, history, undo, and redo.
+- [x] T022 Add targeted integration tests for scan results with resolved, unavailable, pending, and failed place states.
 
 ## Phase 6: Frontend Display
 
