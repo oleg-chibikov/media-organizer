@@ -2274,6 +2274,8 @@ mod tests {
                 provider: "test".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
+                area_center: Some(coordinate_a.clone()),
+                area_radius_km: Some(50.0),
             },
         );
         location::save_place_cache(temp.path(), &cache_entries).expect("cache should save");

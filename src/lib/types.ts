@@ -41,6 +41,8 @@ export interface PlaceCacheEntry {
   provider: string;
   resolved_at: string;
   last_used_at: string;
+  area_center: GpsCoordinate | null;
+  area_radius_km: number | null;
 }
 
 export interface PlaceLookupDiagnosticResult {

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fs,
     path::{Path, PathBuf},
     thread,
@@ -25,6 +25,8 @@ const NOMINATIM_BASE_URL: &str = "https://nominatim.openstreetmap.org/reverse";
 const NOMINATIM_PROVIDER_NAME: &str = "nominatim";
 const NOMINATIM_MIN_INTERVAL: Duration = Duration::from_millis(1_100);
 const NOMINATIM_TIMEOUT: Duration = Duration::from_secs(8);
+const DEFAULT_PLACE_AREA_RADIUS_KM: f64 = 50.0;
+const SPATIAL_INDEX_CELL_DEGREES: f64 = 1.0;
 
 #[derive(Debug, Clone)]
 pub struct PlaceLookupOptions {
@@ -329,19 +331,27 @@ pub fn load_place_cache(app_data_dir: &Path) -> Result<HashMap<String, PlaceCach
         return Ok(HashMap::new());
     }
 
-    let raw = fs::read_to_string(&cache_path).map_err(|error| {
-        format!(
-            "Failed to read place cache file at {}: {error}",
-            cache_path.display()
-        )
-    })?;
+    let raw = match fs::read_to_string(&cache_path) {
+        Ok(value) => value,
+        Err(error) => {
+            return Err(format!(
+                "Failed to read place cache file at {}: {error}",
+                cache_path.display()
+            ));
+        }
+    };
 
-    let cache_file: PlaceCacheFile = serde_json::from_str(&raw).map_err(|error| {
-        format!(
-            "Failed to parse place cache file at {}: {error}",
-            cache_path.display()
-        )
-    })?;
+    let cache_file: PlaceCacheFile = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(error) => {
+            quarantine_corrupt_cache_file(&cache_path);
+            eprintln!(
+                "Place cache parse failed at {}: {error}. Falling back to empty cache.",
+                cache_path.display()
+            );
+            return Ok(HashMap::new());
+        }
+    };
 
     if cache_file.version != PLACE_CACHE_VERSION {
         return Ok(HashMap::new());
@@ -352,11 +362,22 @@ pub fn load_place_cache(app_data_dir: &Path) -> Result<HashMap<String, PlaceCach
         if entry.version != PLACE_CACHE_VERSION || entry.bucket_id.trim().is_empty() {
             continue;
         }
+        if entry
+            .area_radius_km
+            .is_some_and(|value| !value.is_finite() || value <= 0.0)
+        {
+            entry.area_radius_km = None;
+        }
         entry.version = PLACE_CACHE_VERSION;
         entries.insert(entry.bucket_id.clone(), entry);
     }
 
     Ok(entries)
+}
+
+fn quarantine_corrupt_cache_file(cache_path: &Path) {
+    let backup_path = cache_path.with_extension("corrupt");
+    let _ = fs::rename(cache_path, backup_path);
 }
 
 pub fn save_place_cache(
@@ -435,9 +456,10 @@ pub fn apply_place_resolution_with_provider(
     }
 
     let mut cache = load_place_cache(app_data_dir)?;
+    let mut spatial_index = AreaSpatialIndex::from_cache(&cache);
     let mut cache_was_updated = false;
     let last_used_at = Utc::now().to_rfc3339();
-    let mut uncached_buckets: HashMap<String, PendingBucketLookup> = HashMap::new();
+    let mut queue: VecDeque<PendingLocationLookup> = VecDeque::new();
 
     for (index, result) in results.iter_mut().enumerate() {
         let Some(gps_coordinate) = result.gps_coordinate.as_ref() else {
@@ -448,7 +470,7 @@ pub fn apply_place_resolution_with_provider(
             continue;
         };
 
-        let Some(bucket) = bucket_for_coordinate(gps_coordinate) else {
+        let Some(area_id) = area_id_for_coordinate(gps_coordinate) else {
             result.place_bucket_id = None;
             result.place_status = PlaceStatus::NotAvailable;
             result.place = None;
@@ -456,9 +478,15 @@ pub fn apply_place_resolution_with_provider(
             continue;
         };
 
-        result.place_bucket_id = Some(bucket.bucket_id.clone());
-        if let Some(entry) = cache.get_mut(&bucket.bucket_id) {
+        result.place_bucket_id = Some(area_id.clone());
+        if let Some(entry_id) =
+            find_covering_cache_entry_id(gps_coordinate, &cache, &spatial_index, Some(&area_id))
+        {
+            let entry = cache
+                .get_mut(&entry_id)
+                .expect("cache entry id from index should exist");
             apply_cache_entry_to_result(entry, result);
+            result.place_bucket_id = Some(entry_id.clone());
 
             if entry.last_used_at != last_used_at {
                 entry.last_used_at = last_used_at.clone();
@@ -468,79 +496,92 @@ pub fn apply_place_resolution_with_provider(
             result.place_status = PlaceStatus::Pending;
             result.place = None;
             result.place_error = None;
-            uncached_buckets
-                .entry(bucket.bucket_id.clone())
-                .and_modify(|pending| pending.result_indices.push(index))
-                .or_insert_with(|| PendingBucketLookup {
-                    bucket_id: bucket.bucket_id,
-                    representative_coordinate: gps_coordinate.clone(),
-                    result_indices: vec![index],
-                });
+            queue.push_back(PendingLocationLookup {
+                area_id,
+                coordinate: gps_coordinate.clone(),
+                result_index: index,
+            });
         }
     }
 
     if options.enable_online_lookup {
-        for pending in uncached_buckets.into_values() {
+        while let Some(pending) = queue.pop_front() {
+            let result = &mut results[pending.result_index];
+            if result.gps_coordinate.is_none() {
+                continue;
+            }
+
+            if let Some(entry_id) = find_covering_cache_entry_id(
+                &pending.coordinate,
+                &cache,
+                &spatial_index,
+                Some(&pending.area_id),
+            ) {
+                let entry = cache
+                    .get_mut(&entry_id)
+                    .expect("cache entry id from index should exist");
+                apply_cache_entry_to_result(entry, result);
+                result.place_bucket_id = Some(entry_id.clone());
+
+                if entry.last_used_at != last_used_at {
+                    entry.last_used_at = last_used_at.clone();
+                    cache_was_updated = true;
+                }
+                continue;
+            }
+
             throttle.wait_turn()?;
 
             let metadata = ReverseGeocodeRequestMetadata {
-                bucket_id: pending.bucket_id.clone(),
+                bucket_id: pending.area_id.clone(),
                 requested_at: Utc::now().to_rfc3339(),
                 user_agent: provider.user_agent().to_string(),
             };
 
-            match provider.reverse_geocode(&pending.representative_coordinate, &metadata) {
+            match provider.reverse_geocode(&pending.coordinate, &metadata) {
                 Ok(Some(lookup)) => {
                     if let Some(display_text) = place_components_to_display_text(&lookup.components)
                     {
-                        for index in pending.result_indices {
-                            let result = &mut results[index];
-                            result.place_status = PlaceStatus::Resolved;
-                            result.place = Some(display_text.clone());
-                            result.place_error = None;
+                        let area_entry = PlaceCacheEntry {
+                            version: PLACE_CACHE_VERSION,
+                            bucket_id: pending.area_id.clone(),
+                            place: display_text.clone(),
+                            components: Some(lookup.components),
+                            provider: provider.provider_name().to_string(),
+                            resolved_at: metadata.requested_at.clone(),
+                            last_used_at: metadata.requested_at.clone(),
+                            area_center: Some(pending.coordinate.clone()),
+                            area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
+                        };
+                        cache.insert(pending.area_id.clone(), area_entry);
+                        if let Some(entry) = cache.get(&pending.area_id) {
+                            spatial_index.insert_entry(entry);
                         }
 
-                        cache.insert(
-                            pending.bucket_id.clone(),
-                            PlaceCacheEntry {
-                                version: PLACE_CACHE_VERSION,
-                                bucket_id: pending.bucket_id,
-                                place: display_text,
-                                components: Some(lookup.components),
-                                provider: provider.provider_name().to_string(),
-                                resolved_at: metadata.requested_at.clone(),
-                                last_used_at: metadata.requested_at,
-                            },
-                        );
+                        result.place_status = PlaceStatus::Resolved;
+                        result.place = Some(display_text);
+                        result.place_error = None;
+                        result.place_bucket_id = Some(pending.area_id.clone());
                         cache_was_updated = true;
                     } else {
-                        for index in pending.result_indices {
-                            let result = &mut results[index];
-                            result.place_status = PlaceStatus::Failed;
-                            result.place = None;
-                            result.place_error = Some(
-                                "Place lookup returned no usable city/region/country values."
-                                    .to_string(),
-                            );
-                        }
+                        result.place_status = PlaceStatus::Failed;
+                        result.place = None;
+                        result.place_error = Some(
+                            "Place lookup returned no usable city/region/country values."
+                                .to_string(),
+                        );
                     }
                 }
                 Ok(None) => {
-                    for index in pending.result_indices {
-                        let result = &mut results[index];
-                        result.place_status = PlaceStatus::Failed;
-                        result.place = None;
-                        result.place_error =
-                            Some("Place lookup returned no address result.".to_string());
-                    }
+                    result.place_status = PlaceStatus::Failed;
+                    result.place = None;
+                    result.place_error =
+                        Some("Place lookup returned no address result.".to_string());
                 }
                 Err(error) => {
-                    for index in pending.result_indices {
-                        let result = &mut results[index];
-                        result.place_status = PlaceStatus::Failed;
-                        result.place = None;
-                        result.place_error = Some(error.clone());
-                    }
+                    result.place_status = PlaceStatus::Failed;
+                    result.place = None;
+                    result.place_error = Some(error);
                 }
             }
         }
@@ -574,6 +615,72 @@ fn quantize_coordinate(value: f64) -> i32 {
 
 fn bucket_center_from_index(index: i32, min: f64, max: f64) -> f64 {
     ((index as f64 + 0.5) * CITY_BUCKET_STEP_DEGREES).clamp(min, max)
+}
+
+fn area_id_for_coordinate(coordinate: &GpsCoordinate) -> Option<String> {
+    bucket_for_coordinate(coordinate).map(|bucket| bucket.bucket_id)
+}
+
+fn find_covering_cache_entry_id(
+    coordinate: &GpsCoordinate,
+    cache: &HashMap<String, PlaceCacheEntry>,
+    index: &AreaSpatialIndex,
+    preferred_area_id: Option<&str>,
+) -> Option<String> {
+    if let Some(area_id) = preferred_area_id {
+        if let Some(entry) = cache.get(area_id) {
+            if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
+                return Some(area_id.to_string());
+            }
+        }
+    }
+
+    for entry_id in index.lookup(coordinate) {
+        if let Some(entry) = cache.get(entry_id) {
+            if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
+                return Some(entry_id.to_string());
+            }
+        }
+    }
+
+    for (entry_id, entry) in cache {
+        if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
+            return Some(entry_id.clone());
+        }
+    }
+
+    None
+}
+
+fn cache_entry_contains_coordinate(
+    entry: &PlaceCacheEntry,
+    coordinate: &GpsCoordinate,
+    preferred_area_id: Option<&str>,
+) -> bool {
+    if let (Some(center), Some(radius_km)) = (entry.area_center.as_ref(), entry.area_radius_km) {
+        if radius_km.is_finite() && radius_km > 0.0 {
+            return haversine_distance_km(center, coordinate) <= radius_km;
+        }
+    }
+
+    let Some(area_id) = preferred_area_id else {
+        return false;
+    };
+    entry.bucket_id == area_id
+}
+
+fn haversine_distance_km(a: &GpsCoordinate, b: &GpsCoordinate) -> f64 {
+    const EARTH_RADIUS_KM: f64 = 6_371.0;
+    let lat1 = a.latitude.to_radians();
+    let lat2 = b.latitude.to_radians();
+    let d_lat = (b.latitude - a.latitude).to_radians();
+    let d_lon = (b.longitude - a.longitude).to_radians();
+
+    let sin_d_lat = (d_lat / 2.0).sin();
+    let sin_d_lon = (d_lon / 2.0).sin();
+    let haversine = sin_d_lat * sin_d_lat + lat1.cos() * lat2.cos() * sin_d_lon * sin_d_lon;
+    let arc = 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
+    EARTH_RADIUS_KM * arc
 }
 
 fn map_nominatim_response_to_result(
@@ -720,10 +827,84 @@ fn apply_cache_entry_to_result(entry: &PlaceCacheEntry, result: &mut MetadataRes
 }
 
 #[derive(Debug)]
-struct PendingBucketLookup {
-    bucket_id: String,
-    representative_coordinate: GpsCoordinate,
-    result_indices: Vec<usize>,
+struct PendingLocationLookup {
+    area_id: String,
+    coordinate: GpsCoordinate,
+    result_index: usize,
+}
+
+#[derive(Debug, Default)]
+struct AreaSpatialIndex {
+    entries_by_cell: HashMap<String, Vec<String>>,
+}
+
+impl AreaSpatialIndex {
+    fn from_cache(cache: &HashMap<String, PlaceCacheEntry>) -> Self {
+        let mut index = Self::default();
+        for entry in cache.values() {
+            index.insert_entry(entry);
+        }
+        index
+    }
+
+    fn lookup<'a>(&'a self, coordinate: &GpsCoordinate) -> impl Iterator<Item = &'a str> + 'a {
+        let key = spatial_cell_key(coordinate.latitude, coordinate.longitude);
+        self.entries_by_cell
+            .get(&key)
+            .into_iter()
+            .flat_map(|values| values.iter().map(String::as_str))
+    }
+
+    fn insert_entry(&mut self, entry: &PlaceCacheEntry) {
+        let Some(center) = entry.area_center.as_ref() else {
+            return;
+        };
+        let Some(radius_km) = entry.area_radius_km else {
+            return;
+        };
+        if !radius_km.is_finite() || radius_km <= 0.0 {
+            return;
+        }
+
+        let (min_lat, max_lat, min_lon, max_lon) = bounding_box_for_circle(center, radius_km);
+        let min_lat_index = quantize_by_step(min_lat, SPATIAL_INDEX_CELL_DEGREES);
+        let max_lat_index = quantize_by_step(max_lat, SPATIAL_INDEX_CELL_DEGREES);
+        let min_lon_index = quantize_by_step(min_lon, SPATIAL_INDEX_CELL_DEGREES);
+        let max_lon_index = quantize_by_step(max_lon, SPATIAL_INDEX_CELL_DEGREES);
+
+        for lat_index in min_lat_index..=max_lat_index {
+            for lon_index in min_lon_index..=max_lon_index {
+                let key = format!("{lat_index}:{lon_index}");
+                let entries = self.entries_by_cell.entry(key).or_default();
+                if !entries.iter().any(|value| value == &entry.bucket_id) {
+                    entries.push(entry.bucket_id.clone());
+                }
+            }
+        }
+    }
+}
+
+fn spatial_cell_key(latitude: f64, longitude: f64) -> String {
+    let lat_index = quantize_by_step(latitude, SPATIAL_INDEX_CELL_DEGREES);
+    let lon_index = quantize_by_step(longitude, SPATIAL_INDEX_CELL_DEGREES);
+    format!("{lat_index}:{lon_index}")
+}
+
+fn quantize_by_step(value: f64, step: f64) -> i32 {
+    (value / step).floor() as i32
+}
+
+fn bounding_box_for_circle(center: &GpsCoordinate, radius_km: f64) -> (f64, f64, f64, f64) {
+    let latitude_delta = radius_km / 111.0;
+    let center_lat_radians = center.latitude.to_radians();
+    let cosine = center_lat_radians.cos().abs().max(0.01);
+    let longitude_delta = radius_km / (111.0 * cosine);
+
+    let min_lat = (center.latitude - latitude_delta).clamp(-90.0, 90.0);
+    let max_lat = (center.latitude + latitude_delta).clamp(-90.0, 90.0);
+    let min_lon = (center.longitude - longitude_delta).clamp(-180.0, 180.0);
+    let max_lon = (center.longitude + longitude_delta).clamp(-180.0, 180.0);
+    (min_lat, max_lat, min_lon, max_lon)
 }
 
 struct NoopReverseGeocodeProvider;
@@ -769,8 +950,8 @@ mod tests {
         bucket_for_coordinate, load_place_cache, map_nominatim_response_to_result,
         place_cache_path, place_components_to_display_text, save_place_cache, LookupThrottle,
         NominatimAddress, NominatimReverseResponse, PlaceLookupOptions, ReverseGeocodeProvider,
-        ReverseGeocodeRequestMetadata, ReverseGeocodeResult, LOCATION_BUCKET_PRECISION_VERSION,
-        PLACE_CACHE_VERSION,
+        ReverseGeocodeRequestMetadata, ReverseGeocodeResult, DEFAULT_PLACE_AREA_RADIUS_KM,
+        LOCATION_BUCKET_PRECISION_VERSION, PLACE_CACHE_VERSION,
     };
     use crate::models::{
         GpsCoordinate, MetadataResult, MetadataStatus, PlaceCacheEntry, PlaceComponents,
@@ -847,6 +1028,11 @@ mod tests {
                 provider: "cache-test".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
+                area_center: Some(GpsCoordinate {
+                    latitude: -33.8688,
+                    longitude: 151.2093,
+                }),
+                area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
             },
         );
 
@@ -864,6 +1050,20 @@ mod tests {
             json.get("version").and_then(serde_json::Value::as_u64),
             Some(PLACE_CACHE_VERSION as u64)
         );
+    }
+
+    #[test]
+    fn treats_corrupt_place_cache_as_empty() {
+        let temp = tempdir().expect("temp dir");
+        let cache_path = place_cache_path(temp.path());
+        fs::create_dir_all(cache_path.parent().expect("cache parent should exist"))
+            .expect("create cache directory");
+        fs::write(&cache_path, "{invalid json").expect("write corrupt cache");
+
+        let loaded = load_place_cache(temp.path()).expect("corrupt cache should not fail");
+        assert!(loaded.is_empty());
+        assert!(!cache_path.exists());
+        assert!(cache_path.with_extension("corrupt").exists());
     }
 
     #[test]
@@ -886,6 +1086,8 @@ mod tests {
                 provider: "nominatim".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
+                area_center: Some(coordinate.clone()),
+                area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
             },
         );
         save_place_cache(temp.path(), &entries).expect("cache should save");

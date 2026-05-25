@@ -93,6 +93,10 @@ pub struct PlaceCacheEntry {
     pub provider: String,
     pub resolved_at: String,
     pub last_used_at: String,
+    #[serde(default)]
+    pub area_center: Option<GpsCoordinate>,
+    #[serde(default)]
+    pub area_radius_km: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
