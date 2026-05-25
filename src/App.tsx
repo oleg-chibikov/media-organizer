@@ -1080,6 +1080,7 @@ export default function App() {
       </main>
 
       <StatusBar
+        health={health}
         discovered={discovered}
         skipped={skipped}
         errors={errors}
@@ -1100,10 +1101,6 @@ export default function App() {
         hasPendingExecutableItems={hasPendingExecutableItems}
         onExecutionAction={handleExecutionAction}
       />
-
-      <div className="border-t border-slate-800 px-3 py-1 text-xs text-slate-500">
-        Backend: {health}
-      </div>
     </div>
   );
 }

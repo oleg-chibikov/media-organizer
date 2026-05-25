@@ -2,6 +2,7 @@ import { Button } from "./Button";
 import type { MoveConfirmationSummary } from "../lib/types";
 
 interface StatusBarProps {
+  health: string;
   discovered: number;
   skipped: number;
   errors: number;
@@ -24,6 +25,7 @@ interface StatusBarProps {
 }
 
 export function StatusBar({
+  health,
   discovered,
   skipped,
   errors,
@@ -107,6 +109,7 @@ export function StatusBar({
             ) : null}
           </>
         ) : null}
+        <span className="text-slate-500">Backend: {health}</span>
         <Button
           variant="primary"
           className="ml-auto px-3 py-1.5 text-xs"
