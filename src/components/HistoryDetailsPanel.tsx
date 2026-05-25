@@ -11,7 +11,6 @@ interface HistoryDetailsPanelProps {
 
 const COLUMNS = [
   { key: "time", label: "Time" },
-  { key: "kind", label: "Kind" },
   { key: "file", label: "File" },
   { key: "size", label: "Size" },
   { key: "status", label: "Status" },
@@ -28,7 +27,6 @@ type TableRowData = {
 
 const DEFAULT_COLUMN_SIZING: ColumnSizingState = {
   time: 170,
-  kind: 80,
   file: 200,
   size: 90,
   status: 90,
@@ -43,7 +41,6 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
       details?.operations.map((operation) => ({
         id: operation.operation_id,
         time: formatHistoryTime(operation.timestamp),
-        kind: formatOperationKind(operation.operation_kind),
         file: operation.original_name,
         size: formatFileSize(operation.expected_destination_size ?? operation.expected_source_size),
         status: formatOperationStatus(operation.status),
@@ -144,19 +141,6 @@ function formatFileSize(bytes: number | null): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatOperationKind(kind: string): string {
-  switch (kind) {
-    case "process":
-      return "Process";
-    case "undo":
-      return "Undo";
-    case "redo":
-      return "Redo";
-    default:
-      return kind;
-  }
 }
 
 function formatOperationStatus(status: string): string {

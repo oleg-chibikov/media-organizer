@@ -70,14 +70,13 @@ const DETAILS: HistoryRunDetails = {
 };
 
 describe("HistoryDetailsPanel", () => {
-  it("renders process, undo, and redo operation records", () => {
+  it("renders operation records without a kind column", () => {
     render(<HistoryDetailsPanel details={DETAILS} loading={false} error={null} />);
 
     expect(screen.getByText("History Details")).toBeInTheDocument();
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();
-    expect(screen.getAllByText("Process")).toHaveLength(1);
-    expect(screen.getAllByText("Undo")).toHaveLength(1);
-    expect(screen.getAllByText("Redo")).toHaveLength(1);
+    expect(screen.queryByText("Kind")).not.toBeInTheDocument();
+    expect(screen.getAllByText("IMG_1")).toHaveLength(3);
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Failed")).toBeInTheDocument();
     expect(screen.getByText("Destination already exists")).toBeInTheDocument();
