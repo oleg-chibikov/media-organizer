@@ -44,21 +44,24 @@ export function StatusBar({
   hasPendingExecutableItems,
   onExecutionAction
 }: StatusBarProps) {
-  const statusLabel = cancelled
-    ? "Scan cancelled"
-    : isExecutingMoves
-      ? "Executing moves"
-      : moveCompleted
-        ? "Move completed"
-        : completed && !planCompleted
-          ? "Planning destinations"
-          : isPlanning
-            ? "Planning destinations"
-            : completed && planCompleted
-              ? "Destinations planned"
-              : completed
-                ? "Scan completed"
-                : "Idle";
+  const statusLabel =
+    discovered === 0
+      ? "No files"
+      : cancelled
+        ? "Scan cancelled"
+        : isExecutingMoves
+          ? "Executing moves"
+          : moveCompleted
+            ? "Move completed"
+            : completed && !planCompleted
+              ? "Planning destinations"
+              : isPlanning
+                ? "Planning destinations"
+                : completed && planCompleted
+                  ? "Destinations planned"
+                  : completed
+                    ? "Scan completed"
+                    : "Idle";
   const plannedButNotReady =
     confirmationSummary.total_plans > 0
       ? confirmationSummary.total_plans - confirmationSummary.ready_operations
