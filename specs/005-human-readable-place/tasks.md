@@ -25,12 +25,12 @@
 
 ## Phase 4: Place Lookup Provider
 
-- [ ] T012 Add a provider abstraction for reverse geocoding lookups.
-- [ ] T013 Implement a free no-paid-key provider adapter with required throttling and request metadata.
-- [ ] T014 Ensure only one online lookup is attempted per uncached bucket per scan.
-- [ ] T015 Convert provider response components into city-level display text.
-- [ ] T016 Support disabling online lookup while still using cached place entries.
-- [ ] T017 Add Rust tests with mocked provider responses, failures, empty results, and rate-limit behavior.
+- [x] T012 Add a provider abstraction for reverse geocoding lookups.
+- [x] T013 Implement a free no-paid-key provider adapter with required throttling and request metadata.
+- [x] T014 Ensure only one online lookup is attempted per uncached bucket per scan.
+- [x] T015 Convert provider response components into city-level display text.
+- [x] T016 Support disabling online lookup while still using cached place entries.
+- [x] T017 Add Rust tests with mocked provider responses, failures, empty results, and rate-limit behavior.
 
 ## Phase 5: Backend Integration
 

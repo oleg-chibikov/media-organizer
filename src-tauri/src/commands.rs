@@ -441,13 +441,31 @@ fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResult]) {
         Err(_) => return,
     };
 
-    if let Err(error) = location::apply_cache_to_metadata_results(&app_data_dir, results) {
+    let lookup_options = location::PlaceLookupOptions {
+        enable_online_lookup: online_place_lookup_enabled(),
+    };
+
+    if let Err(error) =
+        location::resolve_places_for_metadata_results(&app_data_dir, results, &lookup_options)
+    {
         for result in results.iter_mut() {
             if result.gps_coordinate.is_some() && result.error.is_none() {
                 result.error = Some(format!("Place cache was unavailable: {error}"));
             }
         }
     }
+}
+
+fn online_place_lookup_enabled() -> bool {
+    const ENV_VAR: &str = "MEDIA_ORGANIZER_ENABLE_ONLINE_PLACE_LOOKUP";
+    let Ok(value) = std::env::var(ENV_VAR) else {
+        return true;
+    };
+
+    !matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "0" | "false" | "no" | "off"
+    )
 }
 
 #[tauri::command]
