@@ -110,11 +110,11 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   }, []);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-x-auto">
-        <div className="flex h-full w-full flex-col" style={{ width: tableWidth }}>
+    <div className="h-full overflow-hidden">
+      <div ref={parentRef} className="h-full overflow-auto [scrollbar-gutter:stable]">
+        <div className="min-h-full" style={{ width: tableWidth }}>
           <div
-            className="grid w-full border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
+            className="sticky top-0 z-10 grid w-full border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
             style={{ gridTemplateColumns }}
           >
             {table.getHeaderGroups().map((headerGroup) =>
@@ -145,10 +145,7 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
             )}
           </div>
 
-          <div
-            ref={parentRef}
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]"
-          >
+          <div>
             {virtualized ? (
               <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
