@@ -2,8 +2,8 @@ use tauri::{AppHandle, Emitter};
 
 use crate::models::{
     HistoryIndexUpdatedEvent, HistoryRedoProgressEvent, HistoryUndoProgressEvent, MoveFileEvent,
-    MoveFinishedEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent,
-    ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
+    MoveFinishedEvent, MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
+    ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -15,6 +15,7 @@ pub const PLAN_FILE: &str = "plan:file";
 pub const PLAN_ERROR: &str = "plan:error";
 pub const PLAN_FINISHED: &str = "plan:finished";
 pub const MOVE_FILE: &str = "move:file";
+pub const MOVE_PROGRESS: &str = "move:progress";
 pub const MOVE_FINISHED: &str = "move:finished";
 pub const HISTORY_INDEX_UPDATED: &str = "history:index-updated";
 pub const HISTORY_UNDO_PROGRESS: &str = "history:undo-progress";
@@ -54,6 +55,10 @@ pub fn emit_plan_finished(app: &AppHandle, payload: PlanFinishedEvent) -> Result
 
 pub fn emit_move_file(app: &AppHandle, payload: MoveFileEvent) -> Result<(), String> {
     app.emit(MOVE_FILE, payload).map_err(|e| e.to_string())
+}
+
+pub fn emit_move_progress(app: &AppHandle, payload: MoveProgressEvent) -> Result<(), String> {
+    app.emit(MOVE_PROGRESS, payload).map_err(|e| e.to_string())
 }
 
 pub fn emit_move_finished(app: &AppHandle, payload: MoveFinishedEvent) -> Result<(), String> {

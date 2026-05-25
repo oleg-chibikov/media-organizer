@@ -112,6 +112,16 @@ export interface MoveFileEvent {
   result: MoveResult;
 }
 
+export type MoveProgressPhase = "starting" | "preparing" | "moving" | "finalizing";
+
+export interface MoveProgressEvent {
+  phase: MoveProgressPhase;
+  file_id: string | null;
+  message: string;
+  completed: number;
+  total: number;
+}
+
 export interface MoveFinishedEvent {
   moved: number;
   copied: number;

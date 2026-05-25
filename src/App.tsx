@@ -36,6 +36,7 @@ import type {
   MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
+  MoveProgressEvent,
   MoveResult,
   ScanFinishedEvent
 } from "./lib/types";
@@ -81,6 +82,8 @@ export default function App() {
   const [executionConfirmed, setExecutionConfirmed] = useState(false);
   const [isMoveDispatchPaused, setIsMoveDispatchPaused] = useState(false);
   const [isExecutingMoves, setIsExecutingMoves] = useState(false);
+  const [activeMoveFileId, setActiveMoveFileId] = useState<string | null>(null);
+  const [moveStatusMessage, setMoveStatusMessage] = useState<string | null>(null);
   const [moveCompleted, setMoveCompleted] = useState(false);
   const [movedCount, setMovedCount] = useState(0);
   const [copiedCount, setCopiedCount] = useState(0);
@@ -111,6 +114,8 @@ export default function App() {
   const pumpMetadataQueueRef = useRef<() => void>(() => undefined);
   const plannedMetadataSignatureByFileIdRef = useRef<Map<string, string>>(new Map());
   const activePlanRequestsRef = useRef(0);
+  const executionConfirmedRef = useRef(false);
+  const moveDispatchPausedRef = useRef(false);
   const queuedMoveIdsRef = useRef<Set<string>>(new Set());
   const moveQueueRef = useRef<string[]>([]);
   const inflightMoveIdsRef = useRef<Set<string>>(new Set());
@@ -337,7 +342,7 @@ export default function App() {
   }, [movePlansByFileId, moveResultsByFileId]);
 
   const pumpMoveQueue = useCallback(() => {
-    if (!executionConfirmed || !selectedFolder || isMoveDispatchPaused) {
+    if (!executionConfirmedRef.current || !selectedFolder || moveDispatchPausedRef.current) {
       return;
     }
 
@@ -398,6 +403,8 @@ export default function App() {
             trackedMoveIdsRef.current.delete(fileId);
           }
           setFolderError(`Failed to execute move plan: ${String(error)}`);
+          setMoveStatusMessage(`Move dispatch failed: ${String(error)}`);
+          setActiveMoveFileId(null);
           if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
             setIsExecutingMoves(false);
             setMoveCompleted(true);
@@ -408,13 +415,7 @@ export default function App() {
         }
       );
     }
-  }, [
-    executionConfirmed,
-    isMoveDispatchPaused,
-    metadataByFileId,
-    movePlansByFileId,
-    selectedFolder
-  ]);
+  }, [metadataByFileId, movePlansByFileId, selectedFolder]);
 
   useEffect(() => {
     pumpMoveQueueRef.current = pumpMoveQueue;
@@ -438,6 +439,8 @@ export default function App() {
     setExecutionConfirmed(false);
     setIsMoveDispatchPaused(false);
     setMoveCompleted(false);
+    setActiveMoveFileId(null);
+    setMoveStatusMessage(null);
     setMovedCount(0);
     setCopiedCount(0);
     setMoveSkippedCount(0);
@@ -448,6 +451,8 @@ export default function App() {
     completedMoveIdsRef.current = new Set();
     trackedMoveIdsRef.current = new Set();
     activeMoveRequestsRef.current = 0;
+    executionConfirmedRef.current = false;
+    moveDispatchPausedRef.current = false;
 
     requestMovePlansForMetadata(rows, metadataResults);
   }, [
@@ -664,6 +669,8 @@ export default function App() {
         setExecutionConfirmed(false);
         setIsMoveDispatchPaused(false);
         setIsExecutingMoves(false);
+        setActiveMoveFileId(null);
+        setMoveStatusMessage(null);
         setMoveCompleted(false);
         setMovedCount(0);
         setCopiedCount(0);
@@ -681,6 +688,8 @@ export default function App() {
         completedMoveIdsRef.current = new Set();
         trackedMoveIdsRef.current = new Set();
         activeMoveRequestsRef.current = 0;
+        executionConfirmedRef.current = false;
+        moveDispatchPausedRef.current = false;
         seenRowIdsRef.current = new Set();
         rowByIdRef.current = new Map();
         setRows([]);
@@ -737,6 +746,19 @@ export default function App() {
     let unsubs: (() => void)[] = [];
     let disposed = false;
     void attachMoveListeners({
+      onProgress: (payload: MoveProgressEvent) => {
+        const currentRow = payload.file_id ? rowByIdRef.current.get(payload.file_id) : undefined;
+        const itemLabel = currentRow?.relative_path ?? payload.file_id;
+        const ordinal =
+          payload.file_id && payload.total > 0
+            ? ` ${Math.min(payload.completed + 1, payload.total)}/${payload.total}`
+            : payload.total > 0
+              ? ` ${payload.completed}/${payload.total}`
+              : "";
+        const detail = itemLabel ? ` ${itemLabel}` : "";
+        setMoveStatusMessage(`${payload.message}${ordinal}${detail}`);
+        setActiveMoveFileId(payload.file_id);
+      },
       onFile: ({ result }) => {
         if (completedMoveIdsRef.current.has(result.file_id)) {
           setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
@@ -744,6 +766,7 @@ export default function App() {
         }
         setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
         inflightMoveIdsRef.current.delete(result.file_id);
+        setActiveMoveFileId((current) => (current === result.file_id ? null : current));
         completedMoveIdsRef.current.add(result.file_id);
         trackedMoveIdsRef.current.add(result.file_id);
         if (result.result_status === "moved") {
@@ -767,6 +790,8 @@ export default function App() {
         activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
         if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
           setIsExecutingMoves(false);
+          setActiveMoveFileId(null);
+          setMoveStatusMessage(null);
           setMoveCompleted(true);
         }
         queueMicrotask(() => {
@@ -936,8 +961,12 @@ export default function App() {
       activeMoveRequestsRef.current = 0;
 
       setExecutionConfirmed(true);
+      executionConfirmedRef.current = true;
       setIsMoveDispatchPaused(false);
+      moveDispatchPausedRef.current = false;
       setIsExecutingMoves(true);
+      setActiveMoveFileId(null);
+      setMoveStatusMessage("Dispatching move execution.");
       setMoveCompleted(false);
       setMovedCount(0);
       setCopiedCount(0);
@@ -963,10 +992,14 @@ export default function App() {
 
     setIsMoveDispatchPaused((previous) => {
       const next = !previous;
+      moveDispatchPausedRef.current = next;
       if (!next) {
+        setMoveStatusMessage("Move dispatch resumed.");
         queueMicrotask(() => {
           pumpMoveQueueRef.current();
         });
+      } else {
+        setMoveStatusMessage("Move dispatch paused by user.");
       }
       return next;
     });
@@ -1075,6 +1108,7 @@ export default function App() {
           metadataByFileId={metadataByFileId}
           movePlansByFileId={movePlansByFileId}
           moveResultsByFileId={moveResultsByFileId}
+          activeMoveFileId={activeMoveFileId}
           rootMediaFolder={destinationSettings?.root_media_folder ?? null}
         />
       </main>
@@ -1093,6 +1127,7 @@ export default function App() {
         cancelled={cancelled}
         isExecutingMoves={isExecutingMoves}
         isMoveDispatchPaused={isMoveDispatchPaused}
+        moveStatusMessage={moveStatusMessage}
         moveCompleted={moveCompleted}
         moved={movedCount}
         copied={copiedCount}

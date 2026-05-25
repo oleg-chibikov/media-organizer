@@ -21,8 +21,8 @@ use crate::{
         HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
         HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus, HistoryUndoProgressEvent,
         MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
-        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveResult, MoveResultStatus, MoveStrategy,
-        ProcessingConfig,
+        MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent, MoveProgressPhase,
+        MoveResult, MoveResultStatus, MoveStrategy, ProcessingConfig,
     },
     mover, planner, scanner, settings,
 };
@@ -562,6 +562,15 @@ pub fn execute_move_plan(
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(&selected_path);
     validate_folder(&selected_folder)?;
+    let total_operations = plans.len() as u64;
+    emit_move_progress_message(
+        &app,
+        MoveProgressPhase::Starting,
+        None,
+        "Starting move execution.",
+        0,
+        total_operations,
+    );
     let effective_root = resolve_effective_destination_root_for_app(&app, &selected_folder)?;
     let destination_root = PathBuf::from(&effective_root.root_path);
     let mut history_run = history::start_history_run_with_destination_root(
@@ -577,13 +586,15 @@ pub fn execute_move_plan(
     );
 
     tauri::async_runtime::spawn(async move {
-        let prepared = mover::prepare_move_operations(&files, &plans);
-        let safety_checked = mover::validate_move_safety_with_roots(
-            &selected_folder,
-            &destination_root,
-            prepared.operations,
+        emit_move_progress_message(
+            &app,
+            MoveProgressPhase::Preparing,
+            None,
+            "Preparing move operations.",
+            0,
+            total_operations,
         );
-        let rechecked = mover::recheck_destination_conflicts(safety_checked.ready);
+        let prepared = mover::prepare_move_operations(&files, &plans);
         let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
             .iter()
             .map(|metadata| (metadata.file_id.as_str(), metadata))
@@ -594,28 +605,17 @@ pub fn execute_move_plan(
             .collect();
         let files_by_id: HashMap<&str, &FileRecord> =
             files.iter().map(|file| (file.id.as_str(), file)).collect();
-        let expected_source_sizes: HashMap<&str, Option<u64>> = files
-            .iter()
-            .map(|file| {
-                (
-                    file.id.as_str(),
-                    fs::metadata(&file.source_path).ok().map(|meta| meta.len()),
-                )
-            })
-            .collect();
+        let mut expected_source_sizes: HashMap<&str, Option<u64>> = HashMap::new();
         let mut moved = 0u64;
         let mut copied = 0u64;
         let mut skipped = 0u64;
         let mut failed = 0u64;
+        let mut completed_operations = 0u64;
         let mut moved_source_directories = Vec::new();
         let mut history_log_had_error = false;
 
-        for result in prepared
-            .skipped
-            .into_iter()
-            .chain(safety_checked.skipped)
-            .chain(rechecked.skipped)
-        {
+        for result in prepared.skipped {
+            ensure_expected_source_size(&result, &files_by_id, &mut expected_source_sizes);
             if append_move_result_to_history(
                 &mut history_run,
                 &result,
@@ -629,35 +629,109 @@ pub fn execute_move_plan(
                 history_log_had_error = true;
             }
             count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
+            completed_operations += 1;
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
-        for operation in rechecked.ready {
-            let source_parent = Path::new(&operation.source_path)
-                .parent()
-                .map(Path::to_path_buf);
-            let result = mover::execute_move_with_rename(&operation);
-            if matches!(result.result_status, MoveResultStatus::Moved) {
-                if let Some(parent) = source_parent {
-                    moved_source_directories.push(parent);
+        for operation in prepared.operations {
+            emit_move_progress_message(
+                &app,
+                MoveProgressPhase::Preparing,
+                Some(&operation.file_id),
+                "Checking source and destination.",
+                completed_operations,
+                total_operations,
+            );
+            let safety_checked = mover::validate_move_safety_with_roots(
+                &selected_folder,
+                &destination_root,
+                vec![operation],
+            );
+
+            for result in safety_checked.skipped {
+                ensure_expected_source_size(&result, &files_by_id, &mut expected_source_sizes);
+                if append_move_result_to_history(
+                    &mut history_run,
+                    &result,
+                    &metadata_by_id,
+                    &plans_by_id,
+                    &files_by_id,
+                    &expected_source_sizes,
+                )
+                .is_err()
+                {
+                    history_log_had_error = true;
                 }
+                count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
+                completed_operations += 1;
+                let _ = events::emit_move_file(&app, MoveFileEvent { result });
             }
-            if append_move_result_to_history(
-                &mut history_run,
-                &result,
-                &metadata_by_id,
-                &plans_by_id,
-                &files_by_id,
-                &expected_source_sizes,
-            )
-            .is_err()
-            {
-                history_log_had_error = true;
+
+            let rechecked = mover::recheck_destination_conflicts(safety_checked.ready);
+            for result in rechecked.skipped {
+                ensure_expected_source_size(&result, &files_by_id, &mut expected_source_sizes);
+                if append_move_result_to_history(
+                    &mut history_run,
+                    &result,
+                    &metadata_by_id,
+                    &plans_by_id,
+                    &files_by_id,
+                    &expected_source_sizes,
+                )
+                .is_err()
+                {
+                    history_log_had_error = true;
+                }
+                count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
+                completed_operations += 1;
+                let _ = events::emit_move_file(&app, MoveFileEvent { result });
             }
-            count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
-            let _ = events::emit_move_file(&app, MoveFileEvent { result });
+
+            for operation in rechecked.ready {
+                emit_move_progress_message(
+                    &app,
+                    MoveProgressPhase::Moving,
+                    Some(&operation.file_id),
+                    "Moving file.",
+                    completed_operations,
+                    total_operations,
+                );
+                let source_parent = Path::new(&operation.source_path)
+                    .parent()
+                    .map(Path::to_path_buf);
+                let result = mover::execute_move_with_rename(&operation);
+                if matches!(result.result_status, MoveResultStatus::Moved) {
+                    if let Some(parent) = source_parent {
+                        moved_source_directories.push(parent);
+                    }
+                }
+                ensure_expected_source_size(&result, &files_by_id, &mut expected_source_sizes);
+                if append_move_result_to_history(
+                    &mut history_run,
+                    &result,
+                    &metadata_by_id,
+                    &plans_by_id,
+                    &files_by_id,
+                    &expected_source_sizes,
+                )
+                .is_err()
+                {
+                    history_log_had_error = true;
+                }
+                count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
+                completed_operations += 1;
+                let _ = events::emit_move_file(&app, MoveFileEvent { result });
+            }
         }
 
+        emit_move_progress_message(
+            &app,
+            MoveProgressPhase::Finalizing,
+            None,
+            "Finalizing history and cleaning up source folders.",
+            completed_operations,
+            total_operations,
+        );
         cleanup_empty_source_directories(&selected_folder, &moved_source_directories);
 
         let run_status = history_run_status_for_completion(failed, history_log_had_error);
@@ -1233,6 +1307,20 @@ fn append_move_result_to_history(
     history::append_history_operation(history_run, operation)
 }
 
+fn ensure_expected_source_size<'a>(
+    result: &MoveResult,
+    files_by_id: &HashMap<&'a str, &'a FileRecord>,
+    expected_source_sizes: &mut HashMap<&'a str, Option<u64>>,
+) {
+    let Some(file) = files_by_id.get(result.file_id.as_str()) else {
+        return;
+    };
+
+    expected_source_sizes
+        .entry(file.id.as_str())
+        .or_insert_with(|| fs::metadata(&file.source_path).ok().map(|meta| meta.len()));
+}
+
 fn build_history_operation_for_result(
     run_id: &str,
     result: &MoveResult,
@@ -1452,6 +1540,26 @@ fn count_move_result(
         MoveResultStatus::Skipped => *skipped += 1,
         MoveResultStatus::Failed => *failed += 1,
     }
+}
+
+fn emit_move_progress_message(
+    app: &AppHandle,
+    phase: MoveProgressPhase,
+    file_id: Option<&str>,
+    message: &str,
+    completed: u64,
+    total: u64,
+) {
+    let _ = events::emit_move_progress(
+        app,
+        MoveProgressEvent {
+            phase,
+            file_id: file_id.map(str::to_string),
+            message: message.to_string(),
+            completed,
+            total,
+        },
+    );
 }
 
 fn cleanup_empty_source_directories(selected_root: &Path, source_directories: &[PathBuf]) {

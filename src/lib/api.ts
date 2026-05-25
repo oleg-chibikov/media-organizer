@@ -14,6 +14,7 @@ import type {
   MoveConfirmationSummary,
   MoveFileEvent,
   MoveFinishedEvent,
+  MoveProgressEvent,
   MovePlan,
   ProcessingConfig,
   PlanErrorEvent,
@@ -57,6 +58,7 @@ export const PLAN_EVENTS = {
 
 export const MOVE_EVENTS = {
   file: "move:file",
+  progress: "move:progress",
   finished: "move:finished"
 } as const;
 
@@ -151,6 +153,7 @@ export interface PlanListeners {
 }
 
 export interface MoveListeners {
+  onProgress: (payload: MoveProgressEvent) => void;
   onFile: (payload: MoveFileEvent) => void;
   onFinished: (payload: MoveFinishedEvent) => void;
 }
@@ -191,6 +194,7 @@ export async function attachMoveListeners(handlers: MoveListeners): Promise<Unli
   ensureTauriRuntime();
 
   const listeners = await Promise.all([
+    listen<MoveProgressEvent>(MOVE_EVENTS.progress, (event) => handlers.onProgress(event.payload)),
     listen<MoveFileEvent>(MOVE_EVENTS.file, (event) => handlers.onFile(event.payload)),
     listen<MoveFinishedEvent>(MOVE_EVENTS.finished, (event) => handlers.onFinished(event.payload))
   ]);

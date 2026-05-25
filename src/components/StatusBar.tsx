@@ -15,6 +15,7 @@ interface StatusBarProps {
   cancelled: boolean;
   isExecutingMoves: boolean;
   isMoveDispatchPaused: boolean;
+  moveStatusMessage: string | null;
   moveCompleted: boolean;
   moved: number;
   copied: number;
@@ -38,6 +39,7 @@ export function StatusBar({
   cancelled,
   isExecutingMoves,
   isMoveDispatchPaused,
+  moveStatusMessage,
   moveCompleted,
   moved,
   copied,
@@ -51,19 +53,21 @@ export function StatusBar({
       ? "No files"
       : cancelled
         ? "Scan cancelled"
-        : isExecutingMoves
-          ? "Executing moves"
-          : moveCompleted
-            ? "Move completed"
-            : completed && !planCompleted
-              ? "Planning destinations"
-              : isPlanning
+        : isMoveDispatchPaused
+          ? "Dispatch paused"
+          : isExecutingMoves
+            ? "Executing moves"
+            : moveCompleted
+              ? "Move completed"
+              : completed && !planCompleted
                 ? "Planning destinations"
-                : completed && planCompleted
-                  ? "Destinations ready"
-                  : completed
-                    ? "Scan completed"
-                    : "Idle";
+                : isPlanning
+                  ? "Planning destinations"
+                  : completed && planCompleted
+                    ? "Destinations ready"
+                    : completed
+                      ? "Scan completed"
+                      : "Idle";
   const plannedButNotReady =
     confirmationSummary.total_plans > 0
       ? confirmationSummary.total_plans - confirmationSummary.ready_operations
@@ -123,7 +127,7 @@ export function StatusBar({
         <p className={`mt-1 ${isMoveDispatchPaused ? "text-amber-400" : "text-emerald-400"}`}>
           {isMoveDispatchPaused
             ? "Move dispatch paused. In-flight jobs may still complete."
-            : "Execution explicitly confirmed."}
+            : (moveStatusMessage ?? "Execution started. Waiting for backend progress.")}
         </p>
       ) : null}
     </footer>

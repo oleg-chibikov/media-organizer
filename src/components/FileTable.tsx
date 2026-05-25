@@ -9,6 +9,7 @@ interface FileTableProps {
   metadataByFileId: Record<string, MetadataResult>;
   movePlansByFileId: Record<string, MovePlan>;
   moveResultsByFileId: Record<string, MoveResult>;
+  activeMoveFileId: string | null;
   rootMediaFolder: string | null;
 }
 
@@ -99,6 +100,7 @@ export function FileTable({
   metadataByFileId,
   movePlansByFileId,
   moveResultsByFileId,
+  activeMoveFileId,
   rootMediaFolder
 }: FileTableProps) {
   const defaultColumnSizing = useMemo<ColumnSizingState>(
@@ -119,23 +121,49 @@ export function FileTable({
 
         return {
           id: row.id,
-          source: resolveColumnData("source", row, metadata, movePlan, moveResult, rootMediaFolder),
+          source: resolveColumnData(
+            "source",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          ),
           destination: resolveColumnData(
             "destination",
             row,
             metadata,
             movePlan,
             moveResult,
+            activeMoveFileId,
             rootMediaFolder
           ),
-          status: resolveColumnData("status", row, metadata, movePlan, moveResult, rootMediaFolder),
-          kind: resolveColumnData("kind", row, metadata, movePlan, moveResult, rootMediaFolder),
+          status: resolveColumnData(
+            "status",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          ),
+          kind: resolveColumnData(
+            "kind",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          ),
           originalName: resolveColumnData(
             "originalName",
             row,
             metadata,
             movePlan,
             moveResult,
+            activeMoveFileId,
             rootMediaFolder
           ),
           metadataDate: resolveColumnData(
@@ -144,12 +172,28 @@ export function FileTable({
             metadata,
             movePlan,
             moveResult,
+            activeMoveFileId,
             rootMediaFolder
           ),
-          notes: resolveColumnData("notes", row, metadata, movePlan, moveResult, rootMediaFolder)
+          notes: resolveColumnData(
+            "notes",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          )
         };
       }),
-    [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, rootMediaFolder]
+    [
+      rows,
+      metadataByFileId,
+      movePlansByFileId,
+      moveResultsByFileId,
+      activeMoveFileId,
+      rootMediaFolder
+    ]
   );
 
   const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
@@ -227,9 +271,10 @@ export function FileTable({
         const isFallbackWarning = metadata?.date_kind === "fallback";
         const isMoved = moveResult?.result_status === "moved";
         const isCopied = moveResult?.result_status === "copied";
+        const isActiveMove = activeMoveFileId === sourceRecord.id && !moveResult;
         const isMoveError =
           moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
-        return `${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`;
+        return `${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isActiveMove ? "bg-cyan-950/30 text-cyan-100" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`;
       }}
       getRowTooltip={(row) => row.source.value}
       renderCellWrapper={(_, rowIndex, columnId, cell) => {
@@ -273,6 +318,7 @@ function resolveColumnData(
   metadata: MetadataResult | undefined,
   movePlan: MovePlan | undefined,
   moveResult: MoveResult | undefined,
+  activeMoveFileId: string | null,
   rootMediaFolder: string | null
 ): { value: string; title: string; className: string } {
   const metadataDateLabel = metadata
@@ -281,7 +327,7 @@ function resolveColumnData(
   const destinationLabel =
     movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
   const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
-  const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
+  const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult, activeMoveFileId);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 
   switch (columnKey) {
@@ -340,7 +386,8 @@ function resolveStatusLabel(
   row: FileRecord,
   metadata: MetadataResult | undefined,
   movePlan: MovePlan | undefined,
-  moveResult: MoveResult | undefined
+  moveResult: MoveResult | undefined,
+  activeMoveFileId: string | null
 ): string {
   if (moveResult) {
     switch (moveResult.result_status) {
@@ -359,6 +406,10 @@ function resolveStatusLabel(
 
   if (row.scan_status !== "discovered") {
     return STATUS_LABELS[row.scan_status];
+  }
+
+  if (activeMoveFileId === row.id) {
+    return "Moving";
   }
 
   if (metadata?.metadata_status === "error") {

@@ -178,6 +178,24 @@ pub struct MoveFileEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MoveProgressPhase {
+    Starting,
+    Preparing,
+    Moving,
+    Finalizing,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MoveProgressEvent {
+    pub phase: MoveProgressPhase,
+    pub file_id: Option<String>,
+    pub message: String,
+    pub completed: u64,
+    pub total: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MoveFinishedEvent {
     pub moved: u64,
     pub copied: u64,
