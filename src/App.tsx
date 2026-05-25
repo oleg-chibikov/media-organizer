@@ -1043,6 +1043,7 @@ export default function App() {
         details={visibleHistoryDetails}
         detailsLoading={historyDetailsLoading}
         detailsError={historyError}
+        rootMediaFolder={destinationSettings?.root_media_folder ?? null}
         settingsMenu={
           <DestinationSettingsMenu
             settings={destinationSettings}
@@ -1074,7 +1075,7 @@ export default function App() {
           metadataByFileId={metadataByFileId}
           movePlansByFileId={movePlansByFileId}
           moveResultsByFileId={moveResultsByFileId}
-          selectedFolder={selectedFolder}
+          rootMediaFolder={destinationSettings?.root_media_folder ?? null}
         />
       </main>
 

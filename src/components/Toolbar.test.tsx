@@ -45,6 +45,7 @@ describe("Toolbar History Menu", () => {
         details={null}
         detailsLoading={false}
         detailsError={null}
+        rootMediaFolder={null}
         onChooseFolder={vi.fn()}
         onCancelScan={vi.fn()}
         onSelectHistoryRun={onSelectHistoryRun}

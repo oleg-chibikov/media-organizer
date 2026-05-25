@@ -9,7 +9,7 @@ interface FileTableProps {
   metadataByFileId: Record<string, MetadataResult>;
   movePlansByFileId: Record<string, MovePlan>;
   moveResultsByFileId: Record<string, MoveResult>;
-  selectedFolder: string | null;
+  rootMediaFolder: string | null;
 }
 
 const STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
@@ -99,7 +99,7 @@ export function FileTable({
   metadataByFileId,
   movePlansByFileId,
   moveResultsByFileId,
-  selectedFolder
+  rootMediaFolder
 }: FileTableProps) {
   const defaultColumnSizing = useMemo<ColumnSizingState>(
     () =>
@@ -119,24 +119,24 @@ export function FileTable({
 
         return {
           id: row.id,
-          source: resolveColumnData("source", row, metadata, movePlan, moveResult, selectedFolder),
+          source: resolveColumnData("source", row, metadata, movePlan, moveResult, rootMediaFolder),
           destination: resolveColumnData(
             "destination",
             row,
             metadata,
             movePlan,
             moveResult,
-            selectedFolder
+            rootMediaFolder
           ),
-          status: resolveColumnData("status", row, metadata, movePlan, moveResult, selectedFolder),
-          kind: resolveColumnData("kind", row, metadata, movePlan, moveResult, selectedFolder),
+          status: resolveColumnData("status", row, metadata, movePlan, moveResult, rootMediaFolder),
+          kind: resolveColumnData("kind", row, metadata, movePlan, moveResult, rootMediaFolder),
           originalName: resolveColumnData(
             "originalName",
             row,
             metadata,
             movePlan,
             moveResult,
-            selectedFolder
+            rootMediaFolder
           ),
           metadataDate: resolveColumnData(
             "metadataDate",
@@ -144,12 +144,12 @@ export function FileTable({
             metadata,
             movePlan,
             moveResult,
-            selectedFolder
+            rootMediaFolder
           ),
-          notes: resolveColumnData("notes", row, metadata, movePlan, moveResult, selectedFolder)
+          notes: resolveColumnData("notes", row, metadata, movePlan, moveResult, rootMediaFolder)
         };
       }),
-    [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, selectedFolder]
+    [rows, metadataByFileId, movePlansByFileId, moveResultsByFileId, rootMediaFolder]
   );
 
   const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
@@ -273,14 +273,14 @@ function resolveColumnData(
   metadata: MetadataResult | undefined,
   movePlan: MovePlan | undefined,
   moveResult: MoveResult | undefined,
-  selectedFolder: string | null
+  rootMediaFolder: string | null
 ): { value: string; title: string; className: string } {
   const metadataDateLabel = metadata
     ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
     : "pending";
   const destinationLabel =
     movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
-  const relativeDestinationLabel = resolveRelativePath(destinationLabel, selectedFolder);
+  const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
   const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 

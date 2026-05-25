@@ -15,6 +15,7 @@ interface ToolbarProps {
   details: HistoryRunDetails | null;
   detailsLoading: boolean;
   detailsError: string | null;
+  rootMediaFolder: string | null;
   settingsMenu?: ReactNode;
   onChooseFolder: () => void;
   onCancelScan: () => void;
@@ -73,6 +74,7 @@ export function Toolbar({
   details,
   detailsLoading,
   detailsError,
+  rootMediaFolder,
   settingsMenu,
   onChooseFolder,
   onCancelScan,
@@ -349,7 +351,14 @@ export function Toolbar({
         {folderError ? <p className="text-rose-400">{folderError}</p> : null}
       </div>
 
-      {settingsMenu ? <div className="ml-auto shrink-0">{settingsMenu}</div> : null}
+      <div className="ml-auto flex min-w-0 items-center gap-2">
+        {rootMediaFolder ? (
+          <p className="max-w-[30rem] truncate text-xs text-slate-400" title={rootMediaFolder}>
+            Root media: {rootMediaFolder}
+          </p>
+        ) : null}
+        {settingsMenu ? <div className="shrink-0">{settingsMenu}</div> : null}
+      </div>
     </header>
   );
 }
