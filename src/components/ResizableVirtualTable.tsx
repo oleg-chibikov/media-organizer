@@ -144,7 +144,7 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
 
           <div
             ref={parentRef}
-            className="min-h-0 flex-1 overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable]"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]"
           >
             {virtualized ? (
               <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
