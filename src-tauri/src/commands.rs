@@ -15,7 +15,7 @@ use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    events, history, metadata,
+    events, history, location, metadata,
     models::{
         DestinationSettings, EffectiveDestinationRoot, FileKind, FileRecord, HistoryIndexEntry,
         HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
@@ -288,7 +288,9 @@ async fn read_metadata_batch_internal(
         state
             .metadata_waiting
             .fetch_sub(request_count, Ordering::SeqCst);
-        return Ok(unwrap_metadata_results(results));
+        let mut final_results = unwrap_metadata_results(results);
+        apply_cached_place_results(&app, &mut final_results);
+        return Ok(final_results);
     }
 
     let permit = state
@@ -339,7 +341,9 @@ async fn read_metadata_batch_internal(
         }
     }
 
-    Ok(unwrap_metadata_results(results))
+    let mut final_results = unwrap_metadata_results(results);
+    apply_cached_place_results(&app, &mut final_results);
+    Ok(final_results)
 }
 
 fn metadata_result_from_raw(
@@ -429,6 +433,21 @@ fn unwrap_metadata_results(results: Vec<Option<MetadataResult>>) -> Vec<Metadata
             })
         })
         .collect()
+}
+
+fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResult]) {
+    let app_data_dir = match app.path().app_data_dir() {
+        Ok(path) => path,
+        Err(_) => return,
+    };
+
+    if let Err(error) = location::apply_cache_to_metadata_results(&app_data_dir, results) {
+        for result in results.iter_mut() {
+            if result.gps_coordinate.is_some() && result.error.is_none() {
+                result.error = Some(format!("Place cache was unavailable: {error}"));
+            }
+        }
+    }
 }
 
 #[tauri::command]

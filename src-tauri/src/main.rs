@@ -2,6 +2,7 @@ mod commands;
 mod events;
 mod filename;
 mod history;
+mod location;
 mod metadata;
 mod models;
 mod mover;

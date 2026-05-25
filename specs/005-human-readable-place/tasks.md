@@ -18,10 +18,10 @@
 
 ## Phase 3: Location Bucketing And Cache
 
-- [ ] T008 Add deterministic city-level bucket generation for valid coordinates.
-- [ ] T009 Add versioned appData place cache read/write behavior.
-- [ ] T010 Reuse cached place entries before attempting any online lookup.
-- [ ] T011 Add Rust tests for bucket stability, nearby grouping, distant separation, and cache reuse.
+- [x] T008 Add deterministic city-level bucket generation for valid coordinates.
+- [x] T009 Add versioned appData place cache read/write behavior.
+- [x] T010 Reuse cached place entries before attempting any online lookup.
+- [x] T011 Add Rust tests for bucket stability, nearby grouping, distant separation, and cache reuse.
 
 ## Phase 4: Place Lookup Provider
 
