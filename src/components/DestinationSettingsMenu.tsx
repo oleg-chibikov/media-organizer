@@ -1,6 +1,6 @@
 import type { DestinationSettings } from "../lib/types";
-import { Button } from "./Button";
-import { Pane } from "./Pane";
+import { Button } from "./design-system/Button";
+import { Pane } from "./design-system/Pane";
 
 interface DestinationSettingsMenuProps {
   settings: DestinationSettings | null;

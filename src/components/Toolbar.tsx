@@ -3,9 +3,9 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunDetails, HistoryRunStatus } from "../lib/types";
-import { Button } from "./Button";
-import { Pane } from "./Pane";
-import { ResizableVirtualTable } from "./ResizableVirtualTable";
+import { Button } from "./design-system/Button";
+import { Pane } from "./design-system/Pane";
+import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
 
 interface ToolbarProps {
   selectedFolder: string | null;

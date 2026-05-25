@@ -1,4 +1,4 @@
-import { Button } from "./Button";
+import { Button } from "./design-system/Button";
 import type { MoveConfirmationSummary } from "../lib/types";
 
 interface StatusBarProps {

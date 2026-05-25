@@ -1,7 +1,7 @@
 ﻿import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
 import { useMemo } from "react";
 import type { HistoryRunDetails } from "../lib/types";
-import { ResizableVirtualTable } from "./ResizableVirtualTable";
+import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
 
 interface HistoryDetailsPanelProps {
   details: HistoryRunDetails | null;

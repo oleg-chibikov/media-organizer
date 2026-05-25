@@ -1,6 +1,6 @@
 import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
 import { useCallback, useMemo } from "react";
-import { ResizableVirtualTable } from "./ResizableVirtualTable";
+import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
 import { revealFileInExplorer } from "../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
