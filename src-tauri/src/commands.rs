@@ -349,6 +349,7 @@ fn metadata_result_from_raw(
 ) -> MetadataResult {
     let restart_warning = did_restart
         .then(|| "ExifTool worker restarted after a previous crash or stall.".to_string());
+    let gps = metadata::select_metadata_gps(&raw_dates);
 
     let selection = match metadata::select_metadata_date(&request.file_kind, &raw_dates) {
         Ok(value) => value,
@@ -363,8 +364,8 @@ fn metadata_result_from_raw(
             date_kind: Some(date.date_kind),
             raw_metadata_date: Some(date.raw_metadata_date),
             device_name: raw_dates.device_name,
-            gps_coordinate: None,
-            gps_source: None,
+            gps_coordinate: gps.as_ref().map(|value| value.gps_coordinate.clone()),
+            gps_source: gps.as_ref().map(|value| value.gps_source.clone()),
             place_bucket_id: None,
             place_status: PlaceStatus::NotAvailable,
             place: None,
@@ -381,8 +382,8 @@ fn metadata_result_from_raw(
         date_kind: None,
         raw_metadata_date: None,
         device_name: raw_dates.device_name,
-        gps_coordinate: None,
-        gps_source: None,
+        gps_coordinate: gps.as_ref().map(|value| value.gps_coordinate.clone()),
+        gps_source: gps.as_ref().map(|value| value.gps_source.clone()),
         place_bucket_id: None,
         place_status: PlaceStatus::NotAvailable,
         place: None,

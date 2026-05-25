@@ -11,10 +11,10 @@
 
 ## Phase 2: GPS Metadata Extraction
 
-- [ ] T004 Identify ExifTool GPS fields used by supported photos and videos.
-- [ ] T005 Parse decimal and hemisphere-based latitude/longitude values from ExifTool output.
-- [ ] T006 Validate coordinate ranges and mark malformed or missing GPS as location unavailable.
-- [ ] T007 Add Rust tests for valid, missing, malformed, zero, and out-of-range coordinates.
+- [x] T004 Identify ExifTool GPS fields used by supported photos and videos.
+- [x] T005 Parse decimal and hemisphere-based latitude/longitude values from ExifTool output.
+- [x] T006 Validate coordinate ranges and mark malformed or missing GPS as location unavailable.
+- [x] T007 Add Rust tests for valid, missing, malformed, zero, and out-of-range coordinates.
 
 ## Phase 3: Location Bucketing And Cache
 
