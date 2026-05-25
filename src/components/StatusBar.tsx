@@ -58,7 +58,7 @@ export function StatusBar({
               : isPlanning
                 ? "Planning destinations"
                 : completed && planCompleted
-                  ? "Destinations planned"
+                  ? "Destinations ready"
                   : completed
                     ? "Scan completed"
                     : "Idle";

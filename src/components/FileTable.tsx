@@ -374,7 +374,7 @@ function resolveStatusLabel(
 
   switch (movePlan.plan_status) {
     case "ready":
-      return movePlan.conflict_status === "suffix_applied" ? "Planned (Suffix)" : "Planned";
+      return movePlan.conflict_status === "suffix_applied" ? "Ready (Suffix)" : "Ready";
     case "blocked_no_date":
       return "Blocked No Date";
     case "blocked_conflict":
