@@ -126,7 +126,6 @@ pub fn validate_move_safety(
         selected_root,
         &processed_root,
         operations,
-        "Source file is inside the Processed folder.",
         "Destination file is outside the selected Processed folder.",
     )
 }
@@ -140,7 +139,6 @@ pub fn validate_move_safety_with_roots(
         selected_source_root,
         effective_destination_root,
         operations,
-        "Source file is inside the effective destination root.",
         "Destination file is outside the effective destination root.",
     )
 }
@@ -149,7 +147,6 @@ fn validate_move_safety_internal(
     selected_source_root: &Path,
     effective_destination_root: &Path,
     operations: Vec<MoveOperation>,
-    source_inside_destination_error: &str,
     destination_outside_root_error: &str,
 ) -> SafetyCheckedMoves {
     let mut ready = Vec::new();
@@ -185,16 +182,6 @@ fn validate_move_safety_internal(
                 &operation.source_path,
                 &operation.destination_path,
                 "Source file is outside the selected folder.",
-            ));
-            continue;
-        }
-
-        if path_is_within_case_insensitive(source, effective_destination_root) {
-            skipped.push(skipped_result(
-                &operation.file_id,
-                &operation.source_path,
-                &operation.destination_path,
-                source_inside_destination_error,
             ));
             continue;
         }
@@ -936,7 +923,7 @@ mod tests {
     }
 
     #[test]
-    fn safety_check_rejects_source_inside_processed_folder() {
+    fn safety_check_allows_source_inside_processed_folder() {
         let temp = tempdir().expect("temp dir");
         let source = temp.path().join("Processed").join("source.jpg");
         let destination = temp
@@ -956,13 +943,8 @@ mod tests {
             }],
         );
 
-        assert_eq!(checked.ready.len(), 0);
-        assert_eq!(checked.skipped.len(), 1);
-        assert!(checked.skipped[0]
-            .error
-            .as_deref()
-            .unwrap_or_default()
-            .contains("inside the Processed folder"));
+        assert_eq!(checked.ready.len(), 1);
+        assert_eq!(checked.skipped.len(), 0);
         assert!(source.exists());
     }
 
@@ -998,7 +980,7 @@ mod tests {
     }
 
     #[test]
-    fn safety_check_with_custom_root_rejects_source_inside_effective_root() {
+    fn safety_check_with_custom_root_allows_source_inside_effective_root() {
         let temp = tempdir().expect("temp dir");
         let source_root = temp.path().join("todo");
         let destination_root = temp.path().to_path_buf();
@@ -1017,13 +999,8 @@ mod tests {
             }],
         );
 
-        assert_eq!(checked.ready.len(), 0);
-        assert_eq!(checked.skipped.len(), 1);
-        assert!(checked.skipped[0]
-            .error
-            .as_deref()
-            .unwrap_or_default()
-            .contains("inside the effective destination root"));
+        assert_eq!(checked.ready.len(), 1);
+        assert_eq!(checked.skipped.len(), 0);
         assert!(source.exists());
     }
 }
