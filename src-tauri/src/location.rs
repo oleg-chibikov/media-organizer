@@ -166,13 +166,7 @@ impl ReverseGeocodeProvider for NominatimReverseGeocodeProvider {
             .json()
             .map_err(|error| format!("Place lookup provider returned invalid JSON: {error}"))?;
 
-        let Some(address) = parsed.address else {
-            return Ok(None);
-        };
-
-        Ok(Some(ReverseGeocodeResult {
-            components: map_nominatim_address_to_components(address),
-        }))
+        Ok(map_nominatim_response_to_result(parsed))
     }
 }
 
@@ -183,17 +177,29 @@ struct NominatimAddress {
     village: Option<String>,
     hamlet: Option<String>,
     municipality: Option<String>,
+    locality: Option<String>,
+    neighbourhood: Option<String>,
     suburb: Option<String>,
     city_district: Option<String>,
     county: Option<String>,
+    state_district: Option<String>,
     state: Option<String>,
     region: Option<String>,
     country: Option<String>,
+    national_park: Option<String>,
+    protected_area: Option<String>,
+    tourism: Option<String>,
+    attraction: Option<String>,
+    leisure: Option<String>,
+    amenity: Option<String>,
+    natural: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct NominatimReverseResponse {
     address: Option<NominatimAddress>,
+    display_name: Option<String>,
+    name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -381,7 +387,7 @@ pub fn apply_place_resolution_with_provider(
                 .and_modify(|pending| pending.result_indices.push(index))
                 .or_insert_with(|| PendingBucketLookup {
                     bucket_id: bucket.bucket_id,
-                    representative_coordinate: bucket.representative_coordinate,
+                    representative_coordinate: gps_coordinate.clone(),
                     result_indices: vec![index],
                 });
         }
@@ -476,6 +482,38 @@ fn bucket_center_from_index(index: i32, min: f64, max: f64) -> f64 {
     ((index as f64 + 0.5) * CITY_BUCKET_STEP_DEGREES).clamp(min, max)
 }
 
+fn map_nominatim_response_to_result(
+    response: NominatimReverseResponse,
+) -> Option<ReverseGeocodeResult> {
+    let fallback_components = response
+        .display_name
+        .as_deref()
+        .and_then(place_components_from_display_name)
+        .or_else(|| {
+            response.name.as_deref().and_then(|name| {
+                first_present_string(&[Some(name.to_string())]).map(|city| PlaceComponents {
+                    city: Some(city),
+                    region: None,
+                    country: None,
+                })
+            })
+        });
+
+    let components = response
+        .address
+        .map(map_nominatim_address_to_components)
+        .and_then(|components| {
+            if place_components_to_display_text(&components).is_some() {
+                Some(components)
+            } else {
+                fallback_components.clone()
+            }
+        })
+        .or(fallback_components)?;
+
+    Some(ReverseGeocodeResult { components })
+}
+
 fn map_nominatim_address_to_components(address: NominatimAddress) -> PlaceComponents {
     PlaceComponents {
         city: first_present_string(&[
@@ -484,12 +522,61 @@ fn map_nominatim_address_to_components(address: NominatimAddress) -> PlaceCompon
             address.village,
             address.municipality,
             address.hamlet,
+            address.locality,
+            address.neighbourhood,
             address.suburb,
             address.city_district,
+            address.national_park,
+            address.protected_area,
+            address.tourism,
+            address.attraction,
+            address.leisure,
+            address.amenity,
+            address.natural,
         ]),
-        region: first_present_string(&[address.state, address.region, address.county]),
+        region: first_present_string(&[
+            address.state,
+            address.region,
+            address.state_district,
+            address.county,
+        ]),
         country: first_present_string(&[address.country]),
     }
+}
+
+fn place_components_from_display_name(display_name: &str) -> Option<PlaceComponents> {
+    let mut segments: Vec<String> = Vec::new();
+    for segment in display_name.split(',') {
+        let trimmed = segment.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if !segments
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+        {
+            segments.push(trimmed.to_string());
+        }
+    }
+
+    if segments.is_empty() {
+        return None;
+    }
+
+    let city = segments.first().cloned();
+    let country = segments.last().filter(|_| segments.len() > 1).cloned();
+    let region = if segments.len() > 2 {
+        segments.get(segments.len() - 2).cloned()
+    } else {
+        None
+    };
+
+    Some(PlaceComponents {
+        city,
+        region,
+        country,
+    })
 }
 
 pub fn place_components_to_display_text(components: &PlaceComponents) -> Option<String> {
@@ -585,10 +672,11 @@ mod tests {
 
     use super::{
         apply_cache_to_metadata_results, apply_place_resolution_with_provider,
-        bucket_for_coordinate, load_place_cache, place_cache_path,
-        place_components_to_display_text, save_place_cache, LookupThrottle, PlaceLookupOptions,
-        ReverseGeocodeProvider, ReverseGeocodeRequestMetadata, ReverseGeocodeResult,
-        LOCATION_BUCKET_PRECISION_VERSION, PLACE_CACHE_VERSION,
+        bucket_for_coordinate, load_place_cache, map_nominatim_response_to_result,
+        place_cache_path, place_components_to_display_text, save_place_cache, LookupThrottle,
+        NominatimAddress, NominatimReverseResponse, PlaceLookupOptions, ReverseGeocodeProvider,
+        ReverseGeocodeRequestMetadata, ReverseGeocodeResult, LOCATION_BUCKET_PRECISION_VERSION,
+        PLACE_CACHE_VERSION,
     };
     use crate::models::{
         GpsCoordinate, MetadataResult, MetadataStatus, PlaceCacheEntry, PlaceComponents,
@@ -781,6 +869,47 @@ mod tests {
     }
 
     #[test]
+    fn uses_first_source_coordinate_for_uncached_bucket_lookup() {
+        let temp = tempdir().expect("temp dir");
+        let coordinate = GpsCoordinate {
+            latitude: 37.723511,
+            longitude: -119.718558,
+        };
+        let bucket = bucket_for_coordinate(&coordinate).expect("bucket should exist");
+        assert_ne!(bucket.representative_coordinate, coordinate);
+
+        let mut results = vec![metadata_result_with_coordinate(
+            "file-1",
+            coordinate.clone(),
+        )];
+        let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            components: PlaceComponents {
+                city: Some("Yosemite Valley".to_string()),
+                region: Some("California".to_string()),
+                country: Some("United States".to_string()),
+            },
+        }))]);
+        let mut throttle = MockThrottle::default();
+
+        apply_place_resolution_with_provider(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: true,
+            },
+            &provider,
+            &mut throttle,
+        )
+        .expect("lookup should resolve");
+
+        assert_eq!(provider.recorded_coordinates(), vec![coordinate]);
+        assert_eq!(
+            results[0].place.as_deref(),
+            Some("Yosemite Valley, California, United States")
+        );
+    }
+
+    #[test]
     fn marks_bucket_failed_when_provider_returns_error() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
@@ -933,10 +1062,48 @@ mod tests {
         assert_eq!(place.as_deref(), Some("Queensland, Australia"));
     }
 
+    #[test]
+    fn builds_place_from_sparse_nominatim_display_name() {
+        let result = map_nominatim_response_to_result(NominatimReverseResponse {
+            address: None,
+            display_name: Some(
+                "Yosemite Valley, Mariposa County, California, United States".to_string(),
+            ),
+            name: None,
+        })
+        .expect("display name should provide a fallback place");
+
+        assert_eq!(
+            place_components_to_display_text(&result.components).as_deref(),
+            Some("Yosemite Valley, California, United States")
+        );
+    }
+
+    #[test]
+    fn builds_place_from_park_address_fields() {
+        let result = map_nominatim_response_to_result(NominatimReverseResponse {
+            address: Some(NominatimAddress {
+                national_park: Some("Yosemite National Park".to_string()),
+                state: Some("California".to_string()),
+                country: Some("United States".to_string()),
+                ..Default::default()
+            }),
+            display_name: None,
+            name: None,
+        })
+        .expect("park address should provide a fallback place");
+
+        assert_eq!(
+            place_components_to_display_text(&result.components).as_deref(),
+            Some("Yosemite National Park, California, United States")
+        );
+    }
+
     #[derive(Debug)]
     struct MockProvider {
         responses: Arc<Mutex<Vec<Result<Option<ReverseGeocodeResult>, String>>>>,
         calls: Arc<Mutex<Vec<ReverseGeocodeRequestMetadata>>>,
+        coordinates: Arc<Mutex<Vec<GpsCoordinate>>>,
     }
 
     impl MockProvider {
@@ -944,6 +1111,7 @@ mod tests {
             Self {
                 responses: Arc::new(Mutex::new(results)),
                 calls: Arc::new(Mutex::new(Vec::new())),
+                coordinates: Arc::new(Mutex::new(Vec::new())),
             }
         }
 
@@ -953,6 +1121,10 @@ mod tests {
 
         fn recorded_calls(&self) -> Vec<ReverseGeocodeRequestMetadata> {
             self.calls.lock().expect("calls lock").clone()
+        }
+
+        fn recorded_coordinates(&self) -> Vec<GpsCoordinate> {
+            self.coordinates.lock().expect("coordinates lock").clone()
         }
     }
 
@@ -967,13 +1139,17 @@ mod tests {
 
         fn reverse_geocode(
             &self,
-            _coordinate: &GpsCoordinate,
+            coordinate: &GpsCoordinate,
             metadata: &ReverseGeocodeRequestMetadata,
         ) -> Result<Option<ReverseGeocodeResult>, String> {
             self.calls
                 .lock()
                 .expect("calls lock")
                 .push(metadata.clone());
+            self.coordinates
+                .lock()
+                .expect("coordinates lock")
+                .push(coordinate.clone());
 
             let mut responses = self.responses.lock().expect("responses lock");
             if responses.is_empty() {
