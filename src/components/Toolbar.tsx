@@ -1,9 +1,10 @@
 ﻿import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunDetails, HistoryRunStatus } from "../lib/types";
 import { Button } from "./Button";
+import { Pane } from "./Pane";
 import { ResizableVirtualTable } from "./ResizableVirtualTable";
 
 interface ToolbarProps {
@@ -84,22 +85,6 @@ export function Toolbar({
   onRedoProcessing,
   onDeleteProcessing
 }: ToolbarProps) {
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const historyRef = useRef<HTMLDivElement>(null);
-
-  const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
-      setHistoryOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (historyOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [historyOpen, handleClickOutside]);
-
   const recentRunRows = useMemo<RecentRunTableRow[]>(
     () =>
       historyRuns.map((run) => ({
@@ -241,87 +226,80 @@ export function Toolbar({
         </Button>
       ) : null}
 
-      <div ref={historyRef} className="relative">
-        <Button
-          variant="secondary"
-          className="px-3 py-1.5 text-sm"
-          onClick={() => setHistoryOpen((prev) => !prev)}
-        >
-          History
-        </Button>
-        {historyOpen && (
-          <div className="absolute left-0 z-20 mt-1 w-[48rem] rounded border border-slate-700 bg-slate-900 p-2 shadow-lg">
-            <p className="mb-1 text-xs text-slate-400">Recent Runs</p>
-            <div className="max-h-56 overflow-y-auto">
-              {historyLoading ? (
-                <p className="px-2 py-1 text-xs text-slate-500">Loading history...</p>
-              ) : historyRuns.length === 0 ? (
-                <p className="px-2 py-1 text-xs text-slate-500">No history runs</p>
-              ) : (
-                <ResizableVirtualTable
-                  rows={recentRunRows}
-                  columns={RECENT_RUN_COLUMNS}
-                  columnDefs={recentRunColumnDefs}
-                  defaultColumnSizing={RECENT_RUN_DEFAULT_SIZING}
-                  onAutoSizeColumns={() => RECENT_RUN_DEFAULT_SIZING}
-                  selectable={true}
-                  onRowClick={(row) => onSelectHistoryRun(row.run.run_id)}
-                  virtualized={false}
-                  getRowClassName={(row) =>
-                    selectedHistoryRunId === row.run.run_id
-                      ? "bg-sky-800 text-sky-100 hover:bg-sky-700"
-                      : "text-slate-300 hover:bg-slate-800"
-                  }
-                />
-              )}
-            </div>
+      <Pane
+        panelClassName="w-[48rem] p-2"
+        renderTrigger={({ toggle }) => (
+          <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={toggle}>
+            History
+          </Button>
+        )}
+      >
+        <p className="mb-1 text-xs text-slate-400">Recent Runs</p>
+        <div className="max-h-56 overflow-y-auto">
+          {historyLoading ? (
+            <p className="px-2 py-1 text-xs text-slate-500">Loading history...</p>
+          ) : historyRuns.length === 0 ? (
+            <p className="px-2 py-1 text-xs text-slate-500">No history runs</p>
+          ) : (
+            <ResizableVirtualTable
+              rows={recentRunRows}
+              columns={RECENT_RUN_COLUMNS}
+              columnDefs={recentRunColumnDefs}
+              defaultColumnSizing={RECENT_RUN_DEFAULT_SIZING}
+              onAutoSizeColumns={() => RECENT_RUN_DEFAULT_SIZING}
+              selectable={true}
+              onRowClick={(row) => onSelectHistoryRun(row.run.run_id)}
+              getRowAriaLabel={(row) => `View run ${row.run.run_id}`}
+              virtualized={false}
+              getRowClassName={(row) =>
+                selectedHistoryRunId === row.run.run_id
+                  ? "bg-sky-800 text-sky-100 hover:bg-sky-700"
+                  : "text-slate-300 hover:bg-slate-800"
+              }
+            />
+          )}
+        </div>
 
-            {selectedHistoryRunId && (details || detailsLoading || detailsError) ? (
-              <div className="mt-2 border-t border-slate-700 pt-2">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-200">History Details</span>
-                  {details ? (
-                    <>
-                      <span className="font-mono text-[10px] text-slate-500">
-                        {details.run.run_id}
-                      </span>
-                      <span className="text-xs text-slate-300">{details.run.folder_label}</span>
-                    </>
-                  ) : null}
-                  {details?.unsafe_for_undo_redo ? (
-                    <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] text-amber-300">
-                      Unsafe for Undo/Redo
-                    </span>
-                  ) : null}
+        {selectedHistoryRunId && (details || detailsLoading || detailsError) ? (
+          <div className="mt-2 border-t border-slate-700 pt-2">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-200">History Details</span>
+              {details ? (
+                <>
+                  <span className="font-mono text-[10px] text-slate-500">{details.run.run_id}</span>
+                  <span className="text-xs text-slate-300">{details.run.folder_label}</span>
+                </>
+              ) : null}
+              {details?.unsafe_for_undo_redo ? (
+                <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] text-amber-300">
+                  Unsafe for Undo/Redo
+                </span>
+              ) : null}
+            </div>
+            {detailsError ? <p className="mb-1 text-[11px] text-rose-400">{detailsError}</p> : null}
+            {detailsLoading ? (
+              <p className="text-[11px] text-slate-500">Loading history details...</p>
+            ) : details ? (
+              details.operations.length > 0 ? (
+                <div className="max-h-40 overflow-auto border border-slate-800">
+                  <ResizableVirtualTable
+                    rows={detailsRows}
+                    columns={DETAILS_COLUMNS}
+                    columnDefs={detailsColumnDefs}
+                    defaultColumnSizing={DETAILS_DEFAULT_SIZING}
+                    onAutoSizeColumns={() => DETAILS_DEFAULT_SIZING}
+                    virtualized={false}
+                  />
                 </div>
-                {detailsError ? (
-                  <p className="mb-1 text-[11px] text-rose-400">{detailsError}</p>
-                ) : null}
-                {detailsLoading ? (
-                  <p className="text-[11px] text-slate-500">Loading history details...</p>
-                ) : details ? (
-                  details.operations.length > 0 ? (
-                    <div className="max-h-40 overflow-auto border border-slate-800">
-                      <ResizableVirtualTable
-                        rows={detailsRows}
-                        columns={DETAILS_COLUMNS}
-                        columnDefs={detailsColumnDefs}
-                        defaultColumnSizing={DETAILS_DEFAULT_SIZING}
-                        onAutoSizeColumns={() => DETAILS_DEFAULT_SIZING}
-                        virtualized={false}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500">
-                      No history operations recorded for this run.
-                    </p>
-                  )
-                ) : null}
-              </div>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  No history operations recorded for this run.
+                </p>
+              )
             ) : null}
           </div>
-        )}
-      </div>
+        ) : null}
+      </Pane>
 
       <div className="ml-2 min-w-0 flex-1 text-sm text-slate-300">
         {selectedFolder ? (

@@ -20,6 +20,7 @@ interface ResizableVirtualTableProps<TRow extends { id: string }, TColumnKey ext
   onRowClick?: (row: TRow, rowIndex: number) => void;
   getRowClassName?: (row: TRow, rowIndex: number) => string;
   getRowTooltip?: (row: TRow, rowIndex: number) => string | undefined;
+  getRowAriaLabel?: (row: TRow, rowIndex: number) => string | undefined;
   renderCellWrapper?: (row: TRow, rowIndex: number, columnId: string, cell: ReactNode) => ReactNode;
 }
 
@@ -34,6 +35,7 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   onRowClick,
   getRowClassName,
   getRowTooltip,
+  getRowAriaLabel,
   renderCellWrapper
 }: ResizableVirtualTableProps<TRow, TColumnKey>) {
   const parentRef = useRef<HTMLDivElement | null>(null);
@@ -153,16 +155,27 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
                   const sourceRow = rows[virtualRow.index];
                   const rowClassName = getRowClassName?.(sourceRow, virtualRow.index) ?? "";
                   const rowTooltip = getRowTooltip?.(sourceRow, virtualRow.index);
+                  const rowAriaLabel = getRowAriaLabel?.(sourceRow, virtualRow.index);
 
                   return (
                     <div
                       key={row.id}
+                      aria-label={selectable ? rowAriaLabel : undefined}
                       className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${selectable ? "cursor-pointer" : ""} ${rowClassName}`}
+                      role={selectable ? "button" : undefined}
+                      tabIndex={selectable ? 0 : undefined}
                       title={rowTooltip}
                       onClick={() => {
                         if (selectable) {
                           onRowClick?.(sourceRow, virtualRow.index);
                         }
+                      }}
+                      onKeyDown={(event) => {
+                        if (!selectable || (event.key !== "Enter" && event.key !== " ")) {
+                          return;
+                        }
+                        event.preventDefault();
+                        onRowClick?.(sourceRow, virtualRow.index);
                       }}
                       style={{
                         gridTemplateColumns,
@@ -193,15 +206,26 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
                   const sourceRow = rows[rowIndex];
                   const rowClassName = getRowClassName?.(sourceRow, rowIndex) ?? "";
                   const rowTooltip = getRowTooltip?.(sourceRow, rowIndex);
+                  const rowAriaLabel = getRowAriaLabel?.(sourceRow, rowIndex);
                   return (
                     <div
                       key={row.id}
+                      aria-label={selectable ? rowAriaLabel : undefined}
                       className={`grid w-full border-t border-slate-800 text-sm ${selectable ? "cursor-pointer" : ""} ${rowClassName}`}
+                      role={selectable ? "button" : undefined}
+                      tabIndex={selectable ? 0 : undefined}
                       title={rowTooltip}
                       onClick={() => {
                         if (selectable) {
                           onRowClick?.(sourceRow, rowIndex);
                         }
+                      }}
+                      onKeyDown={(event) => {
+                        if (!selectable || (event.key !== "Enter" && event.key !== " ")) {
+                          return;
+                        }
+                        event.preventDefault();
+                        onRowClick?.(sourceRow, rowIndex);
                       }}
                       style={{ gridTemplateColumns }}
                     >
