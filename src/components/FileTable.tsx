@@ -69,6 +69,18 @@ type TableRowData = {
   id: string;
 } & Record<ColumnKey, CellData>;
 
+function diagnosticPlaceResult(
+  diagnostic: PlaceLookupDiagnosticState | undefined
+): PlaceLookupDiagnosticResult | null {
+  const result = diagnostic?.result;
+  const displayPlace = result?.display_place?.trim();
+  if (!result || !displayPlace) {
+    return null;
+  }
+
+  return result;
+}
+
 const COLUMN_HORIZONTAL_PADDING = 28;
 const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -139,6 +151,7 @@ export function FileTable({
         const metadata = metadataByFileId[row.id];
         const movePlan = movePlansByFileId[row.id];
         const moveResult = moveResultsByFileId[row.id];
+        const diagnosticPlace = diagnosticPlaceResult(diagnosticsByFileId[row.id]);
 
         return {
           id: row.id,
@@ -212,7 +225,8 @@ export function FileTable({
             movePlan,
             moveResult,
             activeMoveFileId,
-            rootMediaFolder
+            rootMediaFolder,
+            diagnosticPlace
           ),
           notes: resolveColumnData(
             "notes",
@@ -231,7 +245,8 @@ export function FileTable({
       movePlansByFileId,
       moveResultsByFileId,
       activeMoveFileId,
-      rootMediaFolder
+      rootMediaFolder,
+      diagnosticsByFileId
     ]
   );
 
@@ -438,7 +453,8 @@ function resolveColumnData(
   movePlan: MovePlan | undefined,
   moveResult: MoveResult | undefined,
   activeMoveFileId: string | null,
-  rootMediaFolder: string | null
+  rootMediaFolder: string | null,
+  diagnosticPlace: PlaceLookupDiagnosticResult | null = null
 ): CellData {
   const metadataDateLabel = metadata
     ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
@@ -448,7 +464,7 @@ function resolveColumnData(
   const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
   const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult, activeMoveFileId);
   const coordinateCellData = resolveCoordinateCellData(metadata);
-  const placeCellData = resolvePlaceCellData(metadata);
+  const placeCellData = resolvePlaceCellData(metadata, diagnosticPlace);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 
   switch (columnKey) {
@@ -679,12 +695,34 @@ function resolveNotesLabel(
   return resolveDateSourceLabel(metadata.chosen_date_source);
 }
 
-function resolvePlaceCellData(metadata: MetadataResult | undefined): CellData {
+function resolvePlaceCellData(
+  metadata: MetadataResult | undefined,
+  diagnosticPlace: PlaceLookupDiagnosticResult | null = null
+): CellData {
   if (!metadata) {
     return { value: "-", title: "-", className: "" };
   }
 
   const coordinateLabel = formatGpsCoordinate(metadata.gps_coordinate);
+
+  if (diagnosticPlace) {
+    const placeLabel = diagnosticPlace.display_place?.trim();
+    if (placeLabel) {
+      const diagnosticTitle = [
+        `Diagnostic lookup: ${placeLabel}`,
+        `HTTP: ${diagnosticPlace.http_status ?? "unknown"}`,
+        `Provider: ${diagnosticPlace.provider}`,
+        coordinateLabel ? `Coordinates: ${coordinateLabel}` : ""
+      ]
+        .filter(Boolean)
+        .join(" | ");
+      return {
+        value: placeLabel,
+        title: diagnosticTitle,
+        className: ""
+      };
+    }
+  }
 
   switch (metadata.place_status) {
     case "pending":

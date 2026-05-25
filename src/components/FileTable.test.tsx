@@ -219,5 +219,11 @@ describe("FileTable place display", () => {
         screen.getByText("200: Yosemite Valley, California, United States")
       ).toBeInTheDocument();
     });
+    expect(screen.getByText("Yosemite Valley, California, United States")).toBeInTheDocument();
+    expect(
+      screen.getAllByTitle(
+        "Diagnostic lookup: Yosemite Valley, California, United States | HTTP: 200 | Provider: nominatim | Coordinates: 37.723511, -119.718558"
+      ).length
+    ).toBeGreaterThan(0);
   });
 });

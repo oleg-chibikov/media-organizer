@@ -527,7 +527,9 @@ async fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResu
 fn apply_place_lookup_error(results: &mut [MetadataResult], error: String) {
     for result in results.iter_mut() {
         if result.gps_coordinate.is_some() && result.error.is_none() {
-            result.error = Some(error.clone());
+            result.place_status = PlaceStatus::Failed;
+            result.place = None;
+            result.place_error = Some(error.clone());
         }
     }
 }
@@ -1791,7 +1793,7 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_history_operation_for_result, build_redo_history_operation,
+        apply_place_lookup_error, build_history_operation_for_result, build_redo_history_operation,
         build_undo_history_operation, cleanup_empty_source_directories, execute_redo_operation,
         execute_undo_operation, history_operation_status_for_move_result,
         history_run_status_for_completion, metadata_result_from_raw,
@@ -2394,6 +2396,34 @@ mod tests {
         assert_eq!(
             results[0].place_error.as_deref(),
             Some("provider unavailable")
+        );
+    }
+
+    #[test]
+    fn scan_result_records_resolver_failure_as_place_failure() {
+        let request = metadata_read_request("file-1");
+        let coordinate = GpsCoordinate {
+            latitude: 37.723511,
+            longitude: -119.718558,
+        };
+        let mut results = vec![metadata_result_from_raw(
+            request,
+            raw_dates_with_coordinate("2026:03:05 07:20:17", coordinate),
+            false,
+        )];
+
+        apply_place_lookup_error(
+            &mut results,
+            "Place cache was unavailable: corrupt".to_string(),
+        );
+
+        assert!(matches!(results[0].metadata_status, MetadataStatus::Ready));
+        assert!(results[0].error.is_none());
+        assert_eq!(results[0].place_status, PlaceStatus::Failed);
+        assert!(results[0].place.is_none());
+        assert_eq!(
+            results[0].place_error.as_deref(),
+            Some("Place cache was unavailable: corrupt")
         );
     }
 
