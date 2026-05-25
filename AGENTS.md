@@ -16,6 +16,7 @@
 - Check `git status --short` before editing and before committing.
 - Do not revert user changes unless explicitly requested.
 - If explicitly asked to complete a task from `specs/**/tasks.md`, mark the corresponding task complete in that file.
+- Read `CONTRIBUTING.md` when making code changes or validating project workflow.
 
 ## Repo Context
 
