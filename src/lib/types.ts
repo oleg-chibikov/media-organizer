@@ -170,6 +170,8 @@ export interface HistoryRun {
   app_version: string;
   selected_folder: string;
   folder_label: string;
+  destination_root_mode?: "custom_root" | "processed_folder" | null;
+  destination_root_path?: string | null;
   started_at: string;
   completed_at: string | null;
   run_status: HistoryRunStatus;

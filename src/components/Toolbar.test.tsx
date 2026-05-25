@@ -58,8 +58,8 @@ describe("Toolbar History Menu", () => {
 
     fireEvent.click(screen.getByText("History"));
 
-    expect(screen.getByText("TODO Camera")).toBeInTheDocument();
-    expect(screen.getByText("TODO Drone")).toBeInTheDocument();
+    expect(screen.getByText("C:\\TODO\\Camera")).toBeInTheDocument();
+    expect(screen.getByText("C:\\TODO\\Drone")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Undo TODO Camera" }));
     expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
@@ -67,7 +67,7 @@ describe("Toolbar History Menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Redo TODO Drone" }));
     expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
 
-    fireEvent.click(screen.getByRole("button", { name: "View TODO Drone" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "View run run-b" })[0]);
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");
   });
 });

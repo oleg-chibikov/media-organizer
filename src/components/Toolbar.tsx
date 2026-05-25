@@ -25,8 +25,10 @@ interface ToolbarProps {
 }
 
 const RECENT_RUN_COLUMNS = [
+  { key: "source", label: "Source Path" },
+  { key: "destination", label: "Destination Path" },
+  { key: "migrated", label: "Files Migrated" },
   { key: "date", label: "Date / Time" },
-  { key: "folder", label: "Folder" },
   { key: "status", label: "Status" },
   { key: "actions", label: "Actions" }
 ] as const;
@@ -38,20 +40,22 @@ type RecentRunTableRow = { id: string; run: HistoryIndexEntry } & Record<
 >;
 
 const RECENT_RUN_DEFAULT_SIZING: ColumnSizingState = {
+  source: 240,
+  destination: 240,
+  migrated: 110,
   date: 170,
-  folder: 220,
   status: 140,
   actions: 210
 };
 
 const DETAILS_COLUMNS = [
+  { key: "source", label: "Source" },
+  { key: "destination", label: "Destination" },
   { key: "time", label: "Time" },
   { key: "kind", label: "Kind" },
   { key: "file", label: "File" },
   { key: "size", label: "Size" },
   { key: "status", label: "Status" },
-  { key: "source", label: "Source" },
-  { key: "destination", label: "Destination" },
   { key: "error", label: "Error" }
 ] as const;
 
@@ -59,13 +63,13 @@ type DetailsColumnKey = (typeof DETAILS_COLUMNS)[number]["key"];
 type DetailsTableRow = { id: string } & Record<DetailsColumnKey, string>;
 
 const DETAILS_DEFAULT_SIZING: ColumnSizingState = {
+  source: 220,
+  destination: 220,
   time: 170,
   kind: 80,
   file: 200,
   size: 90,
   status: 90,
-  source: 220,
-  destination: 220,
   error: 220
 };
 
@@ -108,12 +112,24 @@ export function Toolbar({
       historyRuns.map((run) => ({
         id: run.run_id,
         run,
+        source: run.selected_folder,
+        destination:
+          (details?.run.run_id === run.run_id ? details.run.destination_root_path : null) ??
+          `${run.selected_folder}\\Processed`,
+        migrated:
+          details?.run.run_id === run.run_id
+            ? String(
+                details.operations.filter(
+                  (operation) =>
+                    operation.operation_kind === "process" && operation.status === "succeeded"
+                ).length
+              )
+            : "-",
         date: formatHistoryTimestamp(run.started_at),
-        folder: run.folder_label,
         status: formatRunStatus(run.run_status),
         actions: "actions"
       })),
-    [historyRuns]
+    [details, historyRuns]
   );
 
   const recentRunColumnDefs = useMemo<ColumnDef<RecentRunTableRow>[]>(
@@ -171,31 +187,21 @@ export function Toolbar({
           }
 
           const value = String(context.getValue() ?? "");
-          const mono = column.key === "date";
+          const mono = column.key === "date" || column.key === "migrated";
           const muted = column.key === "status";
-          if (column.key === "folder") {
-            return (
-              <button
-                aria-label={`View ${value}`}
-                className="w-full truncate px-2 py-1 text-left text-xs"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectHistoryRun(row.run.run_id);
-                }}
-                title={value}
-                type="button"
-              >
-                {value}
-              </button>
-            );
-          }
           return (
-            <div
-              className={`truncate px-2 py-1 text-xs ${mono ? "font-mono text-[11px]" : ""} ${muted ? "text-[11px] text-slate-400" : ""}`}
+            <button
+              aria-label={`View run ${row.run.run_id}`}
+              className={`w-full truncate px-2 py-1 text-left text-xs ${mono ? "font-mono text-[11px]" : ""} ${muted ? "text-[11px] text-slate-400" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectHistoryRun(row.run.run_id);
+              }}
               title={value}
+              type="button"
             >
               {value}
-            </div>
+            </button>
           );
         }
       })),
@@ -204,17 +210,24 @@ export function Toolbar({
 
   const detailsRows = useMemo<DetailsTableRow[]>(
     () =>
-      details?.operations.map((operation) => ({
-        id: operation.operation_id,
-        time: formatHistoryTime(operation.timestamp),
-        kind: formatOperationKind(operation.operation_kind),
-        file: operation.original_name,
-        size: formatFileSize(operation.expected_destination_size ?? operation.expected_source_size),
-        status: formatOperationStatus(operation.status),
-        source: operation.source_path,
-        destination: operation.destination_path,
-        error: operation.error ?? "-"
-      })) ?? [],
+      details?.operations.map((operation) => {
+        const sourceRoot = details.run.selected_folder;
+        const destinationRoot =
+          details.run.destination_root_path ?? `${details.run.selected_folder}\\Processed`;
+        return {
+          id: operation.operation_id,
+          time: formatHistoryTime(operation.timestamp),
+          kind: formatOperationKind(operation.operation_kind),
+          file: operation.original_name,
+          size: formatFileSize(
+            operation.expected_destination_size ?? operation.expected_source_size
+          ),
+          status: formatOperationStatus(operation.status),
+          source: toRelativePath(operation.source_path, sourceRoot),
+          destination: toRelativePath(operation.destination_path, destinationRoot),
+          error: operation.error ?? "-"
+        };
+      }) ?? [],
     [details]
   );
 
@@ -355,6 +368,19 @@ export function Toolbar({
       {settingsMenu ? <div className="ml-auto shrink-0">{settingsMenu}</div> : null}
     </header>
   );
+}
+
+function toRelativePath(path: string, root: string): string {
+  const normalizedPath = path.replaceAll("/", "\\").toLowerCase();
+  const normalizedRoot = root.replaceAll("/", "\\").toLowerCase();
+  if (normalizedPath === normalizedRoot) {
+    return ".";
+  }
+  const rootedPrefix = normalizedRoot.endsWith("\\") ? normalizedRoot : `${normalizedRoot}\\`;
+  if (!normalizedPath.startsWith(rootedPrefix)) {
+    return path;
+  }
+  return path.slice(rootedPrefix.length);
 }
 
 function formatRunStatus(status: HistoryRunStatus): string {
