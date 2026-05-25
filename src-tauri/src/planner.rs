@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, NaiveDateTime};
@@ -106,8 +108,14 @@ fn create_plan_for_file(
     }
 
     let extension = file.extension.clone();
-    let (destination_path, destination_filename, conflict_status) =
-        allocate_destination_path(&destination_dir, &stem_base, &extension, reserved_paths);
+    let (destination_path, destination_filename, conflict_status, plan_status) =
+        allocate_destination_path(
+            Path::new(&file.source_path),
+            &destination_dir,
+            &stem_base,
+            &extension,
+            reserved_paths,
+        )?;
 
     Ok(MovePlan {
         file_id: file.id.clone(),
@@ -116,22 +124,23 @@ fn create_plan_for_file(
         destination_filename,
         destination_path: destination_path.to_string_lossy().to_string(),
         conflict_status,
-        plan_status: PlanStatus::Ready,
+        plan_status,
     })
 }
 
 fn allocate_destination_path(
+    source_path: &Path,
     destination_dir: &Path,
     stem_base: &str,
     extension: &str,
     reserved_paths: &mut HashSet<String>,
-) -> (PathBuf, String, ConflictStatus) {
-    let mut suffix = 1_u32;
+) -> Result<(PathBuf, String, ConflictStatus, PlanStatus), String> {
+    let mut suffix = 0_u32;
     loop {
-        let stem = if suffix == 1 {
+        let stem = if suffix == 0 {
             stem_base.to_string()
         } else {
-            format!("{stem_base} - {suffix}")
+            format!("{stem_base} ({suffix})")
         };
 
         let filename = if extension.is_empty() {
@@ -145,18 +154,78 @@ fn allocate_destination_path(
         let exists_on_disk = destination_path.exists();
         let exists_in_run = reserved_paths.contains(&path_key);
 
+        if exists_on_disk && suffix == 0 {
+            if files_have_identical_contents(source_path, &destination_path)? {
+                return Ok((
+                    destination_path,
+                    filename,
+                    ConflictStatus::Blocked,
+                    PlanStatus::BlockedConflict,
+                ));
+            }
+        }
+
         if !exists_on_disk && !exists_in_run {
             reserved_paths.insert(path_key);
-            let conflict_status = if suffix == 1 {
+            let conflict_status = if suffix == 0 {
                 ConflictStatus::None
             } else {
                 ConflictStatus::SuffixApplied
             };
-            return (destination_path, filename, conflict_status);
+            return Ok((
+                destination_path,
+                filename,
+                conflict_status,
+                PlanStatus::Ready,
+            ));
         }
 
         suffix += 1;
     }
+}
+
+fn files_have_identical_contents(
+    source_path: &Path,
+    destination_path: &Path,
+) -> Result<bool, String> {
+    let source_meta = source_path
+        .metadata()
+        .map_err(|error| format!("Failed to read source metadata for conflict check: {error}"))?;
+    let destination_meta = destination_path.metadata().map_err(|error| {
+        format!("Failed to read destination metadata for conflict check: {error}")
+    })?;
+
+    if source_meta.len() != destination_meta.len() {
+        return Ok(false);
+    }
+
+    let mut source_file = File::open(source_path)
+        .map_err(|error| format!("Failed to open source for conflict check: {error}"))?;
+    let mut destination_file = File::open(destination_path)
+        .map_err(|error| format!("Failed to open destination for conflict check: {error}"))?;
+    let mut source_buffer = [0_u8; 64 * 1024];
+    let mut destination_buffer = [0_u8; 64 * 1024];
+
+    loop {
+        let source_read = source_file
+            .read(&mut source_buffer)
+            .map_err(|error| format!("Failed reading source for conflict check: {error}"))?;
+        let destination_read = destination_file
+            .read(&mut destination_buffer)
+            .map_err(|error| format!("Failed reading destination for conflict check: {error}"))?;
+
+        if source_read != destination_read
+            || source_buffer[..source_read] != destination_buffer[..destination_read]
+        {
+            return Ok(false);
+        }
+
+        if source_read == 0 {
+            break;
+        }
+    }
+
+    Ok(true)
 }
 
 fn normalize_path_key(path: &Path) -> String {
@@ -255,6 +324,8 @@ mod tests {
     #[test]
     fn applies_suffix_for_existing_destination_file() {
         let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let source = temp_dir.path().join("IMG_1001.mp4");
+        std::fs::write(&source, b"source-bytes").expect("source file should be created");
         let destination_dir = temp_dir.path().join("2026").join("3").join("5");
         std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
         std::fs::write(
@@ -264,7 +335,8 @@ mod tests {
         .expect("existing file should be created");
 
         let mut reserved = HashSet::new();
-        let file = file_record("IMG_1001", "mp4");
+        let mut file = file_record("IMG_1001", "mp4");
+        file.source_path = source.to_string_lossy().to_string();
         let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
 
         let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut reserved)
@@ -272,7 +344,40 @@ mod tests {
 
         assert_eq!(
             plan.destination_filename,
-            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro - 2.mp4"
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro (1).mp4"
+        );
+    }
+
+    #[test]
+    fn blocks_conflict_when_existing_destination_has_identical_content() {
+        let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+        let source = temp_dir.path().join("IMG_1001.mp4");
+        std::fs::write(&source, b"same-bytes").expect("source file should be created");
+
+        let destination_dir = temp_dir.path().join("2026").join("3").join("5");
+        std::fs::create_dir_all(&destination_dir).expect("destination directory should be created");
+        std::fs::write(
+            destination_dir.join("2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"),
+            b"same-bytes",
+        )
+        .expect("existing file should be created");
+
+        let mut reserved = HashSet::new();
+        let mut file = file_record("IMG_1001", "mp4");
+        file.source_path = source.to_string_lossy().to_string();
+        let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
+
+        let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut reserved)
+            .expect("plan should be created");
+
+        assert!(matches!(plan.plan_status, PlanStatus::BlockedConflict));
+        assert!(matches!(
+            plan.conflict_status,
+            crate::models::ConflictStatus::Blocked
+        ));
+        assert_eq!(
+            plan.destination_filename,
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
         );
     }
 
@@ -282,10 +387,13 @@ mod tests {
         let stem_base = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro";
         let mut reserved = HashSet::new();
 
-        let (_, filename_one, _) =
-            allocate_destination_path(destination_dir, stem_base, "mp4", &mut reserved);
-        let (_, filename_two, _) =
-            allocate_destination_path(destination_dir, stem_base, "mp4", &mut reserved);
+        let source = Path::new(r"C:\todo\IMG_1001.mp4");
+        let (_, filename_one, _, _) =
+            allocate_destination_path(source, destination_dir, stem_base, "mp4", &mut reserved)
+                .expect("first allocation should succeed");
+        let (_, filename_two, _, _) =
+            allocate_destination_path(source, destination_dir, stem_base, "mp4", &mut reserved)
+                .expect("second allocation should succeed");
 
         assert_eq!(
             filename_one,
@@ -293,7 +401,7 @@ mod tests {
         );
         assert_eq!(
             filename_two,
-            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro - 2.mp4"
+            "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro (1).mp4"
         );
     }
 
