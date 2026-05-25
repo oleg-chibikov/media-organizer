@@ -134,7 +134,7 @@ export function Toolbar({
             const run = row.run;
             return (
               <div
-                className="flex justify-end gap-1 px-2 py-1"
+                className="flex justify-start gap-1 px-2 py-1"
                 onClick={(event) => event.stopPropagation()}
               >
                 {run.undo_available ? (
