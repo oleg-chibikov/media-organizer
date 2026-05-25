@@ -12,8 +12,8 @@ pub fn parse_original_name(file_name: &str) -> String {
     match (start, end) {
         (Some(s), Some(e)) if s < e => {
             let inner = stem_without_duplicate_suffix[s + 1..e].trim();
-            if !inner.is_empty() && !is_duplicate_suffix(inner) {
-                inner.to_string()
+            if !inner.is_empty() && !is_small_numeric_group(inner) {
+                parse_most_nested_group(inner).unwrap_or_else(|| inner.to_string())
             } else {
                 stem_without_duplicate_suffix.to_string()
             }
@@ -47,8 +47,54 @@ fn find_matching_open_paren(value: &str, close_index: usize) -> Option<usize> {
     None
 }
 
-fn is_duplicate_suffix(value: &str) -> bool {
-    !value.is_empty() && value.chars().all(|ch| ch.is_ascii_digit())
+fn parse_pure_number(value: &str) -> Option<u32> {
+    if value.is_empty() || !value.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+
+    value.parse::<u32>().ok()
+}
+
+fn is_small_numeric_group(value: &str) -> bool {
+    parse_pure_number(value).is_some_and(|number| number < 100)
+}
+
+fn parse_most_nested_group(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut stack: Vec<usize> = Vec::new();
+    let mut best: Option<(usize, usize, String)> = None;
+
+    for (index, byte) in bytes.iter().enumerate() {
+        if *byte == b'(' {
+            stack.push(index);
+            continue;
+        }
+
+        if *byte != b')' {
+            continue;
+        }
+
+        let Some(start) = stack.pop() else {
+            continue;
+        };
+
+        let depth = stack.len() + 1;
+        let inner = value[start + 1..index].trim();
+
+        if inner.is_empty() || is_small_numeric_group(inner) {
+            continue;
+        }
+
+        match &best {
+            Some((best_depth, best_index, _))
+                if depth < *best_depth || (depth == *best_depth && index <= *best_index) => {}
+            _ => {
+                best = Some((depth, index, inner.to_string()));
+            }
+        }
+    }
+
+    best.map(|(_, _, inner)| inner)
 }
 
 fn strip_trailing_duplicate_suffix(stem: &str) -> &str {
@@ -61,7 +107,7 @@ fn strip_trailing_duplicate_suffix(stem: &str) -> &str {
     let inner = stripped[start + 1..].trim();
     let has_whitespace_before_group = start > 0 && stripped[..start].ends_with(char::is_whitespace);
 
-    if has_whitespace_before_group && is_duplicate_suffix(inner) {
+    if has_whitespace_before_group && is_small_numeric_group(inner) {
         stripped[..start].trim_end()
     } else {
         stem
@@ -144,6 +190,16 @@ mod tests {
         assert_eq!(
             parse_original_name("2025-03-02 15-15-16 (20250302_151515(0)) - SM-G991B.jpg"),
             "20250302_151515(0)"
+        );
+    }
+
+    #[test]
+    fn parses_most_nested_parenthesized_original_name() {
+        assert_eq!(
+            parse_original_name(
+                "2024-10-20 18-14-18 (2024-10-20 18-14-20 (PXL_20241020_071418278)) - Pixel 7 Pro.jpg"
+            ),
+            "PXL_20241020_071418278"
         );
     }
 
