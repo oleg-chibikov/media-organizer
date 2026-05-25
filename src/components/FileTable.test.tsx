@@ -49,10 +49,7 @@ function createRow(id: string): FileRecord {
   };
 }
 
-function createMetadata(
-  fileId: string,
-  overrides: Partial<MetadataResult> = {}
-): MetadataResult {
+function createMetadata(fileId: string, overrides: Partial<MetadataResult> = {}): MetadataResult {
   return {
     file_id: fileId,
     chosen_date: "2026-05-25T00:00:00Z",
@@ -73,16 +70,22 @@ function createMetadata(
 }
 
 describe("FileTable place display", () => {
-  it("renders pending, resolved, unavailable, and failed place states without raw coordinates", () => {
+  it("renders coordinates in the grid and includes reasons for unavailable places", () => {
     const rows = ["pending", "resolved", "unavailable", "failed"].map(createRow);
     const metadataByFileId = {
-      pending: createMetadata("pending", { place_status: "pending" }),
+      pending: createMetadata("pending", {
+        gps_coordinate: { latitude: 51.5074, longitude: -0.1278 },
+        place_status: "pending"
+      }),
       resolved: createMetadata("resolved", {
         gps_coordinate: { latitude: 37.7749, longitude: -122.4194 },
         place_status: "resolved",
         place: "San Francisco, California, United States"
       }),
-      unavailable: createMetadata("unavailable", { place_status: "not_available" }),
+      unavailable: createMetadata("unavailable", {
+        gps_coordinate: { latitude: -33.8688, longitude: 151.2093 },
+        place_status: "not_available"
+      }),
       failed: createMetadata("failed", {
         place_status: "failed",
         place_error: "provider timeout"
@@ -104,8 +107,13 @@ describe("FileTable place display", () => {
     expect(screen.getByText("San Francisco, California, United States")).toBeInTheDocument();
     expect(screen.getByText("Not available")).toBeInTheDocument();
     expect(screen.getByText("Lookup failed")).toBeInTheDocument();
-    expect(screen.queryByText("37.7749")).not.toBeInTheDocument();
-    expect(screen.queryByText("-122.4194")).not.toBeInTheDocument();
+    expect(screen.getByText("37.7749, -122.4194")).toBeInTheDocument();
+    expect(screen.getByText("-33.8688, 151.2093")).toBeInTheDocument();
+    expect(
+      screen.getByTitle(
+        "Not available: GPS coordinates are present but place lookup did not produce a place. (Coordinates: -33.8688, 151.2093)"
+      )
+    ).toBeInTheDocument();
   });
 
   it("keeps move flow status ready when place lookup fails", () => {

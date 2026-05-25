@@ -2,7 +2,7 @@ import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
 import { useCallback, useMemo } from "react";
 import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
 import { revealFileInExplorer } from "../lib/api";
-import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../lib/types";
+import type { FileRecord, GpsCoordinate, MetadataResult, MovePlan, MoveResult } from "../lib/types";
 
 interface FileTableProps {
   rows: FileRecord[];
@@ -37,6 +37,7 @@ const COLUMNS = [
   { key: "kind", label: "Kind" },
   { key: "originalName", label: "Original Name" },
   { key: "metadataDate", label: "Metadata Date" },
+  { key: "coordinates", label: "Coordinates" },
   { key: "place", label: "Place" },
   { key: "notes", label: "Notes" }
 ] as const;
@@ -58,7 +59,7 @@ const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
-const MONO_COLUMN_KEYS = new Set<ColumnKey>(["source", "destination"]);
+const MONO_COLUMN_KEYS = new Set<ColumnKey>(["source", "destination", "coordinates"]);
 
 const HEADER_MIN_WIDTHS: Record<ColumnKey, number> = (() => {
   if (typeof document === "undefined") {
@@ -176,6 +177,15 @@ export function FileTable({
             activeMoveFileId,
             rootMediaFolder
           ),
+          coordinates: resolveColumnData(
+            "coordinates",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          ),
           place: resolveColumnData(
             "place",
             row,
@@ -233,6 +243,7 @@ export function FileTable({
       kind: HEADER_MIN_WIDTHS.kind,
       originalName: HEADER_MIN_WIDTHS.originalName,
       metadataDate: HEADER_MIN_WIDTHS.metadataDate,
+      coordinates: HEADER_MIN_WIDTHS.coordinates,
       place: HEADER_MIN_WIDTHS.place,
       notes: HEADER_MIN_WIDTHS.notes
     };
@@ -339,6 +350,7 @@ function resolveColumnData(
     movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
   const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
   const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult, activeMoveFileId);
+  const coordinateCellData = resolveCoordinateCellData(metadata);
   const placeCellData = resolvePlaceCellData(metadata);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 
@@ -370,6 +382,12 @@ function resolveColumnData(
         value: metadataDateLabel,
         title: metadataDateLabel,
         className: "truncate px-3 py-2"
+      };
+    case "coordinates":
+      return {
+        value: coordinateCellData.value,
+        title: coordinateCellData.title,
+        className: "truncate px-3 py-2 font-mono text-xs text-slate-300"
       };
     case "place":
       return {
@@ -492,23 +510,101 @@ function resolvePlaceCellData(metadata: MetadataResult | undefined): CellData {
     return { value: "-", title: "-", className: "" };
   }
 
+  const coordinateLabel = formatGpsCoordinate(metadata.gps_coordinate);
+
   switch (metadata.place_status) {
     case "pending":
-      return { value: "Pending lookup", title: "Pending lookup", className: "" };
+      return {
+        value: "Pending lookup",
+        title: coordinateLabel
+          ? `Pending lookup (Coordinates: ${coordinateLabel})`
+          : "Pending lookup",
+        className: ""
+      };
     case "resolved": {
       const placeLabel = metadata.place?.trim() || "Resolved";
-      return { value: placeLabel, title: placeLabel, className: "" };
+      return {
+        value: placeLabel,
+        title: coordinateLabel ? `${placeLabel} (Coordinates: ${coordinateLabel})` : placeLabel,
+        className: ""
+      };
     }
     case "failed": {
-      const title = metadata.place_error?.trim()
+      const baseTitle = metadata.place_error?.trim()
         ? `Lookup failed: ${metadata.place_error}`
         : "Lookup failed";
+      const title = coordinateLabel ? `${baseTitle} (Coordinates: ${coordinateLabel})` : baseTitle;
       return { value: "Lookup failed", title, className: "" };
     }
     case "not_available":
-    default:
-      return { value: "Not available", title: "Not available", className: "" };
+    default: {
+      const reason = resolvePlaceUnavailableReason(metadata);
+      const title = coordinateLabel
+        ? `Not available: ${reason} (Coordinates: ${coordinateLabel})`
+        : `Not available: ${reason}`;
+      return { value: "Not available", title, className: "" };
+    }
   }
+}
+
+function resolveCoordinateCellData(metadata: MetadataResult | undefined): CellData {
+  if (!metadata) {
+    return { value: "-", title: "-", className: "" };
+  }
+
+  if (!metadata.gps_coordinate) {
+    return { value: "-", title: "No GPS coordinates in metadata", className: "" };
+  }
+
+  const coordinateLabel = formatGpsCoordinate(metadata.gps_coordinate);
+  if (!coordinateLabel) {
+    return { value: "-", title: "GPS coordinates are unavailable", className: "" };
+  }
+
+  const invalidReason = resolveInvalidCoordinateReason(metadata.gps_coordinate);
+  const title = invalidReason ? `${coordinateLabel} (${invalidReason})` : coordinateLabel;
+  return { value: coordinateLabel, title, className: "" };
+}
+
+function resolvePlaceUnavailableReason(metadata: MetadataResult): string {
+  if (!metadata.gps_coordinate) {
+    return "No GPS coordinates in metadata";
+  }
+
+  const invalidReason = resolveInvalidCoordinateReason(metadata.gps_coordinate);
+  if (invalidReason) {
+    return invalidReason;
+  }
+
+  return "GPS coordinates are present but place lookup did not produce a place.";
+}
+
+function resolveInvalidCoordinateReason(coordinate: GpsCoordinate): string | null {
+  if (!Number.isFinite(coordinate.latitude) || !Number.isFinite(coordinate.longitude)) {
+    return "GPS coordinates are not finite numbers";
+  }
+
+  if (coordinate.latitude < -90 || coordinate.latitude > 90) {
+    return "GPS latitude is out of range (-90 to 90)";
+  }
+
+  if (coordinate.longitude < -180 || coordinate.longitude > 180) {
+    return "GPS longitude is out of range (-180 to 180)";
+  }
+
+  return null;
+}
+
+function formatGpsCoordinate(coordinate: GpsCoordinate | null): string | null {
+  if (!coordinate) {
+    return null;
+  }
+
+  return `${formatGpsValue(coordinate.latitude)}, ${formatGpsValue(coordinate.longitude)}`;
+}
+
+function formatGpsValue(value: number): string {
+  return value.toFixed(6).replace(/\.?0+$/, "");
 }
 
 function resolveDateSourceLabel(source: string | null): string {
