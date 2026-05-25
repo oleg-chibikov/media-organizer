@@ -109,15 +109,7 @@ export function Toolbar({
         destination:
           (details?.run.run_id === run.run_id ? details.run.destination_root_path : null) ??
           `${run.selected_folder}\\Processed`,
-        migrated:
-          details?.run.run_id === run.run_id
-            ? String(
-                details.operations.filter(
-                  (operation) =>
-                    operation.operation_kind === "process" && operation.status === "succeeded"
-                ).length
-              )
-            : "-",
+        migrated: String(run.files_migrated ?? 0),
         date: formatHistoryTimestamp(run.started_at),
         status: formatRunStatus(run.run_status),
         actions: "actions"

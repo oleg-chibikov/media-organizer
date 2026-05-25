@@ -299,6 +299,8 @@ pub struct HistoryIndexEntry {
     pub started_at: String,
     pub completed_at: Option<String>,
     pub run_status: HistoryRunStatus,
+    #[serde(default)]
+    pub files_migrated: u64,
     pub undo_available: bool,
     pub redo_available: bool,
     pub history_file_path: String,

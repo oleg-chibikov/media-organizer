@@ -159,6 +159,7 @@ export interface HistoryIndexEntry {
   started_at: string;
   completed_at: string | null;
   run_status: HistoryRunStatus;
+  files_migrated?: number;
   undo_available: boolean;
   redo_available: boolean;
   history_file_path: string;

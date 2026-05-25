@@ -263,9 +263,18 @@ fn list_history_runs_from_root(history_root: &Path) -> Result<Vec<HistoryIndexEn
 
     for entry in &index.runs {
         let recovered = recover_history_run_from_entry(entry);
+        let files_migrated = recovered
+            .operations
+            .iter()
+            .filter(|operation| {
+                matches!(operation.operation_kind, HistoryOperationKind::Process)
+                    && matches!(operation.status, HistoryOperationStatus::Succeeded)
+            })
+            .count() as u64;
         let mut next_entry = entry.clone();
         next_entry.completed_at = recovered.run.completed_at.clone();
         next_entry.run_status = recovered.run.run_status.clone();
+        next_entry.files_migrated = files_migrated;
         next_entry.undo_available =
             !recovered.unsafe_for_undo_redo && undo_candidate_exists(&recovered);
         next_entry.redo_available =
@@ -730,6 +739,7 @@ fn index_entry_from_run(run: &HistoryRun) -> HistoryIndexEntry {
         started_at: run.started_at.clone(),
         completed_at: run.completed_at.clone(),
         run_status: run.run_status.clone(),
+        files_migrated: 0,
         undo_available: false,
         redo_available: false,
         history_file_path: run.history_file_path.clone(),
@@ -922,6 +932,7 @@ mod tests {
                 started_at: started_at.to_rfc3339(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
+                files_migrated: 0,
                 undo_available: false,
                 redo_available: false,
                 history_file_path: format!(r"C:\appdata\history\runs\run-{value}.jsonl"),
@@ -1192,6 +1203,7 @@ mod tests {
                 started_at: "2026-05-24T01:02:03Z".to_string(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
+                files_migrated: 0,
                 undo_available: true,
                 redo_available: true,
                 history_file_path: log_path.to_string_lossy().to_string(),
@@ -1202,6 +1214,7 @@ mod tests {
         let runs = list_history_runs_from_root(&history_root).expect("list runs");
         assert_eq!(runs.len(), 1);
         assert!(matches!(runs[0].run_status, HistoryRunStatus::Partial));
+        assert_eq!(runs[0].files_migrated, 1);
         assert!(!runs[0].undo_available);
         assert!(!runs[0].redo_available);
 
@@ -1260,6 +1273,7 @@ mod tests {
                 started_at: "2026-05-24T01:02:03Z".to_string(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
+                files_migrated: 0,
                 undo_available: true,
                 redo_available: true,
                 history_file_path: log_path.to_string_lossy().to_string(),
@@ -1270,6 +1284,7 @@ mod tests {
         let runs = list_history_runs_from_root(&history_root).expect("list runs");
         assert_eq!(runs.len(), 1);
         assert!(matches!(runs[0].run_status, HistoryRunStatus::Corrupt));
+        assert_eq!(runs[0].files_migrated, 0);
         assert!(!runs[0].undo_available);
         assert!(!runs[0].redo_available);
 
