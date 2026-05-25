@@ -355,8 +355,8 @@ export function Toolbar({
 }
 
 function toRelativePath(path: string, root: string): string {
-  const normalizedPath = path.replaceAll("/", "\\").toLowerCase();
-  const normalizedRoot = root.replaceAll("/", "\\").toLowerCase();
+  const normalizedPath = path.replace(/\//g, "\\").toLowerCase();
+  const normalizedRoot = root.replace(/\//g, "\\").toLowerCase();
   if (normalizedPath === normalizedRoot) {
     return ".";
   }
