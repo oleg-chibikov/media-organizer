@@ -173,22 +173,16 @@ export function Toolbar({
           const mono = column.key === "date" || column.key === "migrated";
           const muted = column.key === "status";
           return (
-            <Button
-              variant="secondary"
-              aria-label={`View run ${row.run.run_id}`}
+            <div
               className={`w-full truncate px-2 py-1 text-left text-xs ${mono ? "font-mono text-[11px]" : ""} ${muted ? "text-[11px] text-slate-400" : ""}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelectHistoryRun(row.run.run_id);
-              }}
               title={value}
             >
               {value}
-            </Button>
+            </div>
           );
         }
       })),
-    [onDeleteProcessing, onRedoProcessing, onSelectHistoryRun, onUndoProcessing]
+    [onDeleteProcessing, onRedoProcessing, onUndoProcessing]
   );
 
   const detailsRows = useMemo<DetailsTableRow[]>(
