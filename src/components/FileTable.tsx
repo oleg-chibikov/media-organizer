@@ -1,7 +1,8 @@
 import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
 import { revealFileInExplorer, testPlaceLookup } from "../lib/api";
+import type { Map as LeafletMap, LayerGroup as LeafletLayerGroup } from "leaflet";
 import type {
   FileRecord,
   GpsCoordinate,
@@ -69,18 +70,6 @@ type TableRowData = {
   id: string;
 } & Record<ColumnKey, CellData>;
 
-function diagnosticPlaceResult(
-  diagnostic: PlaceLookupDiagnosticState | undefined
-): PlaceLookupDiagnosticResult | null {
-  const result = diagnostic?.result;
-  const displayPlace = result?.display_place?.trim();
-  if (!result || !displayPlace) {
-    return null;
-  }
-
-  return result;
-}
-
 const COLUMN_HORIZONTAL_PADDING = 28;
 const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -135,6 +124,7 @@ export function FileTable({
   const [diagnosticsByFileId, setDiagnosticsByFileId] = useState<
     Record<string, PlaceLookupDiagnosticState>
   >({});
+  const [activePlaceFileId, setActivePlaceFileId] = useState<string | null>(null);
 
   const defaultColumnSizing = useMemo<ColumnSizingState>(
     () =>
@@ -151,7 +141,6 @@ export function FileTable({
         const metadata = metadataByFileId[row.id];
         const movePlan = movePlansByFileId[row.id];
         const moveResult = moveResultsByFileId[row.id];
-        const diagnosticPlace = diagnosticPlaceResult(diagnosticsByFileId[row.id]);
 
         return {
           id: row.id,
@@ -225,8 +214,7 @@ export function FileTable({
             movePlan,
             moveResult,
             activeMoveFileId,
-            rootMediaFolder,
-            diagnosticPlace
+            rootMediaFolder
           ),
           notes: resolveColumnData(
             "notes",
@@ -245,12 +233,11 @@ export function FileTable({
       movePlansByFileId,
       moveResultsByFileId,
       activeMoveFileId,
-      rootMediaFolder,
-      diagnosticsByFileId
+      rootMediaFolder
     ]
   );
 
-  const handleTestPlaceLookup = useCallback((fileId: string, coordinate: GpsCoordinate) => {
+  const runPlaceDiagnostic = useCallback((fileId: string, coordinate: GpsCoordinate) => {
     setDiagnosticsByFileId((previous) => ({
       ...previous,
       [fileId]: { loading: true, result: previous[fileId]?.result ?? null, error: null }
@@ -272,6 +259,21 @@ export function FileTable({
       });
   }, []);
 
+  const handleOpenPlacePane = useCallback(
+    (fileId: string) => {
+      setActivePlaceFileId(fileId);
+      const coordinate = metadataByFileId[fileId]?.gps_coordinate;
+      if (coordinate) {
+        runPlaceDiagnostic(fileId, coordinate);
+      }
+    },
+    [metadataByFileId, runPlaceDiagnostic]
+  );
+
+  const handleClosePlacePane = useCallback(() => {
+    setActivePlaceFileId(null);
+  }, []);
+
   const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
     () =>
       COLUMNS.map((column) => ({
@@ -281,13 +283,13 @@ export function FileTable({
         minSize: HEADER_MIN_WIDTHS[column.key],
         cell: (context) => {
           const data = context.getValue() as CellData;
-          if (column.key === "coordinates") {
+          if (column.key === "place") {
             const diagnostic = data.fileId ? diagnosticsByFileId[data.fileId] : undefined;
             return (
-              <CoordinateCell
+              <PlaceCell
                 data={data}
                 diagnostic={diagnostic}
-                onTestPlaceLookup={handleTestPlaceLookup}
+                onOpenPlacePane={(fileId) => handleOpenPlacePane(fileId)}
               />
             );
           }
@@ -299,7 +301,7 @@ export function FileTable({
           );
         }
       })),
-    [diagnosticsByFileId, handleTestPlaceLookup]
+    [diagnosticsByFileId, handleOpenPlacePane]
   );
 
   const calculateAutoSizedColumns = useCallback(() => {
@@ -345,103 +347,347 @@ export function FileTable({
     return desiredWidths;
   }, [rows.length, tableRows]);
 
+  const activePlaceMetadata = activePlaceFileId ? metadataByFileId[activePlaceFileId] : undefined;
+  const activePlaceRow = activePlaceFileId
+    ? rows.find((row) => row.id === activePlaceFileId)
+    : undefined;
+  const activePlaceDiagnostic = activePlaceFileId
+    ? diagnosticsByFileId[activePlaceFileId]
+    : undefined;
+
   return (
-    <ResizableVirtualTable
-      rows={tableRows}
-      columns={COLUMNS}
-      columnDefs={tableColumns}
-      defaultColumnSizing={defaultColumnSizing}
-      onAutoSizeColumns={calculateAutoSizedColumns}
-      getRowClassName={(_, rowIndex) => {
-        const sourceRecord = rows[rowIndex];
-        const metadata = metadataByFileId[sourceRecord.id];
-        const moveResult = moveResultsByFileId[sourceRecord.id];
-        const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
-        const isFallbackWarning = metadata?.date_kind === "fallback";
-        const isMoved = moveResult?.result_status === "moved";
-        const isCopied = moveResult?.result_status === "copied";
-        const isActiveMove = activeMoveFileId === sourceRecord.id && !moveResult;
-        const isMoveError =
-          moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
-        return `${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isActiveMove ? "bg-cyan-950/30 text-cyan-100" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`;
-      }}
-      getRowTooltip={(row) => row.source.value}
-      renderCellWrapper={(_, rowIndex, columnId, cell) => {
-        const sourceRecord = rows[rowIndex];
-        const movePlan = movePlansByFileId[sourceRecord.id];
-        const moveResult = moveResultsByFileId[sourceRecord.id];
-        const isSourceCell = columnId === "source";
-        const isDestinationCell = columnId === "destination";
-        const destinationPath =
-          moveResult?.attempted_destination_path ?? movePlan?.destination_path;
-        const revealPath = isSourceCell
-          ? sourceRecord.source_path
-          : isDestinationCell
-            ? destinationPath
-            : null;
+    <div className="relative h-full">
+      <ResizableVirtualTable
+        rows={tableRows}
+        columns={COLUMNS}
+        columnDefs={tableColumns}
+        defaultColumnSizing={defaultColumnSizing}
+        onAutoSizeColumns={calculateAutoSizedColumns}
+        getRowClassName={(_, rowIndex) => {
+          const sourceRecord = rows[rowIndex];
+          const metadata = metadataByFileId[sourceRecord.id];
+          const moveResult = moveResultsByFileId[sourceRecord.id];
+          const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
+          const isFallbackWarning = metadata?.date_kind === "fallback";
+          const isMoved = moveResult?.result_status === "moved";
+          const isCopied = moveResult?.result_status === "copied";
+          const isActiveMove = activeMoveFileId === sourceRecord.id && !moveResult;
+          const isMoveError =
+            moveResult?.result_status === "skipped" || moveResult?.result_status === "failed";
+          return `${isMoved ? "bg-emerald-950/30 text-emerald-200" : ""} ${isCopied ? "bg-sky-950/30 text-sky-200" : ""} ${isActiveMove ? "bg-cyan-950/30 text-cyan-100" : ""} ${isMoveError || isSkippedUnsupported ? "bg-rose-950/30 text-rose-200" : ""} ${isFallbackWarning ? "bg-amber-950/20" : ""}`;
+        }}
+        getRowTooltip={(row) => row.source.value}
+        renderCellWrapper={(_, rowIndex, columnId, cell) => {
+          const sourceRecord = rows[rowIndex];
+          const movePlan = movePlansByFileId[sourceRecord.id];
+          const moveResult = moveResultsByFileId[sourceRecord.id];
+          const isSourceCell = columnId === "source";
+          const isDestinationCell = columnId === "destination";
+          const destinationPath =
+            moveResult?.attempted_destination_path ?? movePlan?.destination_path;
+          const revealPath = isSourceCell
+            ? sourceRecord.source_path
+            : isDestinationCell
+              ? destinationPath
+              : null;
 
-        return (
-          <div
-            className={isSourceCell || isDestinationCell ? "cursor-pointer" : undefined}
-            onDoubleClick={() => {
-              if (!revealPath) {
-                return;
-              }
+          return (
+            <div
+              className={isSourceCell || isDestinationCell ? "cursor-pointer" : undefined}
+              onDoubleClick={() => {
+                if (!revealPath) {
+                  return;
+                }
 
-              void revealFileInExplorer(revealPath).catch((error: unknown) => {
-                console.error("Failed to reveal file in explorer", error);
-              });
-            }}
-          >
-            {cell}
-          </div>
-        );
-      }}
-    />
+                void revealFileInExplorer(revealPath).catch((error: unknown) => {
+                  console.error("Failed to reveal file in explorer", error);
+                });
+              }}
+            >
+              {cell}
+            </div>
+          );
+        }}
+      />
+
+      {activePlaceFileId ? (
+        <PlaceDetailsPane
+          row={activePlaceRow}
+          metadata={activePlaceMetadata}
+          diagnostic={activePlaceDiagnostic}
+          onClose={handleClosePlacePane}
+          onRetry={() => {
+            const coordinate = activePlaceMetadata?.gps_coordinate;
+            if (activePlaceFileId && coordinate) {
+              runPlaceDiagnostic(activePlaceFileId, coordinate);
+            }
+          }}
+        />
+      ) : null}
+    </div>
   );
 }
 
-function CoordinateCell({
+function PlaceCell({
   data,
   diagnostic,
-  onTestPlaceLookup
+  onOpenPlacePane
 }: {
   data: CellData;
   diagnostic: PlaceLookupDiagnosticState | undefined;
-  onTestPlaceLookup: (fileId: string, coordinate: GpsCoordinate) => void;
+  onOpenPlacePane: (fileId: string) => void;
 }) {
-  const canTest = Boolean(data.fileId && data.coordinate);
-  const diagnosticLabel = resolveDiagnosticLabel(diagnostic);
-  const diagnosticTitle = resolveDiagnosticTitle(diagnostic);
-  const title = diagnosticTitle ? `${data.title} | ${diagnosticTitle}` : data.title;
-
   return (
-    <div className="flex min-w-0 items-center gap-2 px-3 py-2 font-mono text-xs text-slate-300">
-      <span className="truncate" title={title}>
-        {data.value}
-      </span>
-      {canTest ? (
-        <button
-          type="button"
-          className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 font-sans text-[11px] text-slate-200 hover:border-cyan-500 hover:text-cyan-100 disabled:cursor-wait disabled:opacity-60"
-          title={title}
-          disabled={diagnostic?.loading}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (!data.fileId || !data.coordinate) {
-              return;
-            }
-            onTestPlaceLookup(data.fileId, data.coordinate);
-          }}
-        >
-          {diagnostic?.loading ? "..." : "Test"}
-        </button>
-      ) : null}
-      {diagnosticLabel ? (
-        <span className="truncate font-sans text-[11px] text-cyan-100" title={diagnosticTitle}>
-          {diagnosticLabel}
+    <button
+      type="button"
+      className="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left hover:bg-slate-900/60"
+      title={data.title}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (data.fileId) {
+          onOpenPlacePane(data.fileId);
+        }
+      }}
+      disabled={!data.fileId}
+    >
+      <span className="truncate">{data.value}</span>
+      {diagnostic?.loading ? (
+        <span className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-cyan-200">
+          Checking
         </span>
       ) : null}
+    </button>
+  );
+}
+
+function PlaceDetailsPane({
+  row,
+  metadata,
+  diagnostic,
+  onClose,
+  onRetry
+}: {
+  row: FileRecord | undefined;
+  metadata: MetadataResult | undefined;
+  diagnostic: PlaceLookupDiagnosticState | undefined;
+  onClose: () => void;
+  onRetry: () => void;
+}) {
+  const coordinate = diagnostic?.result?.coordinate ?? metadata?.gps_coordinate ?? null;
+  const placeName = diagnostic?.result?.display_place ?? metadata?.place ?? "Not available";
+  const requestUsed = diagnostic?.result?.request_url ?? "No request has been made yet.";
+  const responseText = formatJsonForDisplay(diagnostic?.result?.raw_response);
+
+  return (
+    <aside className="absolute inset-y-0 right-0 z-20 w-full max-w-[40rem] border-l border-slate-800 bg-slate-950/95 shadow-2xl backdrop-blur">
+      <div className="flex h-full flex-col">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold uppercase tracking-wide text-slate-200">
+              Place Details
+            </h2>
+            <p className="truncate text-xs text-slate-400" title={row?.relative_path ?? "-"}>
+              {row?.relative_path ?? "-"}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:border-cyan-500 hover:text-cyan-100"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
+          <section className="space-y-2 rounded border border-slate-800 bg-slate-900/60 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+              Summary
+            </h3>
+            <p className="text-sm text-slate-200">{placeName || "Not available"}</p>
+            <p className="text-xs text-slate-400">
+              Coordinates: {formatGpsCoordinate(coordinate) ?? "None"}
+            </p>
+            <p className="text-xs text-slate-400">
+              Cached: {diagnostic?.result ? (diagnostic.result.cached ? "Yes" : "No") : "Unknown"}
+            </p>
+            <p className="text-xs text-slate-400">
+              HTTP status: {diagnostic?.result?.http_status ?? "none"}
+            </p>
+            {diagnostic?.error ? (
+              <p className="text-xs text-rose-300">Diagnostic error: {diagnostic.error}</p>
+            ) : null}
+            {diagnostic?.result?.error ? (
+              <p className="text-xs text-rose-300">Lookup error: {diagnostic.result.error}</p>
+            ) : null}
+            {coordinate ? (
+              <button
+                type="button"
+                className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:border-cyan-500 hover:text-cyan-100 disabled:cursor-wait disabled:opacity-60"
+                disabled={diagnostic?.loading}
+                onClick={onRetry}
+              >
+                {diagnostic?.loading ? "Refreshing..." : "Refresh lookup"}
+              </button>
+            ) : null}
+          </section>
+
+          <section className="space-y-2 rounded border border-slate-800 bg-slate-900/60 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+              Request
+            </h3>
+            <pre className="overflow-auto rounded border border-slate-800 bg-slate-950 p-2 text-xs text-slate-300">
+              {requestUsed}
+            </pre>
+          </section>
+
+          <section className="space-y-2 rounded border border-slate-800 bg-slate-900/60 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+              Response
+            </h3>
+            <pre className="max-h-64 overflow-auto rounded border border-slate-800 bg-slate-950 p-2 text-xs text-slate-300">
+              {responseText}
+            </pre>
+          </section>
+
+          <section className="space-y-2 rounded border border-slate-800 bg-slate-900/60 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-300">Map</h3>
+            <PlaceMap
+              coordinate={coordinate}
+              polygonGeoJson={diagnostic?.result?.polygon_geojson ?? null}
+            />
+          </section>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function PlaceMap({
+  coordinate,
+  polygonGeoJson
+}: {
+  coordinate: GpsCoordinate | null;
+  polygonGeoJson: string | null;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const layersRef = useRef<LeafletLayerGroup | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+
+    void import("leaflet")
+      .then((leaflet) => {
+        if (disposed || !mapContainerRef.current) {
+          return;
+        }
+
+        const map = leaflet.map(mapContainerRef.current, {
+          zoomControl: true,
+          attributionControl: true
+        });
+        leaflet
+          .tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+          })
+          .addTo(map);
+        const layers = leaflet.layerGroup().addTo(map);
+
+        mapRef.current = map;
+        layersRef.current = layers;
+        cleanup = () => {
+          layers.clearLayers();
+          map.remove();
+          mapRef.current = null;
+          layersRef.current = null;
+        };
+      })
+      .catch((error: unknown) => {
+        setMapError(`Map failed to load: ${String(error)}`);
+      });
+
+    return () => {
+      disposed = true;
+      cleanup?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !layersRef.current) {
+      return;
+    }
+
+    const map = mapRef.current;
+    const layers = layersRef.current;
+    layers.clearLayers();
+
+    void import("leaflet")
+      .then((leaflet) => {
+        let hasBounds = false;
+        const bounds = leaflet.latLngBounds([]);
+
+        if (polygonGeoJson) {
+          try {
+            const parsed = JSON.parse(polygonGeoJson);
+            const polygonLayer = leaflet.geoJSON(parsed as never, {
+              style: {
+                color: "#22d3ee",
+                weight: 2,
+                fillColor: "#0891b2",
+                fillOpacity: 0.2
+              }
+            });
+            polygonLayer.addTo(layers);
+            const polygonBounds = polygonLayer.getBounds();
+            if (polygonBounds.isValid()) {
+              bounds.extend(polygonBounds);
+              hasBounds = true;
+            }
+          } catch (error) {
+            setMapError(`Invalid polygon GeoJSON: ${String(error)}`);
+          }
+        }
+
+        if (coordinate) {
+          const marker = leaflet.circleMarker([coordinate.latitude, coordinate.longitude], {
+            radius: 6,
+            color: "#f97316",
+            weight: 2,
+            fillColor: "#fb923c",
+            fillOpacity: 0.9
+          });
+          marker.bindTooltip("Coordinate");
+          marker.addTo(layers);
+          bounds.extend([coordinate.latitude, coordinate.longitude]);
+          hasBounds = true;
+        }
+
+        if (hasBounds && bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.2));
+        } else {
+          map.setView([0, 0], 2);
+        }
+        window.requestAnimationFrame(() => {
+          map.invalidateSize();
+        });
+      })
+      .catch((error: unknown) => {
+        setMapError(`Map failed to render: ${String(error)}`);
+      });
+  }, [coordinate, polygonGeoJson]);
+
+  if (!coordinate && !polygonGeoJson) {
+    return <p className="text-xs text-slate-400">No coordinates or polygon available for map.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {mapError ? <p className="text-xs text-rose-300">{mapError}</p> : null}
+      <div ref={mapContainerRef} className="h-64 w-full rounded border border-slate-800" />
     </div>
   );
 }
@@ -453,8 +699,7 @@ function resolveColumnData(
   movePlan: MovePlan | undefined,
   moveResult: MoveResult | undefined,
   activeMoveFileId: string | null,
-  rootMediaFolder: string | null,
-  diagnosticPlace: PlaceLookupDiagnosticResult | null = null
+  rootMediaFolder: string | null
 ): CellData {
   const metadataDateLabel = metadata
     ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
@@ -464,7 +709,7 @@ function resolveColumnData(
   const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
   const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult, activeMoveFileId);
   const coordinateCellData = resolveCoordinateCellData(metadata);
-  const placeCellData = resolvePlaceCellData(metadata, diagnosticPlace);
+  const placeCellData = resolvePlaceCellData(metadata);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 
   switch (columnKey) {
@@ -508,86 +753,29 @@ function resolveColumnData(
       return {
         value: placeCellData.value,
         title: placeCellData.title,
-        className: "truncate px-3 py-2"
+        className: "truncate px-3 py-2",
+        fileId: row.id,
+        coordinate: metadata?.gps_coordinate ?? null
       };
     case "notes":
       return { value: notesLabel, title: notesLabel, className: "truncate px-3 py-2" };
   }
 }
 
-function resolveDiagnosticLabel(diagnostic: PlaceLookupDiagnosticState | undefined): string {
-  if (!diagnostic) {
-    return "";
-  }
-  if (diagnostic.loading) {
-    return "checking";
-  }
-  if (diagnostic.error) {
-    return "error";
-  }
-  if (diagnostic.result?.display_place) {
-    return `${diagnostic.result.http_status ?? "?"}: ${diagnostic.result.display_place}`;
-  }
-  if (diagnostic.result?.error) {
-    return `${diagnostic.result.http_status ?? "?"}: ${diagnostic.result.error}`;
-  }
-  if (diagnostic.result) {
-    return `${diagnostic.result.http_status ?? "?"}: no place`;
-  }
-  return "";
-}
-
-function resolveDiagnosticTitle(diagnostic: PlaceLookupDiagnosticState | undefined): string {
-  if (!diagnostic) {
-    return "";
-  }
-  if (diagnostic.loading) {
-    return "Testing place lookup";
-  }
-  if (diagnostic.error) {
-    return `Diagnostic command failed: ${diagnostic.error}`;
+function formatJsonForDisplay(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "No response payload.";
   }
 
-  const result = diagnostic.result;
-  if (!result) {
-    return "";
+  if (typeof value === "string") {
+    return value;
   }
 
-  const parts = [
-    `Provider: ${result.provider}`,
-    `HTTP: ${result.http_status ?? "unknown"}`,
-    `Bucket: ${result.bucket_id ?? "none"}`,
-    `Place: ${result.display_place ?? "none"}`,
-    result.error ? `Error: ${result.error}` : "",
-    `Request: ${result.request_url}`,
-    `Raw: ${summarizeRawLookupResponse(result.raw_response)}`
-  ].filter(Boolean);
-  return parts.join(" | ");
-}
-
-function summarizeRawLookupResponse(rawResponse: unknown): string {
-  if (!rawResponse || typeof rawResponse !== "object") {
-    return "none";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
   }
-
-  const response = rawResponse as {
-    display_name?: unknown;
-    name?: unknown;
-    type?: unknown;
-    class?: unknown;
-    address?: unknown;
-  };
-  const address =
-    response.address && typeof response.address === "object"
-      ? JSON.stringify(response.address)
-      : "none";
-  return JSON.stringify({
-    display_name: response.display_name,
-    name: response.name,
-    class: response.class,
-    type: response.type,
-    address
-  });
 }
 
 function resolveRelativePath(pathValue: string, basePath: string | null): string {
@@ -695,34 +883,12 @@ function resolveNotesLabel(
   return resolveDateSourceLabel(metadata.chosen_date_source);
 }
 
-function resolvePlaceCellData(
-  metadata: MetadataResult | undefined,
-  diagnosticPlace: PlaceLookupDiagnosticResult | null = null
-): CellData {
+function resolvePlaceCellData(metadata: MetadataResult | undefined): CellData {
   if (!metadata) {
     return { value: "-", title: "-", className: "" };
   }
 
   const coordinateLabel = formatGpsCoordinate(metadata.gps_coordinate);
-
-  if (diagnosticPlace) {
-    const placeLabel = diagnosticPlace.display_place?.trim();
-    if (placeLabel) {
-      const diagnosticTitle = [
-        `Diagnostic lookup: ${placeLabel}`,
-        `HTTP: ${diagnosticPlace.http_status ?? "unknown"}`,
-        `Provider: ${diagnosticPlace.provider}`,
-        coordinateLabel ? `Coordinates: ${coordinateLabel}` : ""
-      ]
-        .filter(Boolean)
-        .join(" | ");
-      return {
-        value: placeLabel,
-        title: diagnosticTitle,
-        className: ""
-      };
-    }
-  }
 
   switch (metadata.place_status) {
     case "pending":

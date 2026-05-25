@@ -11,21 +11,18 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::{
-    GpsCoordinate, LocationBucket, MetadataResult, PlaceCacheEntry, PlaceComponents,
-    PlaceLookupDiagnosticResult, PlaceStatus,
+    GpsCoordinate, MetadataResult, PlaceCacheEntry, PlaceComponents, PlaceLookupDiagnosticResult,
+    PlaceStatus,
 };
 
-pub const LOCATION_BUCKET_PRECISION_VERSION: u32 = 1;
-pub const PLACE_CACHE_VERSION: u32 = 1;
+pub const PLACE_CACHE_VERSION: u32 = 3;
 
 const CACHE_DIR_NAME: &str = "cache";
 const PLACE_CACHE_FILE_NAME: &str = "place-cache.json";
-const CITY_BUCKET_STEP_DEGREES: f64 = 0.1;
 const NOMINATIM_BASE_URL: &str = "https://nominatim.openstreetmap.org/reverse";
 const NOMINATIM_PROVIDER_NAME: &str = "nominatim";
 const NOMINATIM_MIN_INTERVAL: Duration = Duration::from_millis(1_100);
 const NOMINATIM_TIMEOUT: Duration = Duration::from_secs(8);
-const SPATIAL_INDEX_CELL_DEGREES: f64 = 1.0;
 
 #[derive(Debug, Clone)]
 pub struct PlaceLookupOptions {
@@ -49,14 +46,10 @@ pub struct ReverseGeocodeRequestMetadata {
 
 #[derive(Debug, Clone)]
 pub struct ReverseGeocodeResult {
+    pub display_name: Option<String>,
     pub components: PlaceComponents,
-    pub area: Option<ResolvedPlaceArea>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedPlaceArea {
-    pub center: GpsCoordinate,
-    pub radius_km: f64,
+    pub polygon_geojson: Option<String>,
+    pub osm_place_key: Option<String>,
 }
 
 pub trait ReverseGeocodeProvider {
@@ -138,7 +131,6 @@ impl NominatimReverseGeocodeProvider {
         validate_coordinate(coordinate)?;
 
         let request_url = self.build_reverse_url(coordinate)?.to_string();
-        let bucket = bucket_for_coordinate(coordinate);
         let response = self
             .client
             .get(&request_url)
@@ -154,12 +146,14 @@ impl NominatimReverseGeocodeProvider {
         if http_status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             return Ok(PlaceLookupDiagnosticResult {
                 coordinate: coordinate.clone(),
-                bucket_id: bucket.map(|value| value.bucket_id),
+                cached: false,
+                osm_place_key: None,
                 provider: NOMINATIM_PROVIDER_NAME.to_string(),
                 request_url,
                 http_status: Some(http_status.as_u16()),
                 display_place: None,
                 components: None,
+                polygon_geojson: None,
                 raw_response: None,
                 error: Some("Place lookup provider rate limit was reached.".to_string()),
             });
@@ -176,12 +170,20 @@ impl NominatimReverseGeocodeProvider {
                 format!("Place lookup provider response shape was invalid: {error}")
             })?;
         let result = map_nominatim_response_to_result(parsed);
-        let (display_place, components, error) = match result {
+        let (display_place, components, osm_place_key, polygon_geojson, error) = match result {
             Some(result) => {
                 let display_place = place_components_to_display_text(&result.components);
-                (display_place, Some(result.components), None)
+                (
+                    display_place,
+                    Some(result.components),
+                    result.osm_place_key,
+                    result.polygon_geojson,
+                    None,
+                )
             }
             None => (
+                None,
+                None,
                 None,
                 None,
                 Some("Place lookup returned no address or display-name result.".to_string()),
@@ -190,12 +192,14 @@ impl NominatimReverseGeocodeProvider {
 
         Ok(PlaceLookupDiagnosticResult {
             coordinate: coordinate.clone(),
-            bucket_id: bucket.map(|value| value.bucket_id),
+            cached: false,
+            osm_place_key,
             provider: NOMINATIM_PROVIDER_NAME.to_string(),
             request_url,
             http_status: Some(http_status.as_u16()),
             display_place,
             components,
+            polygon_geojson,
             raw_response: Some(raw_response),
             error,
         })
@@ -209,11 +213,46 @@ impl NominatimReverseGeocodeProvider {
                 ("lon", coordinate.longitude.to_string()),
                 ("format", "jsonv2".to_string()),
                 ("addressdetails", "1".to_string()),
-                ("zoom", "10".to_string()),
+                ("zoom", "14".to_string()),
+                ("polygon_geojson", "1".to_string()),
             ],
         )
         .map_err(|error| format!("Failed to build place lookup URL: {error}"))
     }
+}
+
+pub fn diagnostic_lookup_with_cache(
+    app_data_dir: &Path,
+    coordinate: &GpsCoordinate,
+) -> Result<PlaceLookupDiagnosticResult, String> {
+    validate_coordinate(coordinate)?;
+
+    let provider = NominatimReverseGeocodeProvider::new(
+        NominatimReverseGeocodeProvider::default_user_agent(),
+    )?;
+    let request_url = provider.build_reverse_url(coordinate)?.to_string();
+    let cache = load_place_cache(app_data_dir)?;
+
+    if let Some((entry_key, entry)) = find_covering_cache_entry(coordinate, &cache) {
+        return Ok(PlaceLookupDiagnosticResult {
+            coordinate: coordinate.clone(),
+            cached: true,
+            osm_place_key: Some(entry_key.clone()),
+            provider: entry.provider.clone(),
+            request_url,
+            http_status: None,
+            display_place: Some(entry.place.clone()),
+            components: entry.components.clone(),
+            polygon_geojson: entry.polygon_geojson.clone(),
+            raw_response: Some(serde_json::json!({
+                "source": "cache",
+                "cache_entry": entry,
+            })),
+            error: None,
+        });
+    }
+
+    provider.diagnostic_lookup(coordinate)
 }
 
 impl ReverseGeocodeProvider for NominatimReverseGeocodeProvider {
@@ -238,7 +277,8 @@ impl ReverseGeocodeProvider for NominatimReverseGeocodeProvider {
                 ("lon", coordinate.longitude.to_string()),
                 ("format", "jsonv2".to_string()),
                 ("addressdetails", "1".to_string()),
-                ("zoom", "10".to_string()),
+                ("zoom", "14".to_string()),
+                ("polygon_geojson", "1".to_string()),
             ])
             .header(reqwest::header::USER_AGENT, self.user_agent.as_str())
             .header(
@@ -291,11 +331,14 @@ struct NominatimAddress {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct NominatimReverseResponse {
+    place_id: Option<u64>,
+    osm_type: Option<String>,
+    osm_id: Option<i64>,
     address: Option<NominatimAddress>,
     display_name: Option<String>,
     name: Option<String>,
     #[serde(default)]
-    boundingbox: Option<Vec<String>>,
+    geojson: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -310,27 +353,6 @@ pub fn place_cache_dir(app_data_dir: &Path) -> PathBuf {
 
 pub fn place_cache_path(app_data_dir: &Path) -> PathBuf {
     place_cache_dir(app_data_dir).join(PLACE_CACHE_FILE_NAME)
-}
-
-pub fn bucket_for_coordinate(coordinate: &GpsCoordinate) -> Option<LocationBucket> {
-    if !is_valid_coordinate(coordinate) {
-        return None;
-    }
-
-    let latitude_index = quantize_coordinate(coordinate.latitude);
-    let longitude_index = quantize_coordinate(coordinate.longitude);
-    let bucket_id =
-        format!("v{LOCATION_BUCKET_PRECISION_VERSION}:{latitude_index}:{longitude_index}");
-
-    Some(LocationBucket {
-        bucket_id,
-        representative_coordinate: GpsCoordinate {
-            latitude: bucket_center_from_index(latitude_index, -90.0, 90.0),
-            longitude: bucket_center_from_index(longitude_index, -180.0, 180.0),
-        },
-        precision: LOCATION_BUCKET_PRECISION_VERSION,
-        media_count: 1,
-    })
 }
 
 pub fn load_place_cache(app_data_dir: &Path) -> Result<HashMap<String, PlaceCacheEntry>, String> {
@@ -367,17 +389,11 @@ pub fn load_place_cache(app_data_dir: &Path) -> Result<HashMap<String, PlaceCach
 
     let mut entries = HashMap::new();
     for mut entry in cache_file.entries {
-        if entry.version != PLACE_CACHE_VERSION || entry.bucket_id.trim().is_empty() {
+        if entry.version != PLACE_CACHE_VERSION || entry.osm_place_key.trim().is_empty() {
             continue;
         }
-        if entry
-            .area_radius_km
-            .is_some_and(|value| !value.is_finite() || value <= 0.0)
-        {
-            entry.area_radius_km = None;
-        }
         entry.version = PLACE_CACHE_VERSION;
-        entries.insert(entry.bucket_id.clone(), entry);
+        entries.insert(entry.osm_place_key.clone(), entry);
     }
 
     Ok(entries)
@@ -403,7 +419,7 @@ pub fn save_place_cache(
     }
 
     let mut ordered_entries: Vec<PlaceCacheEntry> = entries.values().cloned().collect();
-    ordered_entries.sort_by(|left, right| left.bucket_id.cmp(&right.bucket_id));
+    ordered_entries.sort_by(|left, right| left.osm_place_key.cmp(&right.osm_place_key));
     for entry in &mut ordered_entries {
         entry.version = PLACE_CACHE_VERSION;
     }
@@ -464,7 +480,6 @@ pub fn apply_place_resolution_with_provider(
     }
 
     let mut cache = load_place_cache(app_data_dir)?;
-    let mut spatial_index = AreaSpatialIndex::from_cache(&cache);
     let mut cache_was_updated = false;
     let last_used_at = Utc::now().to_rfc3339();
     let mut queue: VecDeque<PendingLocationLookup> = VecDeque::new();
@@ -478,35 +493,30 @@ pub fn apply_place_resolution_with_provider(
             continue;
         };
 
-        let Some(area_id) = area_id_for_coordinate(gps_coordinate) else {
+        if !is_valid_coordinate(gps_coordinate) {
             result.place_bucket_id = None;
             result.place_status = PlaceStatus::NotAvailable;
             result.place = None;
             result.place_error = None;
             continue;
-        };
+        }
 
-        result.place_bucket_id = Some(area_id.clone());
-        if let Some(entry_id) =
-            find_covering_cache_entry_id(gps_coordinate, &cache, &spatial_index, Some(&area_id))
-        {
-            let entry = cache
-                .get_mut(&entry_id)
-                .expect("cache entry id from index should exist");
+        if let Some((entry_id, entry)) = find_covering_cache_entry(gps_coordinate, &cache) {
+            let entry_id = entry_id.clone();
             apply_cache_entry_to_result(entry, result);
             result.place_bucket_id = Some(entry_id.clone());
 
-            if entry.last_used_at != last_used_at {
-                entry.last_used_at = last_used_at.clone();
-                cache_was_updated = true;
+            if let Some(entry) = cache.get_mut(&entry_id) {
+                if entry.last_used_at != last_used_at {
+                    entry.last_used_at = last_used_at.clone();
+                    cache_was_updated = true;
+                }
             }
         } else {
             result.place_status = PlaceStatus::Pending;
             result.place = None;
             result.place_error = None;
             queue.push_back(PendingLocationLookup {
-                area_id,
-                coordinate: gps_coordinate.clone(),
                 result_index: index,
             });
         }
@@ -515,25 +525,20 @@ pub fn apply_place_resolution_with_provider(
     if options.enable_online_lookup {
         while let Some(pending) = queue.pop_front() {
             let result = &mut results[pending.result_index];
-            if result.gps_coordinate.is_none() {
+            let Some(gps_coordinate) = result.gps_coordinate.as_ref() else {
                 continue;
-            }
+            };
 
-            if let Some(entry_id) = find_covering_cache_entry_id(
-                &pending.coordinate,
-                &cache,
-                &spatial_index,
-                Some(&pending.area_id),
-            ) {
-                let entry = cache
-                    .get_mut(&entry_id)
-                    .expect("cache entry id from index should exist");
+            if let Some((entry_id, entry)) = find_covering_cache_entry(gps_coordinate, &cache) {
+                let entry_id = entry_id.clone();
                 apply_cache_entry_to_result(entry, result);
                 result.place_bucket_id = Some(entry_id.clone());
 
-                if entry.last_used_at != last_used_at {
-                    entry.last_used_at = last_used_at.clone();
-                    cache_was_updated = true;
+                if let Some(entry) = cache.get_mut(&entry_id) {
+                    if entry.last_used_at != last_used_at {
+                        entry.last_used_at = last_used_at.clone();
+                        cache_was_updated = true;
+                    }
                 }
                 continue;
             }
@@ -541,43 +546,44 @@ pub fn apply_place_resolution_with_provider(
             throttle.wait_turn()?;
 
             let metadata = ReverseGeocodeRequestMetadata {
-                bucket_id: pending.area_id.clone(),
+                bucket_id: "".to_string(),
                 requested_at: Utc::now().to_rfc3339(),
                 user_agent: provider.user_agent().to_string(),
             };
 
-            match provider.reverse_geocode(&pending.coordinate, &metadata) {
+            match provider.reverse_geocode(gps_coordinate, &metadata) {
                 Ok(Some(lookup)) => {
-                    if let Some(display_text) = place_components_to_display_text(&lookup.components)
-                    {
-                        let area_center = lookup.area.as_ref().map(|value| value.center.clone());
-                        let area_radius_km = lookup.area.as_ref().map(|value| value.radius_km);
+                    let display_text = lookup
+                        .display_name
+                        .filter(|name| !name.trim().is_empty())
+                        .or_else(|| place_components_to_display_text(&lookup.components));
+
+                    if let Some(display_text) = display_text {
+                        let osm_place_key = lookup
+                            .osm_place_key
+                            .unwrap_or_else(|| format!("unknown:{}", gps_coordinate.latitude));
                         let area_entry = PlaceCacheEntry {
                             version: PLACE_CACHE_VERSION,
-                            bucket_id: pending.area_id.clone(),
+                            osm_place_key: osm_place_key.clone(),
                             place: display_text.clone(),
                             components: Some(lookup.components),
                             provider: provider.provider_name().to_string(),
                             resolved_at: metadata.requested_at.clone(),
                             last_used_at: metadata.requested_at.clone(),
-                            area_center,
-                            area_radius_km,
+                            polygon_geojson: lookup.polygon_geojson,
                         };
-                        cache.insert(pending.area_id.clone(), area_entry);
-                        if let Some(entry) = cache.get(&pending.area_id) {
-                            spatial_index.insert_entry(entry);
-                        }
+                        cache.insert(osm_place_key.clone(), area_entry);
 
                         result.place_status = PlaceStatus::Resolved;
                         result.place = Some(display_text);
                         result.place_error = None;
-                        result.place_bucket_id = Some(pending.area_id.clone());
+                        result.place_bucket_id = Some(osm_place_key);
                         cache_was_updated = true;
                     } else {
                         result.place_status = PlaceStatus::Failed;
                         result.place = None;
                         result.place_error = Some(
-                            "Place lookup returned no usable city/region/country values."
+                            "Place lookup returned no usable address or city/region/country values."
                                 .to_string(),
                         );
                     }
@@ -619,91 +625,157 @@ fn validate_coordinate(coordinate: &GpsCoordinate) -> Result<(), String> {
     }
 }
 
-fn quantize_coordinate(value: f64) -> i32 {
-    (value / CITY_BUCKET_STEP_DEGREES).floor() as i32
-}
-
-fn bucket_center_from_index(index: i32, min: f64, max: f64) -> f64 {
-    ((index as f64 + 0.5) * CITY_BUCKET_STEP_DEGREES).clamp(min, max)
-}
-
-fn area_id_for_coordinate(coordinate: &GpsCoordinate) -> Option<String> {
-    bucket_for_coordinate(coordinate).map(|bucket| bucket.bucket_id)
-}
-
-fn find_covering_cache_entry_id(
+fn find_covering_cache_entry<'a>(
     coordinate: &GpsCoordinate,
-    cache: &HashMap<String, PlaceCacheEntry>,
-    index: &AreaSpatialIndex,
-    preferred_area_id: Option<&str>,
-) -> Option<String> {
-    if let Some(area_id) = preferred_area_id {
-        if let Some(entry) = cache.get(area_id) {
-            if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
-                return Some(area_id.to_string());
+    cache: &'a HashMap<String, PlaceCacheEntry>,
+) -> Option<(&'a String, &'a PlaceCacheEntry)> {
+    let mut best: Option<(&String, &PlaceCacheEntry, f64)> = None;
+
+    for (key, entry) in cache {
+        let Some(ref geojson_str) = entry.polygon_geojson else {
+            continue;
+        };
+        let Ok(geojson) = serde_json::from_str::<Value>(geojson_str) else {
+            continue;
+        };
+        if !point_in_geojson_polygon(coordinate, &geojson) {
+            continue;
+        }
+        let area = geojson_estimated_area(&geojson);
+        match best {
+            Some((_, _, best_area)) if area < best_area => {
+                best = Some((key, entry, area));
             }
-        }
-    }
-
-    for entry_id in index.lookup(coordinate) {
-        if let Some(entry) = cache.get(entry_id) {
-            if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
-                return Some(entry_id.to_string());
+            None => {
+                best = Some((key, entry, area));
             }
+            _ => {}
         }
     }
 
-    for (entry_id, entry) in cache {
-        if cache_entry_contains_coordinate(entry, coordinate, preferred_area_id) {
-            return Some(entry_id.clone());
-        }
-    }
-
-    None
+    best.map(|(key, entry, _)| (key, entry))
 }
 
-fn cache_entry_contains_coordinate(
-    entry: &PlaceCacheEntry,
-    coordinate: &GpsCoordinate,
-    preferred_area_id: Option<&str>,
-) -> bool {
-    if let (Some(center), Some(radius_km)) = (entry.area_center.as_ref(), entry.area_radius_km) {
-        if radius_km.is_finite() && radius_km > 0.0 {
-            return haversine_distance_km(center, coordinate) <= radius_km;
+fn point_in_geojson_polygon(point: &GpsCoordinate, geojson: &Value) -> bool {
+    let geom_type = geojson.get("type").and_then(Value::as_str);
+    match geom_type {
+        Some("Polygon") => {
+            let coords = geojson.get("coordinates").and_then(Value::as_array);
+            point_in_polygon_coords(point, coords)
         }
+        Some("MultiPolygon") => {
+            let polygons = geojson.get("coordinates").and_then(Value::as_array);
+            if let Some(polygons) = polygons {
+                for polygon_coords in polygons {
+                    if let Some(coords) = polygon_coords.as_array() {
+                        if point_in_polygon_coords(point, Some(coords)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+        _ => false,
     }
+}
 
-    let Some(area_id) = preferred_area_id else {
+fn point_in_polygon_coords(point: &GpsCoordinate, rings: Option<&Vec<Value>>) -> bool {
+    let Some(rings) = rings else { return false };
+    let Some(exterior) = rings.first().and_then(|r| r.as_array()) else {
         return false;
     };
-    entry.bucket_id == area_id
+    if !point_in_ring(point, exterior) {
+        return false;
+    }
+    for ring in rings.iter().skip(1) {
+        if let Some(ring) = ring.as_array() {
+            if point_in_ring(point, ring) {
+                return false;
+            }
+        }
+    }
+    true
 }
 
-fn haversine_distance_km(a: &GpsCoordinate, b: &GpsCoordinate) -> f64 {
-    const EARTH_RADIUS_KM: f64 = 6_371.0;
-    let lat1 = a.latitude.to_radians();
-    let lat2 = b.latitude.to_radians();
-    let d_lat = (b.latitude - a.latitude).to_radians();
-    let d_lon = normalize_longitude(b.longitude - a.longitude).to_radians();
+fn point_in_ring(point: &GpsCoordinate, ring: &[Value]) -> bool {
+    let mut inside = false;
+    let mut j = ring.len() - 1;
 
-    let sin_d_lat = (d_lat / 2.0).sin();
-    let sin_d_lon = (d_lon / 2.0).sin();
-    let haversine = sin_d_lat * sin_d_lat + lat1.cos() * lat2.cos() * sin_d_lon * sin_d_lon;
-    let arc = 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
-    EARTH_RADIUS_KM * arc
+    for i in 0..ring.len() {
+        let vi_lon = ring[i].get(0).and_then(Value::as_f64);
+        let vi_lat = ring[i].get(1).and_then(Value::as_f64);
+        let vj_lon = ring[j].get(0).and_then(Value::as_f64);
+        let vj_lat = ring[j].get(1).and_then(Value::as_f64);
+
+        if let (Some(vi_lon), Some(vi_lat), Some(vj_lon), Some(vj_lat)) =
+            (vi_lon, vi_lat, vj_lon, vj_lat)
+        {
+            if ((vi_lat > point.latitude) != (vj_lat > point.latitude))
+                && point.longitude
+                    < (vj_lon - vi_lon) * (point.latitude - vi_lat) / (vj_lat - vi_lat) + vi_lon
+            {
+                inside = !inside;
+            }
+        }
+
+        j = i;
+    }
+
+    inside
 }
 
-fn normalize_longitude(value: f64) -> f64 {
-    (value + 180.0).rem_euclid(360.0) - 180.0
+fn geojson_estimated_area(geojson: &Value) -> f64 {
+    let coords = geojson.get("coordinates").and_then(Value::as_array);
+    match geojson.get("type").and_then(Value::as_str) {
+        Some("Polygon") => coords
+            .and_then(|c| c.first())
+            .and_then(|r| r.as_array())
+            .map(|r| ring_estimated_area(r))
+            .unwrap_or(f64::MAX),
+        Some("MultiPolygon") => coords
+            .and_then(|polys| polys.first())
+            .and_then(|p| p.as_array())
+            .and_then(|c| c.first())
+            .and_then(|r| r.as_array())
+            .map(|r| ring_estimated_area(r))
+            .unwrap_or(f64::MAX),
+        _ => f64::MAX,
+    }
+}
+
+fn ring_estimated_area(ring: &[Value]) -> f64 {
+    if ring.len() < 3 {
+        return f64::MAX;
+    }
+    let mut area = 0.0;
+    let mut j = ring.len() - 1;
+    for i in 0..ring.len() {
+        let xi = ring[i].get(0).and_then(Value::as_f64).unwrap_or(0.0);
+        let yi = ring[i].get(1).and_then(Value::as_f64).unwrap_or(0.0);
+        let xj = ring[j].get(0).and_then(Value::as_f64).unwrap_or(0.0);
+        let yj = ring[j].get(1).and_then(Value::as_f64).unwrap_or(0.0);
+        area += xj * yi - xi * yj;
+        j = i;
+    }
+    area.abs() / 2.0
 }
 
 fn map_nominatim_response_to_result(
     response: NominatimReverseResponse,
 ) -> Option<ReverseGeocodeResult> {
-    let area = response
-        .boundingbox
+    let osm_place_key = response
+        .osm_type
         .as_deref()
-        .and_then(parse_nominatim_bounding_box);
+        .zip(response.osm_id.as_ref())
+        .map(|(osm_type, osm_id)| format!("osm:{osm_type}:{osm_id}"))
+        .or_else(|| response.place_id.map(|id| format!("place_id:{id}")));
+
+    let polygon_geojson = response.geojson.as_ref().and_then(|g| {
+        let geom_type = g.get("type").and_then(Value::as_str)?;
+        matches!(geom_type, "Polygon" | "MultiPolygon").then(|| g.to_string())
+    });
+
     let fallback_components = response
         .display_name
         .as_deref()
@@ -711,6 +783,7 @@ fn map_nominatim_response_to_result(
         .or_else(|| {
             response.name.as_deref().and_then(|name| {
                 first_present_string(&[Some(name.to_string())]).map(|city| PlaceComponents {
+                    landmark: None,
                     city: Some(city),
                     region: None,
                     country: None,
@@ -730,11 +803,25 @@ fn map_nominatim_response_to_result(
         })
         .or(fallback_components)?;
 
-    Some(ReverseGeocodeResult { components, area })
+    Some(ReverseGeocodeResult {
+        display_name: response.display_name,
+        components,
+        polygon_geojson,
+        osm_place_key,
+    })
 }
 
 fn map_nominatim_address_to_components(address: NominatimAddress) -> PlaceComponents {
     PlaceComponents {
+        landmark: first_present_string(&[
+            address.national_park,
+            address.protected_area,
+            address.tourism,
+            address.attraction,
+            address.leisure,
+            address.amenity,
+            address.natural,
+        ]),
         city: first_present_string(&[
             address.city,
             address.town,
@@ -745,13 +832,6 @@ fn map_nominatim_address_to_components(address: NominatimAddress) -> PlaceCompon
             address.neighbourhood,
             address.suburb,
             address.city_district,
-            address.national_park,
-            address.protected_area,
-            address.tourism,
-            address.attraction,
-            address.leisure,
-            address.amenity,
-            address.natural,
         ]),
         region: first_present_string(&[
             address.state,
@@ -792,75 +872,18 @@ fn place_components_from_display_name(display_name: &str) -> Option<PlaceCompone
     };
 
     Some(PlaceComponents {
+        landmark: None,
         city,
         region,
         country,
     })
 }
 
-fn parse_nominatim_bounding_box(values: &[String]) -> Option<ResolvedPlaceArea> {
-    if values.len() != 4 {
-        return None;
-    }
-
-    let south = values.first()?.parse::<f64>().ok()?;
-    let north = values.get(1)?.parse::<f64>().ok()?;
-    let west = values.get(2)?.parse::<f64>().ok()?;
-    let east = values.get(3)?.parse::<f64>().ok()?;
-
-    if !south.is_finite()
-        || !north.is_finite()
-        || !west.is_finite()
-        || !east.is_finite()
-        || !(-90.0..=90.0).contains(&south)
-        || !(-90.0..=90.0).contains(&north)
-        || !(-180.0..=180.0).contains(&west)
-        || !(-180.0..=180.0).contains(&east)
-        || south > north
-    {
-        return None;
-    }
-
-    let east_unwrapped = if east < west { east + 360.0 } else { east };
-    let center = GpsCoordinate {
-        latitude: (south + north) / 2.0,
-        longitude: normalize_longitude((west + east_unwrapped) / 2.0),
-    };
-
-    let corners = [
-        GpsCoordinate {
-            latitude: south,
-            longitude: west,
-        },
-        GpsCoordinate {
-            latitude: south,
-            longitude: normalize_longitude(east_unwrapped),
-        },
-        GpsCoordinate {
-            latitude: north,
-            longitude: west,
-        },
-        GpsCoordinate {
-            latitude: north,
-            longitude: normalize_longitude(east_unwrapped),
-        },
-    ];
-    let radius_km = corners
-        .iter()
-        .map(|corner| haversine_distance_km(&center, corner))
-        .fold(0.0, f64::max);
-
-    if !radius_km.is_finite() || radius_km <= 0.0 {
-        return None;
-    }
-
-    Some(ResolvedPlaceArea { center, radius_km })
-}
-
 pub fn place_components_to_display_text(components: &PlaceComponents) -> Option<String> {
     let mut segments: Vec<String> = Vec::new();
 
     for value in [
+        components.landmark.as_deref(),
         components.city.as_deref(),
         components.region.as_deref(),
         components.country.as_deref(),
@@ -905,83 +928,7 @@ fn apply_cache_entry_to_result(entry: &PlaceCacheEntry, result: &mut MetadataRes
 
 #[derive(Debug)]
 struct PendingLocationLookup {
-    area_id: String,
-    coordinate: GpsCoordinate,
     result_index: usize,
-}
-
-#[derive(Debug, Default)]
-struct AreaSpatialIndex {
-    entries_by_cell: HashMap<String, Vec<String>>,
-}
-
-impl AreaSpatialIndex {
-    fn from_cache(cache: &HashMap<String, PlaceCacheEntry>) -> Self {
-        let mut index = Self::default();
-        for entry in cache.values() {
-            index.insert_entry(entry);
-        }
-        index
-    }
-
-    fn lookup<'a>(&'a self, coordinate: &GpsCoordinate) -> impl Iterator<Item = &'a str> + 'a {
-        let key = spatial_cell_key(coordinate.latitude, coordinate.longitude);
-        self.entries_by_cell
-            .get(&key)
-            .into_iter()
-            .flat_map(|values| values.iter().map(String::as_str))
-    }
-
-    fn insert_entry(&mut self, entry: &PlaceCacheEntry) {
-        let Some(center) = entry.area_center.as_ref() else {
-            return;
-        };
-        let Some(radius_km) = entry.area_radius_km else {
-            return;
-        };
-        if !radius_km.is_finite() || radius_km <= 0.0 {
-            return;
-        }
-
-        let (min_lat, max_lat, min_lon, max_lon) = bounding_box_for_circle(center, radius_km);
-        let min_lat_index = quantize_by_step(min_lat, SPATIAL_INDEX_CELL_DEGREES);
-        let max_lat_index = quantize_by_step(max_lat, SPATIAL_INDEX_CELL_DEGREES);
-        let min_lon_index = quantize_by_step(min_lon, SPATIAL_INDEX_CELL_DEGREES);
-        let max_lon_index = quantize_by_step(max_lon, SPATIAL_INDEX_CELL_DEGREES);
-
-        for lat_index in min_lat_index..=max_lat_index {
-            for lon_index in min_lon_index..=max_lon_index {
-                let key = format!("{lat_index}:{lon_index}");
-                let entries = self.entries_by_cell.entry(key).or_default();
-                if !entries.iter().any(|value| value == &entry.bucket_id) {
-                    entries.push(entry.bucket_id.clone());
-                }
-            }
-        }
-    }
-}
-
-fn spatial_cell_key(latitude: f64, longitude: f64) -> String {
-    let lat_index = quantize_by_step(latitude, SPATIAL_INDEX_CELL_DEGREES);
-    let lon_index = quantize_by_step(longitude, SPATIAL_INDEX_CELL_DEGREES);
-    format!("{lat_index}:{lon_index}")
-}
-
-fn quantize_by_step(value: f64, step: f64) -> i32 {
-    (value / step).floor() as i32
-}
-
-fn bounding_box_for_circle(center: &GpsCoordinate, radius_km: f64) -> (f64, f64, f64, f64) {
-    let latitude_delta = radius_km / 111.0;
-    let center_lat_radians = center.latitude.to_radians();
-    let cosine = center_lat_radians.cos().abs().max(0.01);
-    let longitude_delta = radius_km / (111.0 * cosine);
-
-    let min_lat = (center.latitude - latitude_delta).clamp(-90.0, 90.0);
-    let max_lat = (center.latitude + latitude_delta).clamp(-90.0, 90.0);
-    let min_lon = (center.longitude - longitude_delta).clamp(-180.0, 180.0);
-    let max_lon = (center.longitude + longitude_delta).clamp(-180.0, 180.0);
-    (min_lat, max_lat, min_lon, max_lon)
 }
 
 struct NoopReverseGeocodeProvider;
@@ -1022,13 +969,14 @@ mod tests {
 
     use tempfile::tempdir;
 
+    use serde_json::Value;
+
     use super::{
-        apply_cache_to_metadata_results, apply_place_resolution_with_provider,
-        bucket_for_coordinate, load_place_cache, map_nominatim_response_to_result,
-        place_cache_path, place_components_to_display_text, save_place_cache, LookupThrottle,
-        NominatimAddress, NominatimReverseResponse, PlaceLookupOptions, ResolvedPlaceArea,
-        ReverseGeocodeProvider, ReverseGeocodeRequestMetadata, ReverseGeocodeResult,
-        LOCATION_BUCKET_PRECISION_VERSION, PLACE_CACHE_VERSION,
+        apply_cache_to_metadata_results, apply_place_resolution_with_provider, load_place_cache,
+        map_nominatim_response_to_result, place_cache_path, place_components_to_display_text,
+        point_in_geojson_polygon, save_place_cache, LookupThrottle, NominatimAddress,
+        NominatimReverseResponse, PlaceLookupOptions, ReverseGeocodeProvider,
+        ReverseGeocodeRequestMetadata, ReverseGeocodeResult, PLACE_CACHE_VERSION,
     };
     use crate::models::{
         GpsCoordinate, MetadataResult, MetadataStatus, PlaceCacheEntry, PlaceComponents,
@@ -1036,90 +984,31 @@ mod tests {
     };
 
     #[test]
-    fn generates_stable_bucket_for_same_coordinate() {
-        let coordinate = GpsCoordinate {
-            latitude: -33.8688,
-            longitude: 151.2093,
-        };
-
-        let first = bucket_for_coordinate(&coordinate).expect("bucket should exist");
-        let second = bucket_for_coordinate(&coordinate).expect("bucket should exist");
-
-        assert_eq!(first.bucket_id, second.bucket_id);
-        assert_eq!(first.precision, LOCATION_BUCKET_PRECISION_VERSION);
-        assert_eq!(
-            first.representative_coordinate.latitude,
-            second.representative_coordinate.latitude
-        );
-        assert_eq!(
-            first.representative_coordinate.longitude,
-            second.representative_coordinate.longitude
-        );
-    }
-
-    #[test]
-    fn groups_nearby_coordinates_into_same_bucket() {
-        let first = GpsCoordinate {
-            latitude: -33.8688,
-            longitude: 151.2093,
-        };
-        let second = GpsCoordinate {
-            latitude: -33.8612,
-            longitude: 151.2041,
-        };
-
-        let first_bucket = bucket_for_coordinate(&first).expect("first bucket should exist");
-        let second_bucket = bucket_for_coordinate(&second).expect("second bucket should exist");
-
-        assert_eq!(first_bucket.bucket_id, second_bucket.bucket_id);
-    }
-
-    #[test]
-    fn separates_distant_coordinates_into_different_buckets() {
-        let sydney = GpsCoordinate {
-            latitude: -33.8688,
-            longitude: 151.2093,
-        };
-        let melbourne = GpsCoordinate {
-            latitude: -37.8136,
-            longitude: 144.9631,
-        };
-
-        let sydney_bucket = bucket_for_coordinate(&sydney).expect("bucket should exist");
-        let melbourne_bucket = bucket_for_coordinate(&melbourne).expect("bucket should exist");
-
-        assert_ne!(sydney_bucket.bucket_id, melbourne_bucket.bucket_id);
-    }
-
-    #[test]
     fn persists_versioned_place_cache() {
         let temp = tempdir().expect("temp dir");
         let mut entries = HashMap::new();
         entries.insert(
-            "v1:-339:1512".to_string(),
+            "osm:relation:12345".to_string(),
             PlaceCacheEntry {
                 version: 99,
-                bucket_id: "v1:-339:1512".to_string(),
+                osm_place_key: "osm:relation:12345".to_string(),
                 place: "Sydney, NSW, Australia".to_string(),
                 components: None,
                 provider: "cache-test".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
-                area_center: Some(GpsCoordinate {
-                    latitude: -33.8688,
-                    longitude: 151.2093,
-                }),
-                area_radius_km: Some(50.0),
+                polygon_geojson: None,
             },
         );
 
         save_place_cache(temp.path(), &entries).expect("cache should save");
         let loaded = load_place_cache(temp.path()).expect("cache should load");
         let persisted = loaded
-            .get("v1:-339:1512")
-            .expect("entry should round-trip with same bucket id");
+            .get("osm:relation:12345")
+            .expect("entry should round-trip with same osm_place_key");
 
         assert_eq!(persisted.version, PLACE_CACHE_VERSION);
+        assert!(persisted.polygon_geojson.is_none());
 
         let raw = fs::read_to_string(place_cache_path(temp.path())).expect("cache file");
         let json: serde_json::Value = serde_json::from_str(&raw).expect("json should parse");
@@ -1150,21 +1039,20 @@ mod tests {
             latitude: -33.8688,
             longitude: 151.2093,
         };
-        let bucket = bucket_for_coordinate(&coordinate).expect("bucket should exist");
 
         let mut entries = HashMap::new();
+        let sydney_polygon = r#"{"type":"Polygon","coordinates":[[[151.0,-34.0],[152.0,-34.0],[152.0,-33.0],[151.0,-33.0],[151.0,-34.0]]]}"#;
         entries.insert(
-            bucket.bucket_id.clone(),
+            "osm:relation:12345".to_string(),
             PlaceCacheEntry {
                 version: PLACE_CACHE_VERSION,
-                bucket_id: bucket.bucket_id.clone(),
+                osm_place_key: "osm:relation:12345".to_string(),
                 place: "Sydney, NSW, Australia".to_string(),
                 components: None,
                 provider: "nominatim".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
-                area_center: Some(coordinate.clone()),
-                area_radius_km: Some(50.0),
+                polygon_geojson: Some(sydney_polygon.to_string()),
             },
         );
         save_place_cache(temp.path(), &entries).expect("cache should save");
@@ -1175,7 +1063,7 @@ mod tests {
         let resolved = &results[0];
         assert_eq!(
             resolved.place_bucket_id.as_deref(),
-            Some(bucket.bucket_id.as_str())
+            Some("osm:relation:12345")
         );
         assert_eq!(resolved.place_status, PlaceStatus::Resolved);
         assert_eq!(resolved.place.as_deref(), Some("Sydney, NSW, Australia"));
@@ -1183,13 +1071,13 @@ mod tests {
 
         let loaded = load_place_cache(temp.path()).expect("cache should reload");
         let refreshed = loaded
-            .get(&bucket.bucket_id)
-            .expect("bucket should remain in cache");
+            .get("osm:relation:12345")
+            .expect("entry should remain in cache");
         assert_ne!(refreshed.last_used_at, "2026-05-25T00:00:00Z");
     }
 
     #[test]
-    fn resolves_uncached_bucket_once_and_applies_to_all_results() {
+    fn resolves_uncached_place_once_and_applies_to_all_results() {
         let temp = tempdir().expect("temp dir");
         let coordinate_a = GpsCoordinate {
             latitude: -33.8688,
@@ -1200,18 +1088,23 @@ mod tests {
             longitude: 151.2041,
         };
 
+        let sydney_polygon = r#"{"type":"Polygon","coordinates":[[[151.0,-34.0],[152.0,-34.0],[152.0,-33.0],[151.0,-33.0],[151.0,-34.0]]]}"#;
+
         let mut results = vec![
             metadata_result_with_coordinate("file-1", coordinate_a),
             metadata_result_with_coordinate("file-2", coordinate_b),
         ];
 
         let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            display_name: None,
             components: PlaceComponents {
+                landmark: None,
                 city: Some("Sydney".to_string()),
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
-            area: None,
+            polygon_geojson: Some(sydney_polygon.to_string()),
+            osm_place_key: Some("osm:relation:12345".to_string()),
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1227,9 +1120,6 @@ mod tests {
         .expect("lookup should resolve");
 
         assert_eq!(provider.call_count(), 1);
-        let calls = provider.recorded_calls();
-        assert_eq!(calls[0].user_agent, "mock-user-agent");
-        assert!(!calls[0].bucket_id.trim().is_empty());
         assert_eq!(throttle.call_count, 1);
         assert_eq!(results[0].place_status, PlaceStatus::Resolved);
         assert_eq!(results[1].place_status, PlaceStatus::Resolved);
@@ -1243,29 +1133,24 @@ mod tests {
     }
 
     #[test]
-    fn stores_provider_area_in_cache_for_uncached_bucket() {
+    fn caches_polygon_from_provider_response() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
-            latitude: 37.723511,
-            longitude: -119.718558,
-        };
-        let bucket = bucket_for_coordinate(&coordinate).expect("bucket should exist");
-        let expected_center = GpsCoordinate {
             latitude: 37.75,
             longitude: -119.70,
         };
-        let expected_radius_km = 12.5;
+        let polygon_json = r#"{"type":"Polygon","coordinates":[[[-119.8,37.7],[-119.6,37.7],[-119.6,37.8],[-119.8,37.8],[-119.8,37.7]]]}"#;
         let mut results = vec![metadata_result_with_coordinate("file-1", coordinate)];
         let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            display_name: None,
             components: PlaceComponents {
+                landmark: None,
                 city: Some("Yosemite Valley".to_string()),
                 region: Some("California".to_string()),
                 country: Some("United States".to_string()),
             },
-            area: Some(ResolvedPlaceArea {
-                center: expected_center.clone(),
-                radius_km: expected_radius_km,
-            }),
+            polygon_geojson: Some(polygon_json.to_string()),
+            osm_place_key: Some("osm:way:12345".to_string()),
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1281,34 +1166,32 @@ mod tests {
         .expect("lookup should resolve");
 
         let cache = load_place_cache(temp.path()).expect("cache should load");
-        let entry = cache
-            .get(&bucket.bucket_id)
-            .expect("bucket entry should be cached");
-        assert_eq!(entry.area_center.as_ref(), Some(&expected_center));
-        assert_eq!(entry.area_radius_km, Some(expected_radius_km));
+        let entry = cache.get("osm:way:12345").expect("entry should be cached");
+        assert_eq!(entry.polygon_geojson.as_deref(), Some(polygon_json));
     }
 
     #[test]
-    fn uses_first_source_coordinate_for_uncached_bucket_lookup() {
+    fn uses_source_coordinate_for_uncached_place_lookup() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
             latitude: 37.723511,
             longitude: -119.718558,
         };
-        let bucket = bucket_for_coordinate(&coordinate).expect("bucket should exist");
-        assert_ne!(bucket.representative_coordinate, coordinate);
 
         let mut results = vec![metadata_result_with_coordinate(
             "file-1",
             coordinate.clone(),
         )];
         let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            display_name: None,
             components: PlaceComponents {
+                landmark: None,
                 city: Some("Yosemite Valley".to_string()),
                 region: Some("California".to_string()),
                 country: Some("United States".to_string()),
             },
-            area: None,
+            polygon_geojson: None,
+            osm_place_key: None,
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1331,7 +1214,7 @@ mod tests {
     }
 
     #[test]
-    fn marks_bucket_failed_when_provider_returns_error() {
+    fn marks_place_failed_when_provider_returns_error() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
             latitude: -33.8688,
@@ -1362,7 +1245,7 @@ mod tests {
     }
 
     #[test]
-    fn marks_bucket_failed_when_provider_returns_empty_result() {
+    fn marks_place_failed_when_provider_returns_empty_result() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
             latitude: -33.8688,
@@ -1401,12 +1284,15 @@ mod tests {
         let mut results = vec![metadata_result_with_coordinate("file-1", coordinate)];
 
         let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            display_name: None,
             components: PlaceComponents {
+                landmark: None,
                 city: Some("Sydney".to_string()),
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
-            area: None,
+            polygon_geojson: None,
+            osm_place_key: None,
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1438,12 +1324,15 @@ mod tests {
         let mut results = vec![metadata_result_with_coordinate("file-1", coordinate)];
 
         let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            display_name: None,
             components: PlaceComponents {
+                landmark: None,
                 city: Some("Sydney".to_string()),
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
-            area: None,
+            polygon_geojson: None,
+            osm_place_key: None,
         }))]);
         let mut throttle = MockThrottle {
             call_count: 0,
@@ -1468,6 +1357,7 @@ mod tests {
     #[test]
     fn builds_city_level_display_text_from_components() {
         let place = place_components_to_display_text(&PlaceComponents {
+            landmark: None,
             city: Some("Sydney".to_string()),
             region: Some("New South Wales".to_string()),
             country: Some("Australia".to_string()),
@@ -1476,8 +1366,37 @@ mod tests {
     }
 
     #[test]
+    fn includes_landmark_when_present_in_display_text() {
+        let place = place_components_to_display_text(&PlaceComponents {
+            landmark: Some("Taronga Zoo".to_string()),
+            city: Some("Sydney".to_string()),
+            region: Some("NSW".to_string()),
+            country: Some("Australia".to_string()),
+        });
+        assert_eq!(
+            place.as_deref(),
+            Some("Taronga Zoo, Sydney, NSW, Australia")
+        );
+    }
+
+    #[test]
+    fn shows_landmark_as_place_when_no_city() {
+        let place = place_components_to_display_text(&PlaceComponents {
+            landmark: Some("Yosemite National Park".to_string()),
+            city: None,
+            region: Some("California".to_string()),
+            country: Some("United States".to_string()),
+        });
+        assert_eq!(
+            place.as_deref(),
+            Some("Yosemite National Park, California, United States")
+        );
+    }
+
+    #[test]
     fn falls_back_to_region_and_country_when_city_is_missing() {
         let place = place_components_to_display_text(&PlaceComponents {
+            landmark: None,
             city: None,
             region: Some("Queensland".to_string()),
             country: Some("Australia".to_string()),
@@ -1488,12 +1407,15 @@ mod tests {
     #[test]
     fn builds_place_from_sparse_nominatim_display_name() {
         let result = map_nominatim_response_to_result(NominatimReverseResponse {
+            place_id: None,
+            osm_type: None,
+            osm_id: None,
             address: None,
             display_name: Some(
                 "Yosemite Valley, Mariposa County, California, United States".to_string(),
             ),
             name: None,
-            boundingbox: None,
+            geojson: None,
         })
         .expect("display name should provide a fallback place");
 
@@ -1504,50 +1426,86 @@ mod tests {
     }
 
     #[test]
-    fn builds_place_from_park_address_fields() {
+    fn extracts_polygon_from_nominatim_response() {
+        let polygon_json = r#"{"type":"Polygon","coordinates":[[[-119.8,37.7],[-119.6,37.7],[-119.6,37.8],[-119.8,37.8],[-119.8,37.7]]]}"#;
         let result = map_nominatim_response_to_result(NominatimReverseResponse {
-            address: Some(NominatimAddress {
-                national_park: Some("Yosemite National Park".to_string()),
-                state: Some("California".to_string()),
-                country: Some("United States".to_string()),
-                ..Default::default()
-            }),
-            display_name: None,
-            name: None,
-            boundingbox: None,
-        })
-        .expect("park address should provide a fallback place");
-
-        assert_eq!(
-            place_components_to_display_text(&result.components).as_deref(),
-            Some("Yosemite National Park, California, United States")
-        );
-    }
-
-    #[test]
-    fn maps_nominatim_bounding_box_to_area() {
-        let result = map_nominatim_response_to_result(NominatimReverseResponse {
+            place_id: None,
+            osm_type: Some("way".to_string()),
+            osm_id: Some(12345),
             address: Some(NominatimAddress {
                 city: Some("Yosemite Valley".to_string()),
                 state: Some("California".to_string()),
                 country: Some("United States".to_string()),
+                national_park: Some("Yosemite National Park".to_string()),
                 ..Default::default()
             }),
             display_name: None,
             name: None,
-            boundingbox: Some(vec![
-                "37.7000".to_string(),
-                "37.8000".to_string(),
-                "-119.8000".to_string(),
-                "-119.6000".to_string(),
-            ]),
+            geojson: Some(serde_json::from_str(polygon_json).expect("valid geojson")),
         })
         .expect("place should resolve");
 
-        let area = result.area.expect("bounding box should map to area");
-        assert!((area.center.latitude - 37.75).abs() < 0.00001);
-        assert!((area.center.longitude + 119.7).abs() < 0.00001);
-        assert!(area.radius_km > 0.0);
+        assert_eq!(result.osm_place_key.as_deref(), Some("osm:way:12345"));
+        let roundtrip: serde_json::Value =
+            serde_json::from_str(result.polygon_geojson.as_deref().unwrap()).expect("roundtrip");
+        let expected: serde_json::Value = serde_json::from_str(polygon_json).expect("expected");
+        assert_eq!(roundtrip, expected);
+    }
+
+    #[test]
+    fn point_in_simple_polygon() {
+        let polygon = serde_json::from_str::<Value>(
+            r#"{"type":"Polygon","coordinates":[[[0.0,0.0],[2.0,0.0],[2.0,2.0],[0.0,2.0],[0.0,0.0]]]}"#
+        ).expect("valid geojson");
+        let inside = GpsCoordinate {
+            latitude: 1.0,
+            longitude: 1.0,
+        };
+        let outside = GpsCoordinate {
+            latitude: 3.0,
+            longitude: 3.0,
+        };
+        assert!(point_in_geojson_polygon(&inside, &polygon));
+        assert!(!point_in_geojson_polygon(&outside, &polygon));
+    }
+
+    #[test]
+    fn point_in_multi_polygon() {
+        let multipolygon = serde_json::from_str::<Value>(
+            r#"{"type":"MultiPolygon","coordinates":[[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0],[0.0,0.0]]],[[[2.0,2.0],[3.0,2.0],[3.0,3.0],[2.0,3.0],[2.0,2.0]]]]}"#
+        ).expect("valid geojson");
+        let inside = GpsCoordinate {
+            latitude: 0.5,
+            longitude: 0.5,
+        };
+        let also_inside = GpsCoordinate {
+            latitude: 2.5,
+            longitude: 2.5,
+        };
+        let outside = GpsCoordinate {
+            latitude: 1.5,
+            longitude: 1.5,
+        };
+        assert!(point_in_geojson_polygon(&inside, &multipolygon));
+        assert!(point_in_geojson_polygon(&also_inside, &multipolygon));
+        assert!(!point_in_geojson_polygon(&outside, &multipolygon));
+    }
+
+    #[test]
+    fn point_outside_polygon_with_hole() {
+        let polygon = serde_json::from_str::<Value>(
+            r#"{"type":"Polygon","coordinates":[[[0.0,0.0],[3.0,0.0],[3.0,3.0],[0.0,3.0],[0.0,0.0]],[[1.0,1.0],[2.0,1.0],[2.0,2.0],[1.0,2.0],[1.0,1.0]]]}"#
+        ).expect("valid geojson");
+        let in_hole = GpsCoordinate {
+            latitude: 1.5,
+            longitude: 1.5,
+        };
+        let in_polygon = GpsCoordinate {
+            latitude: 0.5,
+            longitude: 0.5,
+        };
+        assert!(!point_in_geojson_polygon(&in_hole, &polygon));
+        assert!(point_in_geojson_polygon(&in_polygon, &polygon));
     }
 
     #[derive(Debug)]

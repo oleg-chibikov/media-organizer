@@ -70,15 +70,8 @@ impl Default for PlaceStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocationBucket {
-    pub bucket_id: String,
-    pub representative_coordinate: GpsCoordinate,
-    pub precision: u32,
-    pub media_count: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaceComponents {
+    pub landmark: Option<String>,
     pub city: Option<String>,
     pub region: Option<String>,
     pub country: Option<String>,
@@ -87,27 +80,28 @@ pub struct PlaceComponents {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaceCacheEntry {
     pub version: u32,
-    pub bucket_id: String,
+    pub osm_place_key: String,
     pub place: String,
     pub components: Option<PlaceComponents>,
     pub provider: String,
     pub resolved_at: String,
     pub last_used_at: String,
     #[serde(default)]
-    pub area_center: Option<GpsCoordinate>,
-    #[serde(default)]
-    pub area_radius_km: Option<f64>,
+    pub polygon_geojson: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaceLookupDiagnosticResult {
     pub coordinate: GpsCoordinate,
-    pub bucket_id: Option<String>,
+    pub cached: bool,
+    pub osm_place_key: Option<String>,
     pub provider: String,
     pub request_url: String,
     pub http_status: Option<u16>,
     pub display_place: Option<String>,
     pub components: Option<PlaceComponents>,
+    #[serde(default)]
+    pub polygon_geojson: Option<String>,
     pub raw_response: Option<Value>,
     pub error: Option<String>,
 }

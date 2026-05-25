@@ -20,14 +20,8 @@ export interface GpsCoordinate {
   longitude: number;
 }
 
-export interface LocationBucket {
-  bucket_id: string;
-  representative_coordinate: GpsCoordinate;
-  precision: number;
-  media_count: number;
-}
-
 export interface PlaceComponents {
+  landmark: string | null;
   city: string | null;
   region: string | null;
   country: string | null;
@@ -35,24 +29,25 @@ export interface PlaceComponents {
 
 export interface PlaceCacheEntry {
   version: number;
-  bucket_id: string;
+  osm_place_key: string;
   place: string;
   components: PlaceComponents | null;
   provider: string;
   resolved_at: string;
   last_used_at: string;
-  area_center: GpsCoordinate | null;
-  area_radius_km: number | null;
+  polygon_geojson: string | null;
 }
 
 export interface PlaceLookupDiagnosticResult {
   coordinate: GpsCoordinate;
-  bucket_id: string | null;
+  cached: boolean;
+  osm_place_key: string | null;
   provider: string;
   request_url: string;
   http_status: number | null;
   display_place: string | null;
   components: PlaceComponents | null;
+  polygon_geojson: string | null;
   raw_response: unknown | null;
   error: string | null;
 }

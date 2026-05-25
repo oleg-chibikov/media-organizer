@@ -133,7 +133,7 @@ describe("FileTable place display", () => {
     expect(screen.getByText("Lookup failed")).toBeInTheDocument();
     expect(screen.getByText("37.7749, -122.4194")).toBeInTheDocument();
     expect(screen.getByText("-33.8688, 151.2093")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Test" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Test" })).not.toBeInTheDocument();
     expect(
       screen.getAllByTitle(
         "Not available: GPS coordinates are present but place lookup did not produce a place. (Coordinates: -33.8688, 151.2093)"
@@ -175,16 +175,20 @@ describe("FileTable place display", () => {
   it("runs a diagnostic place lookup for a GPS row", async () => {
     mockedTestPlaceLookup.mockResolvedValueOnce({
       coordinate: { latitude: 37.723511, longitude: -119.718558 },
-      bucket_id: "v1:377:-1198",
+      cached: false,
+      osm_place_key: "osm:way:12345",
       provider: "nominatim",
       request_url: "https://nominatim.openstreetmap.org/reverse?lat=37.723511",
       http_status: 200,
       display_place: "Yosemite Valley, California, United States",
       components: {
+        landmark: null,
         city: "Yosemite Valley",
         region: "California",
         country: "United States"
       },
+      polygon_geojson:
+        '{"type":"Polygon","coordinates":[[[-119.8,37.7],[-119.6,37.7],[-119.6,37.8],[-119.8,37.8],[-119.8,37.7]]]}',
       raw_response: {
         display_name: "Yosemite Valley, Mariposa County, California, United States"
       },
@@ -208,22 +212,24 @@ describe("FileTable place display", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Test" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lookup failed" }));
 
     expect(mockedTestPlaceLookup).toHaveBeenCalledWith({
       latitude: 37.723511,
       longitude: -119.718558
     });
     await waitFor(() => {
-      expect(
-        screen.getByText("200: Yosemite Valley, California, United States")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Place Details")).toBeInTheDocument();
     });
     expect(screen.getByText("Yosemite Valley, California, United States")).toBeInTheDocument();
+    expect(screen.getByText("Cached: No")).toBeInTheDocument();
     expect(
-      screen.getAllByTitle(
-        "Diagnostic lookup: Yosemite Valley, California, United States | HTTP: 200 | Provider: nominatim | Coordinates: 37.723511, -119.718558"
-      ).length
-    ).toBeGreaterThan(0);
+      screen.getByText("https://nominatim.openstreetmap.org/reverse?lat=37.723511")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /"display_name": "Yosemite Valley, Mariposa County, California, United States"/
+      )
+    ).toBeInTheDocument();
   });
 });

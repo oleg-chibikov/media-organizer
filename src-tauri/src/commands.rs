@@ -241,12 +241,15 @@ pub async fn read_metadata_for_files(
 #[tauri::command]
 pub async fn test_place_lookup(
     coordinate: GpsCoordinate,
+    app: AppHandle,
 ) -> Result<PlaceLookupDiagnosticResult, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve appData directory: {error}"))?;
+
     tauri::async_runtime::spawn_blocking(move || {
-        let provider = location::NominatimReverseGeocodeProvider::new(
-            location::NominatimReverseGeocodeProvider::default_user_agent(),
-        )?;
-        provider.diagnostic_lookup(&coordinate)
+        location::diagnostic_lookup_with_cache(&app_data_dir, &coordinate)
     })
     .await
     .map_err(|error| format!("Place lookup diagnostic task failed: {error}"))?
@@ -2247,7 +2250,7 @@ mod tests {
     }
 
     #[test]
-    fn scan_result_resolves_cached_place_for_same_bucket_files() {
+    fn scan_result_resolves_cached_place_for_same_polygon_files() {
         let temp = tempdir().expect("temp dir");
         let coordinate_a = GpsCoordinate {
             latitude: -33.8688,
@@ -2257,16 +2260,17 @@ mod tests {
             latitude: -33.8612,
             longitude: 151.2041,
         };
-        let bucket = location::bucket_for_coordinate(&coordinate_a).expect("bucket should exist");
+        let sydney_polygon = r#"{"type":"Polygon","coordinates":[[[151.0,-34.0],[152.0,-34.0],[152.0,-33.0],[151.0,-33.0],[151.0,-34.0]]]}"#;
 
         let mut cache_entries = HashMap::new();
         cache_entries.insert(
-            bucket.bucket_id.clone(),
+            "osm:relation:12345".to_string(),
             PlaceCacheEntry {
                 version: location::PLACE_CACHE_VERSION,
-                bucket_id: bucket.bucket_id.clone(),
+                osm_place_key: "osm:relation:12345".to_string(),
                 place: "Sydney, NSW, Australia".to_string(),
                 components: Some(PlaceComponents {
+                    landmark: None,
                     city: Some("Sydney".to_string()),
                     region: Some("NSW".to_string()),
                     country: Some("Australia".to_string()),
@@ -2274,8 +2278,7 @@ mod tests {
                 provider: "test".to_string(),
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
-                area_center: Some(coordinate_a.clone()),
-                area_radius_km: Some(50.0),
+                polygon_geojson: Some(sydney_polygon.to_string()),
             },
         );
         location::save_place_cache(temp.path(), &cache_entries).expect("cache should save");
@@ -2359,7 +2362,7 @@ mod tests {
         .expect("resolution should succeed");
 
         assert!(matches!(results[0].metadata_status, MetadataStatus::Ready));
-        assert!(results[0].place_bucket_id.is_some());
+        assert!(results[0].place_bucket_id.is_none());
         assert_eq!(results[0].place_status, PlaceStatus::Pending);
         assert!(results[0].place.is_none());
         assert!(results[0].place_error.is_none());
