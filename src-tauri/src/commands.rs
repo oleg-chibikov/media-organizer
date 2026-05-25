@@ -1570,12 +1570,18 @@ fn emit_move_progress_message(
 
 fn cleanup_empty_source_directories(selected_root: &Path, source_directories: &[PathBuf]) {
     let mut visited = HashSet::new();
+    let mut cleaned_any_directory = false;
 
     for directory in source_directories {
         let key = normalized_path_string(directory);
         if visited.insert(key) {
             prune_empty_directory_chain(selected_root, directory);
+            cleaned_any_directory = true;
         }
+    }
+
+    if cleaned_any_directory {
+        remove_empty_selected_root(selected_root);
     }
 }
 
@@ -1610,6 +1616,21 @@ fn prune_empty_directory_chain(selected_root: &Path, start_directory: &Path) {
             break;
         };
         current = parent.to_path_buf();
+    }
+}
+
+fn remove_empty_selected_root(selected_root: &Path) {
+    if !selected_root.is_dir() {
+        return;
+    }
+
+    let is_empty = match fs::read_dir(selected_root) {
+        Ok(mut entries) => entries.next().is_none(),
+        Err(_) => false,
+    };
+
+    if is_empty {
+        let _ = fs::remove_dir(selected_root);
     }
 }
 
@@ -1652,38 +1673,51 @@ mod tests {
     #[test]
     fn removes_empty_source_directory_chain_after_moves() {
         let temp = tempdir().expect("temp dir");
-        let selected_root = temp.path();
+        let selected_root = temp.path().join("todo");
         let nested = selected_root.join("a").join("b");
         fs::create_dir_all(&nested).expect("create nested source dirs");
 
-        cleanup_empty_source_directories(selected_root, &[nested.clone()]);
+        cleanup_empty_source_directories(&selected_root, &[nested.clone()]);
 
         assert!(!nested.exists());
         assert!(!selected_root.join("a").exists());
-        assert!(selected_root.exists());
+        assert!(!selected_root.exists());
     }
 
     #[test]
     fn stops_pruning_when_parent_contains_files() {
         let temp = tempdir().expect("temp dir");
-        let selected_root = temp.path();
+        let selected_root = temp.path().join("todo");
         let parent = selected_root.join("a");
         let nested = parent.join("b");
         fs::create_dir_all(&nested).expect("create nested source dirs");
         fs::write(parent.join("keep.txt"), b"keep").expect("write retained file");
 
-        cleanup_empty_source_directories(selected_root, &[nested.clone()]);
+        cleanup_empty_source_directories(&selected_root, &[nested.clone()]);
 
         assert!(!nested.exists());
         assert!(parent.exists());
     }
 
     #[test]
-    fn never_removes_selected_root() {
+    fn removes_selected_root_when_processing_leaves_it_empty() {
         let temp = tempdir().expect("temp dir");
-        let selected_root = temp.path();
+        let selected_root = temp.path().join("todo");
+        fs::create_dir_all(&selected_root).expect("create selected root");
 
-        cleanup_empty_source_directories(selected_root, &[selected_root.to_path_buf()]);
+        cleanup_empty_source_directories(&selected_root, &[selected_root.to_path_buf()]);
+
+        assert!(!selected_root.exists());
+    }
+
+    #[test]
+    fn keeps_selected_root_when_it_still_contains_files() {
+        let temp = tempdir().expect("temp dir");
+        let selected_root = temp.path().join("todo");
+        fs::create_dir_all(&selected_root).expect("create selected root");
+        fs::write(selected_root.join("keep.txt"), b"keep").expect("write retained file");
+
+        cleanup_empty_source_directories(&selected_root, &[selected_root.to_path_buf()]);
 
         assert!(selected_root.exists());
     }
