@@ -10,29 +10,22 @@ interface HistoryDetailsPanelProps {
 }
 
 const COLUMNS = [
-  { key: "time", label: "Time" },
-  { key: "file", label: "File" },
-  { key: "size", label: "Size" },
-  { key: "status", label: "Status" },
   { key: "source", label: "Source" },
   { key: "destination", label: "Destination" },
-  { key: "error", label: "Error" }
+  { key: "status", label: "Status" }
 ] as const;
 
 type ColumnKey = (typeof COLUMNS)[number]["key"];
 
 type TableRowData = {
   id: string;
+  error: string;
 } & Record<ColumnKey, string>;
 
 const DEFAULT_COLUMN_SIZING: ColumnSizingState = {
-  time: 170,
-  file: 200,
-  size: 90,
-  status: 90,
-  source: 220,
-  destination: 220,
-  error: 220
+  source: 300,
+  destination: 300,
+  status: 120
 };
 
 export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsPanelProps) {
@@ -40,13 +33,10 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
     () =>
       details?.operations.map((operation) => ({
         id: operation.operation_id,
-        time: formatHistoryTime(operation.timestamp),
-        file: operation.original_name,
-        size: formatFileSize(operation.expected_destination_size ?? operation.expected_source_size),
         status: formatOperationStatus(operation.status),
         source: operation.source_path,
         destination: operation.destination_path,
-        error: operation.error ?? "-"
+        error: operation.error ?? ""
       })) ?? [],
     [details]
   );
@@ -59,13 +49,13 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
         accessorKey: column.key,
         cell: (context) => {
           const value = String(context.getValue() ?? "");
-          const isNarrow = column.key === "time" || column.key === "size";
           const isPath = column.key === "source" || column.key === "destination";
-          const isError = column.key === "error";
+          const error = context.row.original.error;
+          const title = column.key === "status" && error ? `${value}: ${error}` : value;
           return (
             <div
-              className={`truncate px-2 py-1 ${isNarrow ? "font-mono text-slate-400" : ""} ${isPath ? "font-mono text-slate-400" : ""} ${isError ? "text-rose-400" : ""}`}
-              title={value}
+              className={`truncate px-2 py-1 ${isPath ? "font-mono text-slate-400" : ""} ${column.key === "status" && error ? "text-rose-400" : ""}`}
+              title={title}
             >
               {value}
             </div>
@@ -114,33 +104,6 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
       )}
     </section>
   );
-}
-
-function formatHistoryTime(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return timestamp;
-  }
-  const dateStr = date.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
-  const timeStr = date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false
-  });
-  return `${dateStr}\u00A0\u00A0${timeStr}`;
-}
-
-function formatFileSize(bytes: number | null): string {
-  if (bytes === null || bytes === undefined) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function formatOperationStatus(status: string): string {

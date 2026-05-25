@@ -70,16 +70,19 @@ const DETAILS: HistoryRunDetails = {
 };
 
 describe("HistoryDetailsPanel", () => {
-  it("renders operation records without a kind column", () => {
+  it("renders source/destination/status and exposes errors via status tooltip", () => {
     render(<HistoryDetailsPanel details={DETAILS} loading={false} error={null} />);
 
     expect(screen.getByText("History Details")).toBeInTheDocument();
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();
     expect(screen.queryByText("Kind")).not.toBeInTheDocument();
-    expect(screen.getAllByText("IMG_1")).toHaveLength(3);
+    expect(screen.queryByText("Time")).not.toBeInTheDocument();
+    expect(screen.queryByText("File")).not.toBeInTheDocument();
+    expect(screen.queryByText("Size")).not.toBeInTheDocument();
+    expect(screen.queryByText("Error")).not.toBeInTheDocument();
     expect(screen.getByText("Blocked")).toBeInTheDocument();
     expect(screen.getByText("Failed")).toBeInTheDocument();
-    expect(screen.getByText("Destination already exists")).toBeInTheDocument();
-    expect(screen.getByText("File missing")).toBeInTheDocument();
+    expect(screen.getByTitle("Blocked: Destination already exists")).toBeInTheDocument();
+    expect(screen.getByTitle("Failed: File missing")).toBeInTheDocument();
   });
 });
