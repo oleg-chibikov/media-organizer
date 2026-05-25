@@ -3,7 +3,6 @@ import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
-import { Button } from "./components/Button";
 import {
   attachHistoryListeners,
   attachMoveListeners,
@@ -1080,58 +1079,26 @@ export default function App() {
         />
       </main>
 
-      <section className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="font-semibold text-slate-200">Execution Summary</span>
-          {confirmationSummary.total_plans > 0 ? (
-            <>
-              <span>Ready: {confirmationSummary.ready_operations}</span>
-              <span>Skipped: {confirmationSummary.skipped_operations}</span>
-              <span>Warnings: {confirmationSummary.fallback_warnings}</span>
-              <span>Suffixes: {confirmationSummary.suffix_applied}</span>
-            </>
-          ) : (
-            <span className="text-slate-500">No move summary yet</span>
-          )}
-          <Button
-            variant="secondary"
-            className="ml-auto bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-500"
-            disabled={moveCompleted || !hasPendingExecutableItems}
-            onClick={handleExecutionAction}
-          >
-            {moveCompleted
-              ? "Complete"
-              : !executionConfirmed
-                ? "Confirm & Execute"
-                : isMoveDispatchPaused
-                  ? "Resume Dispatch"
-                  : "Pause Dispatch"}
-          </Button>
-        </div>
-        {executionConfirmed && !moveCompleted ? (
-          <p className={`mt-1 ${isMoveDispatchPaused ? "text-amber-400" : "text-emerald-400"}`}>
-            {isMoveDispatchPaused
-              ? "Move dispatch paused. In-flight jobs may still complete."
-              : "Execution explicitly confirmed."}
-          </p>
-        ) : null}
-      </section>
-
       <StatusBar
         discovered={discovered}
         skipped={skipped}
         errors={errors}
         planErrors={planErrors}
+        confirmationSummary={confirmationSummary}
+        executionConfirmed={executionConfirmed}
         isPlanning={isPlanning}
         planCompleted={planCompleted}
         completed={completed}
         cancelled={cancelled}
         isExecutingMoves={isExecutingMoves}
+        isMoveDispatchPaused={isMoveDispatchPaused}
         moveCompleted={moveCompleted}
         moved={movedCount}
         copied={copiedCount}
         moveSkipped={moveSkippedCount}
         moveFailed={moveFailedCount}
+        hasPendingExecutableItems={hasPendingExecutableItems}
+        onExecutionAction={handleExecutionAction}
       />
 
       <div className="border-t border-slate-800 px-3 py-1 text-xs text-slate-500">
