@@ -25,7 +25,6 @@ const NOMINATIM_BASE_URL: &str = "https://nominatim.openstreetmap.org/reverse";
 const NOMINATIM_PROVIDER_NAME: &str = "nominatim";
 const NOMINATIM_MIN_INTERVAL: Duration = Duration::from_millis(1_100);
 const NOMINATIM_TIMEOUT: Duration = Duration::from_secs(8);
-const DEFAULT_PLACE_AREA_RADIUS_KM: f64 = 50.0;
 const SPATIAL_INDEX_CELL_DEGREES: f64 = 1.0;
 
 #[derive(Debug, Clone)]
@@ -51,6 +50,13 @@ pub struct ReverseGeocodeRequestMetadata {
 #[derive(Debug, Clone)]
 pub struct ReverseGeocodeResult {
     pub components: PlaceComponents,
+    pub area: Option<ResolvedPlaceArea>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResolvedPlaceArea {
+    pub center: GpsCoordinate,
+    pub radius_km: f64,
 }
 
 pub trait ReverseGeocodeProvider {
@@ -288,6 +294,8 @@ struct NominatimReverseResponse {
     address: Option<NominatimAddress>,
     display_name: Option<String>,
     name: Option<String>,
+    #[serde(default)]
+    boundingbox: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -542,6 +550,8 @@ pub fn apply_place_resolution_with_provider(
                 Ok(Some(lookup)) => {
                     if let Some(display_text) = place_components_to_display_text(&lookup.components)
                     {
+                        let area_center = lookup.area.as_ref().map(|value| value.center.clone());
+                        let area_radius_km = lookup.area.as_ref().map(|value| value.radius_km);
                         let area_entry = PlaceCacheEntry {
                             version: PLACE_CACHE_VERSION,
                             bucket_id: pending.area_id.clone(),
@@ -550,8 +560,8 @@ pub fn apply_place_resolution_with_provider(
                             provider: provider.provider_name().to_string(),
                             resolved_at: metadata.requested_at.clone(),
                             last_used_at: metadata.requested_at.clone(),
-                            area_center: Some(pending.coordinate.clone()),
-                            area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
+                            area_center,
+                            area_radius_km,
                         };
                         cache.insert(pending.area_id.clone(), area_entry);
                         if let Some(entry) = cache.get(&pending.area_id) {
@@ -674,7 +684,7 @@ fn haversine_distance_km(a: &GpsCoordinate, b: &GpsCoordinate) -> f64 {
     let lat1 = a.latitude.to_radians();
     let lat2 = b.latitude.to_radians();
     let d_lat = (b.latitude - a.latitude).to_radians();
-    let d_lon = (b.longitude - a.longitude).to_radians();
+    let d_lon = normalize_longitude(b.longitude - a.longitude).to_radians();
 
     let sin_d_lat = (d_lat / 2.0).sin();
     let sin_d_lon = (d_lon / 2.0).sin();
@@ -683,9 +693,17 @@ fn haversine_distance_km(a: &GpsCoordinate, b: &GpsCoordinate) -> f64 {
     EARTH_RADIUS_KM * arc
 }
 
+fn normalize_longitude(value: f64) -> f64 {
+    (value + 180.0).rem_euclid(360.0) - 180.0
+}
+
 fn map_nominatim_response_to_result(
     response: NominatimReverseResponse,
 ) -> Option<ReverseGeocodeResult> {
+    let area = response
+        .boundingbox
+        .as_deref()
+        .and_then(parse_nominatim_bounding_box);
     let fallback_components = response
         .display_name
         .as_deref()
@@ -712,7 +730,7 @@ fn map_nominatim_response_to_result(
         })
         .or(fallback_components)?;
 
-    Some(ReverseGeocodeResult { components })
+    Some(ReverseGeocodeResult { components, area })
 }
 
 fn map_nominatim_address_to_components(address: NominatimAddress) -> PlaceComponents {
@@ -778,6 +796,65 @@ fn place_components_from_display_name(display_name: &str) -> Option<PlaceCompone
         region,
         country,
     })
+}
+
+fn parse_nominatim_bounding_box(values: &[String]) -> Option<ResolvedPlaceArea> {
+    if values.len() != 4 {
+        return None;
+    }
+
+    let south = values.first()?.parse::<f64>().ok()?;
+    let north = values.get(1)?.parse::<f64>().ok()?;
+    let west = values.get(2)?.parse::<f64>().ok()?;
+    let east = values.get(3)?.parse::<f64>().ok()?;
+
+    if !south.is_finite()
+        || !north.is_finite()
+        || !west.is_finite()
+        || !east.is_finite()
+        || !(-90.0..=90.0).contains(&south)
+        || !(-90.0..=90.0).contains(&north)
+        || !(-180.0..=180.0).contains(&west)
+        || !(-180.0..=180.0).contains(&east)
+        || south > north
+    {
+        return None;
+    }
+
+    let east_unwrapped = if east < west { east + 360.0 } else { east };
+    let center = GpsCoordinate {
+        latitude: (south + north) / 2.0,
+        longitude: normalize_longitude((west + east_unwrapped) / 2.0),
+    };
+
+    let corners = [
+        GpsCoordinate {
+            latitude: south,
+            longitude: west,
+        },
+        GpsCoordinate {
+            latitude: south,
+            longitude: normalize_longitude(east_unwrapped),
+        },
+        GpsCoordinate {
+            latitude: north,
+            longitude: west,
+        },
+        GpsCoordinate {
+            latitude: north,
+            longitude: normalize_longitude(east_unwrapped),
+        },
+    ];
+    let radius_km = corners
+        .iter()
+        .map(|corner| haversine_distance_km(&center, corner))
+        .fold(0.0, f64::max);
+
+    if !radius_km.is_finite() || radius_km <= 0.0 {
+        return None;
+    }
+
+    Some(ResolvedPlaceArea { center, radius_km })
 }
 
 pub fn place_components_to_display_text(components: &PlaceComponents) -> Option<String> {
@@ -949,8 +1026,8 @@ mod tests {
         apply_cache_to_metadata_results, apply_place_resolution_with_provider,
         bucket_for_coordinate, load_place_cache, map_nominatim_response_to_result,
         place_cache_path, place_components_to_display_text, save_place_cache, LookupThrottle,
-        NominatimAddress, NominatimReverseResponse, PlaceLookupOptions, ReverseGeocodeProvider,
-        ReverseGeocodeRequestMetadata, ReverseGeocodeResult, DEFAULT_PLACE_AREA_RADIUS_KM,
+        NominatimAddress, NominatimReverseResponse, PlaceLookupOptions, ResolvedPlaceArea,
+        ReverseGeocodeProvider, ReverseGeocodeRequestMetadata, ReverseGeocodeResult,
         LOCATION_BUCKET_PRECISION_VERSION, PLACE_CACHE_VERSION,
     };
     use crate::models::{
@@ -1032,7 +1109,7 @@ mod tests {
                     latitude: -33.8688,
                     longitude: 151.2093,
                 }),
-                area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
+                area_radius_km: Some(50.0),
             },
         );
 
@@ -1087,7 +1164,7 @@ mod tests {
                 resolved_at: "2026-05-25T00:00:00Z".to_string(),
                 last_used_at: "2026-05-25T00:00:00Z".to_string(),
                 area_center: Some(coordinate.clone()),
-                area_radius_km: Some(DEFAULT_PLACE_AREA_RADIUS_KM),
+                area_radius_km: Some(50.0),
             },
         );
         save_place_cache(temp.path(), &entries).expect("cache should save");
@@ -1134,6 +1211,7 @@ mod tests {
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
+            area: None,
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1165,6 +1243,52 @@ mod tests {
     }
 
     #[test]
+    fn stores_provider_area_in_cache_for_uncached_bucket() {
+        let temp = tempdir().expect("temp dir");
+        let coordinate = GpsCoordinate {
+            latitude: 37.723511,
+            longitude: -119.718558,
+        };
+        let bucket = bucket_for_coordinate(&coordinate).expect("bucket should exist");
+        let expected_center = GpsCoordinate {
+            latitude: 37.75,
+            longitude: -119.70,
+        };
+        let expected_radius_km = 12.5;
+        let mut results = vec![metadata_result_with_coordinate("file-1", coordinate)];
+        let provider = MockProvider::with_results(vec![Ok(Some(ReverseGeocodeResult {
+            components: PlaceComponents {
+                city: Some("Yosemite Valley".to_string()),
+                region: Some("California".to_string()),
+                country: Some("United States".to_string()),
+            },
+            area: Some(ResolvedPlaceArea {
+                center: expected_center.clone(),
+                radius_km: expected_radius_km,
+            }),
+        }))]);
+        let mut throttle = MockThrottle::default();
+
+        apply_place_resolution_with_provider(
+            temp.path(),
+            &mut results,
+            &PlaceLookupOptions {
+                enable_online_lookup: true,
+            },
+            &provider,
+            &mut throttle,
+        )
+        .expect("lookup should resolve");
+
+        let cache = load_place_cache(temp.path()).expect("cache should load");
+        let entry = cache
+            .get(&bucket.bucket_id)
+            .expect("bucket entry should be cached");
+        assert_eq!(entry.area_center.as_ref(), Some(&expected_center));
+        assert_eq!(entry.area_radius_km, Some(expected_radius_km));
+    }
+
+    #[test]
     fn uses_first_source_coordinate_for_uncached_bucket_lookup() {
         let temp = tempdir().expect("temp dir");
         let coordinate = GpsCoordinate {
@@ -1184,6 +1308,7 @@ mod tests {
                 region: Some("California".to_string()),
                 country: Some("United States".to_string()),
             },
+            area: None,
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1281,6 +1406,7 @@ mod tests {
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
+            area: None,
         }))]);
         let mut throttle = MockThrottle::default();
 
@@ -1317,6 +1443,7 @@ mod tests {
                 region: Some("NSW".to_string()),
                 country: Some("Australia".to_string()),
             },
+            area: None,
         }))]);
         let mut throttle = MockThrottle {
             call_count: 0,
@@ -1366,6 +1493,7 @@ mod tests {
                 "Yosemite Valley, Mariposa County, California, United States".to_string(),
             ),
             name: None,
+            boundingbox: None,
         })
         .expect("display name should provide a fallback place");
 
@@ -1386,6 +1514,7 @@ mod tests {
             }),
             display_name: None,
             name: None,
+            boundingbox: None,
         })
         .expect("park address should provide a fallback place");
 
@@ -1393,6 +1522,32 @@ mod tests {
             place_components_to_display_text(&result.components).as_deref(),
             Some("Yosemite National Park, California, United States")
         );
+    }
+
+    #[test]
+    fn maps_nominatim_bounding_box_to_area() {
+        let result = map_nominatim_response_to_result(NominatimReverseResponse {
+            address: Some(NominatimAddress {
+                city: Some("Yosemite Valley".to_string()),
+                state: Some("California".to_string()),
+                country: Some("United States".to_string()),
+                ..Default::default()
+            }),
+            display_name: None,
+            name: None,
+            boundingbox: Some(vec![
+                "37.7000".to_string(),
+                "37.8000".to_string(),
+                "-119.8000".to_string(),
+                "-119.6000".to_string(),
+            ]),
+        })
+        .expect("place should resolve");
+
+        let area = result.area.expect("bounding box should map to area");
+        assert!((area.center.latitude - 37.75).abs() < 0.00001);
+        assert!((area.center.longitude + 119.7).abs() < 0.00001);
+        assert!(area.radius_km > 0.0);
     }
 
     #[derive(Debug)]
