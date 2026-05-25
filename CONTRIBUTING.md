@@ -2,8 +2,7 @@
 
 ## Ground Rules
 
-- Use `mise x -- <command> ...` for all project tools.
-- Do not run `cargo`, `node`, `pnpm`, `npm`, or `tauri` directly.
+- Follow repository automation rules in `AGENTS.md`.
 - Keep frontend command/event names in sync with Rust command handlers and event constants.
 - Preserve filesystem safety rules: no overwrites, validate roots, and prefer preserving source files over completing risky moves.
 - Update specs/tasks only when the work is explicitly tied to a spec task.
@@ -18,14 +17,7 @@
 
 ## Validation
 
-Run the smallest meaningful check for the change, then broader checks before committing when practical:
-
-```powershell
-mise x -- pnpm test
-mise x -- pnpm lint
-mise x -- cargo test --manifest-path src-tauri/Cargo.toml
-mise x -- pnpm build
-```
+Run the smallest meaningful check for the change, then broader checks before committing when practical. Use the command wrapper defined in `AGENTS.md`.
 
 ## Commit Policy
 
