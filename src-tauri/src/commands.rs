@@ -22,7 +22,7 @@ use crate::{
         HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus, HistoryUndoProgressEvent,
         MetadataReadRequest, MetadataResult, MetadataStatus, MoveConfirmationSummary,
         MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent, MoveProgressPhase,
-        MoveResult, MoveResultStatus, MoveStrategy, ProcessingConfig,
+        MoveResult, MoveResultStatus, MoveStrategy, PlaceStatus, ProcessingConfig,
     },
     mover, planner, scanner, settings,
 };
@@ -363,6 +363,12 @@ fn metadata_result_from_raw(
             date_kind: Some(date.date_kind),
             raw_metadata_date: Some(date.raw_metadata_date),
             device_name: raw_dates.device_name,
+            gps_coordinate: None,
+            gps_source: None,
+            place_bucket_id: None,
+            place_status: PlaceStatus::NotAvailable,
+            place: None,
+            place_error: None,
             metadata_status: MetadataStatus::Ready,
             error: restart_warning,
         };
@@ -375,6 +381,12 @@ fn metadata_result_from_raw(
         date_kind: None,
         raw_metadata_date: None,
         device_name: raw_dates.device_name,
+        gps_coordinate: None,
+        gps_source: None,
+        place_bucket_id: None,
+        place_status: PlaceStatus::NotAvailable,
+        place: None,
+        place_error: None,
         metadata_status: MetadataStatus::NoDate,
         error: restart_warning,
     }
@@ -388,6 +400,12 @@ fn metadata_error_result(file_id: String, error: String) -> MetadataResult {
         date_kind: None,
         raw_metadata_date: None,
         device_name: None,
+        gps_coordinate: None,
+        gps_source: None,
+        place_bucket_id: None,
+        place_status: PlaceStatus::NotAvailable,
+        place: None,
+        place_error: None,
         metadata_status: MetadataStatus::Error,
         error: Some(error),
     }
@@ -1667,7 +1685,7 @@ mod tests {
     use crate::models::{
         FileKind, FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
         HistoryRunStatus, MetadataResult, MetadataStatus, MovePlan, MoveResult, MoveResultStatus,
-        MoveStrategy, PlanStatus, ScanStatus,
+        MoveStrategy, PlaceStatus, PlanStatus, ScanStatus,
     };
 
     #[test]
@@ -1744,6 +1762,12 @@ mod tests {
             date_kind: None,
             raw_metadata_date: None,
             device_name: None,
+            gps_coordinate: None,
+            gps_source: None,
+            place_bucket_id: None,
+            place_status: PlaceStatus::NotAvailable,
+            place: None,
+            place_error: None,
             metadata_status: MetadataStatus::Ready,
             error: None,
         };

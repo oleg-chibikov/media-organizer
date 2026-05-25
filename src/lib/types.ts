@@ -13,6 +13,35 @@ export interface FileRecord {
 
 export type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
 export type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
+export type PlaceStatus = "not_available" | "pending" | "resolved" | "failed";
+
+export interface GpsCoordinate {
+  latitude: number;
+  longitude: number;
+}
+
+export interface LocationBucket {
+  bucket_id: string;
+  representative_coordinate: GpsCoordinate;
+  precision: number;
+  media_count: number;
+}
+
+export interface PlaceComponents {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+}
+
+export interface PlaceCacheEntry {
+  version: number;
+  bucket_id: string;
+  place: string;
+  components: PlaceComponents | null;
+  provider: string;
+  resolved_at: string;
+  last_used_at: string;
+}
 
 export interface MetadataResult {
   file_id: string;
@@ -21,6 +50,12 @@ export interface MetadataResult {
   date_kind: DateKind | null;
   raw_metadata_date: string | null;
   device_name: string | null;
+  gps_coordinate?: GpsCoordinate | null;
+  gps_source?: string | null;
+  place_bucket_id?: string | null;
+  place_status?: PlaceStatus | null;
+  place?: string | null;
+  place_error?: string | null;
   metadata_status: MetadataStatus;
   error: string | null;
 }

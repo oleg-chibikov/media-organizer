@@ -251,7 +251,7 @@ mod tests {
 
     use super::{allocate_destination_path, create_plan_for_file};
     use crate::models::{
-        FileKind, FileRecord, MetadataResult, MetadataStatus, PlanStatus, ScanStatus,
+        FileKind, FileRecord, MetadataResult, MetadataStatus, PlaceStatus, PlanStatus, ScanStatus,
     };
 
     fn file_record(id: &str, extension: &str) -> FileRecord {
@@ -274,6 +274,12 @@ mod tests {
             date_kind: None,
             raw_metadata_date: Some(chosen_date.to_string()),
             device_name: Some("iPhone 15 Pro".to_string()),
+            gps_coordinate: None,
+            gps_source: None,
+            place_bucket_id: None,
+            place_status: PlaceStatus::NotAvailable,
+            place: None,
+            place_error: None,
             metadata_status: MetadataStatus::Ready,
             error: None,
         }

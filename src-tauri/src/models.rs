@@ -47,6 +47,53 @@ pub enum MetadataStatus {
     ExiftoolRestarted,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GpsCoordinate {
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaceStatus {
+    NotAvailable,
+    Pending,
+    Resolved,
+    Failed,
+}
+
+impl Default for PlaceStatus {
+    fn default() -> Self {
+        Self::NotAvailable
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationBucket {
+    pub bucket_id: String,
+    pub representative_coordinate: GpsCoordinate,
+    pub precision: u32,
+    pub media_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceComponents {
+    pub city: Option<String>,
+    pub region: Option<String>,
+    pub country: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceCacheEntry {
+    pub version: u32,
+    pub bucket_id: String,
+    pub place: String,
+    pub components: Option<PlaceComponents>,
+    pub provider: String,
+    pub resolved_at: String,
+    pub last_used_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetadataResult {
     pub file_id: String,
@@ -55,6 +102,18 @@ pub struct MetadataResult {
     pub date_kind: Option<DateKind>,
     pub raw_metadata_date: Option<String>,
     pub device_name: Option<String>,
+    #[serde(default)]
+    pub gps_coordinate: Option<GpsCoordinate>,
+    #[serde(default)]
+    pub gps_source: Option<String>,
+    #[serde(default)]
+    pub place_bucket_id: Option<String>,
+    #[serde(default)]
+    pub place_status: PlaceStatus,
+    #[serde(default)]
+    pub place: Option<String>,
+    #[serde(default)]
+    pub place_error: Option<String>,
     pub metadata_status: MetadataStatus,
     pub error: Option<String>,
 }
@@ -375,4 +434,33 @@ pub struct EffectiveDestinationRoot {
     pub custom_root_configured: bool,
     pub force_processed_folder: bool,
     pub warning: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MetadataResult, PlaceStatus};
+
+    #[test]
+    fn metadata_result_defaults_location_fields_when_missing() {
+        let legacy_payload = r#"{
+            "file_id":"file-1",
+            "chosen_date":"2026-05-24T00:00:00Z",
+            "chosen_date_source":"DateTimeOriginal",
+            "date_kind":"timezone_aware",
+            "raw_metadata_date":"2026:05:24 00:00:00",
+            "device_name":"Camera",
+            "metadata_status":"ready",
+            "error":null
+        }"#;
+
+        let parsed: MetadataResult = serde_json::from_str(legacy_payload)
+            .expect("legacy metadata payload should deserialize");
+
+        assert!(parsed.gps_coordinate.is_none());
+        assert!(parsed.gps_source.is_none());
+        assert!(parsed.place_bucket_id.is_none());
+        assert_eq!(parsed.place_status, PlaceStatus::NotAvailable);
+        assert!(parsed.place.is_none());
+        assert!(parsed.place_error.is_none());
+    }
 }

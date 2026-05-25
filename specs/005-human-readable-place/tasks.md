@@ -5,9 +5,9 @@
 
 ## Phase 1: Shared Models
 
-- [ ] T001 Add Rust models for GPS coordinate, place status, location bucket, and place cache entry.
-- [ ] T002 Add TypeScript payload types for GPS and place fields.
-- [ ] T003 Extend metadata result serialization with optional GPS and place fields while preserving compatibility for missing fields.
+- [x] T001 Add Rust models for GPS coordinate, place status, location bucket, and place cache entry.
+- [x] T002 Add TypeScript payload types for GPS and place fields.
+- [x] T003 Extend metadata result serialization with optional GPS and place fields while preserving compatibility for missing fields.
 
 ## Phase 2: GPS Metadata Extraction
 
