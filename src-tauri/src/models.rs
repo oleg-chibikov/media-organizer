@@ -296,6 +296,8 @@ pub struct HistoryIndexEntry {
     pub run_id: String,
     pub folder_label: String,
     pub selected_folder: String,
+    #[serde(default)]
+    pub destination_root_path: Option<String>,
     pub started_at: String,
     pub completed_at: Option<String>,
     pub run_status: HistoryRunStatus,

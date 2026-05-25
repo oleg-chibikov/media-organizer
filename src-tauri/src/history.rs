@@ -272,6 +272,7 @@ fn list_history_runs_from_root(history_root: &Path) -> Result<Vec<HistoryIndexEn
             })
             .count() as u64;
         let mut next_entry = entry.clone();
+        next_entry.destination_root_path = recovered.run.destination_root_path.clone();
         next_entry.completed_at = recovered.run.completed_at.clone();
         next_entry.run_status = recovered.run.run_status.clone();
         next_entry.files_migrated = files_migrated;
@@ -483,7 +484,7 @@ fn run_from_index_entry(entry: &HistoryIndexEntry) -> HistoryRun {
         selected_folder: entry.selected_folder.clone(),
         folder_label: entry.folder_label.clone(),
         destination_root_mode: None,
-        destination_root_path: None,
+        destination_root_path: entry.destination_root_path.clone(),
         started_at: entry.started_at.clone(),
         completed_at: entry.completed_at.clone(),
         run_status: entry.run_status.clone(),
@@ -736,6 +737,7 @@ fn index_entry_from_run(run: &HistoryRun) -> HistoryIndexEntry {
         run_id: run.run_id.clone(),
         folder_label: run.folder_label.clone(),
         selected_folder: run.selected_folder.clone(),
+        destination_root_path: run.destination_root_path.clone(),
         started_at: run.started_at.clone(),
         completed_at: run.completed_at.clone(),
         run_status: run.run_status.clone(),
@@ -929,6 +931,7 @@ mod tests {
                 run_id: format!("run-{value}"),
                 folder_label: "todo".to_string(),
                 selected_folder: r"C:\todo".to_string(),
+                destination_root_path: None,
                 started_at: started_at.to_rfc3339(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
@@ -1200,6 +1203,7 @@ mod tests {
                 run_id: "run-1".to_string(),
                 folder_label: "todo".to_string(),
                 selected_folder: r"C:\todo".to_string(),
+                destination_root_path: None,
                 started_at: "2026-05-24T01:02:03Z".to_string(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,
@@ -1270,6 +1274,7 @@ mod tests {
                 run_id: "run-2".to_string(),
                 folder_label: "todo".to_string(),
                 selected_folder: r"C:\todo".to_string(),
+                destination_root_path: None,
                 started_at: "2026-05-24T01:02:03Z".to_string(),
                 completed_at: None,
                 run_status: HistoryRunStatus::Running,

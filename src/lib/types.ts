@@ -156,6 +156,7 @@ export interface HistoryIndexEntry {
   run_id: string;
   folder_label: string;
   selected_folder: string;
+  destination_root_path?: string | null;
   started_at: string;
   completed_at: string | null;
   run_status: HistoryRunStatus;

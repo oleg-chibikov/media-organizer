@@ -106,15 +106,13 @@ export function Toolbar({
         id: run.run_id,
         run,
         source: run.selected_folder,
-        destination:
-          (details?.run.run_id === run.run_id ? details.run.destination_root_path : null) ??
-          `${run.selected_folder}\\Processed`,
+        destination: run.destination_root_path ?? `${run.selected_folder}\\Processed`,
         migrated: String(run.files_migrated ?? 0),
         date: formatHistoryTimestamp(run.started_at),
         status: formatRunStatus(run.run_status),
         actions: "actions"
       })),
-    [details, historyRuns]
+    [historyRuns]
   );
 
   const recentRunColumnDefs = useMemo<ColumnDef<RecentRunTableRow>[]>(
