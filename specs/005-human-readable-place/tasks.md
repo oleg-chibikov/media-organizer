@@ -50,8 +50,8 @@
 
 ## Phase 7: Validation
 
-- [ ] T028 Run `mise x -- cargo test --manifest-path src-tauri/Cargo.toml`.
-- [ ] T029 Run `mise x -- pnpm test`.
-- [ ] T030 Run `mise x -- pnpm lint`.
-- [ ] T031 Run `mise x -- pnpm build`.
+- [x] T028 Run `mise x -- cargo test --manifest-path src-tauri/Cargo.toml`.
+- [x] T029 Run `mise x -- pnpm test`.
+- [x] T030 Run `mise x -- pnpm lint`.
+- [x] T031 Run `mise x -- pnpm build`.
 - [ ] T032 Smoke-test a folder containing media from at least two location buckets and repeated files from one bucket.
