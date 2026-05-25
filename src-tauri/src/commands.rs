@@ -289,7 +289,7 @@ async fn read_metadata_batch_internal(
         state
             .metadata_waiting
             .fetch_sub(request_count, Ordering::SeqCst);
-        let final_results = finalize_metadata_results(&app, results);
+        let final_results = finalize_metadata_results(app.clone(), results).await;
         return Ok(final_results);
     }
 
@@ -341,18 +341,18 @@ async fn read_metadata_batch_internal(
         }
     }
 
-    let final_results = finalize_metadata_results(&app, results);
+    let final_results = finalize_metadata_results(app.clone(), results).await;
     Ok(final_results)
 }
 
-fn finalize_metadata_results(
-    app: &AppHandle,
+async fn finalize_metadata_results(
+    app: AppHandle,
     results: Vec<Option<MetadataResult>>,
 ) -> Vec<MetadataResult> {
     let mut final_results = unwrap_metadata_results(results);
-    apply_cached_place_results(app, &mut final_results);
+    apply_cached_place_results(&app, &mut final_results).await;
     let _ = events::emit_metadata_results(
-        app,
+        &app,
         MetadataResultsEvent {
             results: final_results.clone(),
         },
@@ -471,7 +471,7 @@ fn unwrap_metadata_results(results: Vec<Option<MetadataResult>>) -> Vec<Metadata
         .collect()
 }
 
-fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResult]) {
+async fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResult]) {
     let app_data_dir = match app.path().app_data_dir() {
         Ok(path) => path,
         Err(_) => return,
@@ -481,13 +481,39 @@ fn apply_cached_place_results(app: &AppHandle, results: &mut [MetadataResult]) {
         enable_online_lookup: online_place_lookup_enabled(),
     };
 
-    if let Err(error) =
-        location::resolve_places_for_metadata_results(&app_data_dir, results, &lookup_options)
-    {
-        for result in results.iter_mut() {
-            if result.gps_coordinate.is_some() && result.error.is_none() {
-                result.error = Some(format!("Place cache was unavailable: {error}"));
-            }
+    let owned_results = results.to_vec();
+    let resolve_result = tauri::async_runtime::spawn_blocking(move || {
+        let mut resolved = owned_results;
+        let outcome = location::resolve_places_for_metadata_results(
+            &app_data_dir,
+            &mut resolved,
+            &lookup_options,
+        );
+        (resolved, outcome)
+    })
+    .await;
+
+    match resolve_result {
+        Ok((resolved, Ok(()))) => {
+            results.clone_from_slice(&resolved);
+        }
+        Ok((resolved, Err(error))) => {
+            results.clone_from_slice(&resolved);
+            apply_place_lookup_error(results, format!("Place cache was unavailable: {error}"));
+        }
+        Err(error) => {
+            apply_place_lookup_error(
+                results,
+                format!("Place lookup task failed unexpectedly: {error}"),
+            );
+        }
+    }
+}
+
+fn apply_place_lookup_error(results: &mut [MetadataResult], error: String) {
+    for result in results.iter_mut() {
+        if result.gps_coordinate.is_some() && result.error.is_none() {
+            result.error = Some(error.clone());
         }
     }
 }
