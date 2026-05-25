@@ -16,6 +16,7 @@ import type {
   MoveFinishedEvent,
   MoveProgressEvent,
   MovePlan,
+  PlaceLookupDiagnosticResult,
   ProcessingConfig,
   PlanErrorEvent,
   PlanFileEvent,
@@ -106,6 +107,8 @@ export const readMetadataForFiles = (requests: MetadataReadRequest[]) =>
   invokeCommand<MetadataResult[]>("read_metadata_for_files", { requests }).then((results) =>
     results.map(normalizeMetadataResult)
   );
+export const testPlaceLookup = (coordinate: { latitude: number; longitude: number }) =>
+  invokeCommand<PlaceLookupDiagnosticResult>("test_place_lookup", { coordinate });
 
 export const createMovePlan = (
   selectedPath: string,

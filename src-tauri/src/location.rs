@@ -8,9 +8,11 @@ use std::{
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::models::{
-    GpsCoordinate, LocationBucket, MetadataResult, PlaceCacheEntry, PlaceComponents, PlaceStatus,
+    GpsCoordinate, LocationBucket, MetadataResult, PlaceCacheEntry, PlaceComponents,
+    PlaceLookupDiagnosticResult, PlaceStatus,
 };
 
 pub const LOCATION_BUCKET_PRECISION_VERSION: u32 = 1;
@@ -119,6 +121,90 @@ impl NominatimReverseGeocodeProvider {
 
     pub fn default_user_agent() -> String {
         format!("{}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+    }
+
+    pub fn diagnostic_lookup(
+        &self,
+        coordinate: &GpsCoordinate,
+    ) -> Result<PlaceLookupDiagnosticResult, String> {
+        validate_coordinate(coordinate)?;
+
+        let request_url = self.build_reverse_url(coordinate)?.to_string();
+        let bucket = bucket_for_coordinate(coordinate);
+        let response = self
+            .client
+            .get(&request_url)
+            .header(reqwest::header::USER_AGENT, self.user_agent.as_str())
+            .header(
+                reqwest::header::ACCEPT_LANGUAGE,
+                self.accept_language.as_str(),
+            )
+            .send()
+            .map_err(|error| format!("Place lookup request failed: {error}"))?;
+        let http_status = response.status();
+
+        if http_status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Ok(PlaceLookupDiagnosticResult {
+                coordinate: coordinate.clone(),
+                bucket_id: bucket.map(|value| value.bucket_id),
+                provider: NOMINATIM_PROVIDER_NAME.to_string(),
+                request_url,
+                http_status: Some(http_status.as_u16()),
+                display_place: None,
+                components: None,
+                raw_response: None,
+                error: Some("Place lookup provider rate limit was reached.".to_string()),
+            });
+        }
+
+        let response = response
+            .error_for_status()
+            .map_err(|error| format!("Place lookup provider returned HTTP error: {error}"))?;
+        let raw_response: Value = response
+            .json()
+            .map_err(|error| format!("Place lookup provider returned invalid JSON: {error}"))?;
+        let parsed: NominatimReverseResponse = serde_json::from_value(raw_response.clone())
+            .map_err(|error| {
+                format!("Place lookup provider response shape was invalid: {error}")
+            })?;
+        let result = map_nominatim_response_to_result(parsed);
+        let (display_place, components, error) = match result {
+            Some(result) => {
+                let display_place = place_components_to_display_text(&result.components);
+                (display_place, Some(result.components), None)
+            }
+            None => (
+                None,
+                None,
+                Some("Place lookup returned no address or display-name result.".to_string()),
+            ),
+        };
+
+        Ok(PlaceLookupDiagnosticResult {
+            coordinate: coordinate.clone(),
+            bucket_id: bucket.map(|value| value.bucket_id),
+            provider: NOMINATIM_PROVIDER_NAME.to_string(),
+            request_url,
+            http_status: Some(http_status.as_u16()),
+            display_place,
+            components,
+            raw_response: Some(raw_response),
+            error,
+        })
+    }
+
+    fn build_reverse_url(&self, coordinate: &GpsCoordinate) -> Result<reqwest::Url, String> {
+        reqwest::Url::parse_with_params(
+            &self.base_url,
+            &[
+                ("lat", coordinate.latitude.to_string()),
+                ("lon", coordinate.longitude.to_string()),
+                ("format", "jsonv2".to_string()),
+                ("addressdetails", "1".to_string()),
+                ("zoom", "10".to_string()),
+            ],
+        )
+        .map_err(|error| format!("Failed to build place lookup URL: {error}"))
     }
 }
 
@@ -472,6 +558,14 @@ fn is_valid_coordinate(coordinate: &GpsCoordinate) -> bool {
         && coordinate.longitude.is_finite()
         && (-90.0..=90.0).contains(&coordinate.latitude)
         && (-180.0..=180.0).contains(&coordinate.longitude)
+}
+
+fn validate_coordinate(coordinate: &GpsCoordinate) -> Result<(), String> {
+    if is_valid_coordinate(coordinate) {
+        Ok(())
+    } else {
+        Err("GPS coordinates are not valid latitude/longitude values.".to_string())
+    }
 }
 
 fn quantize_coordinate(value: f64) -> i32 {

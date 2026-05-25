@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -92,6 +93,19 @@ pub struct PlaceCacheEntry {
     pub provider: String,
     pub resolved_at: String,
     pub last_used_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaceLookupDiagnosticResult {
+    pub coordinate: GpsCoordinate,
+    pub bucket_id: Option<String>,
+    pub provider: String,
+    pub request_url: String,
+    pub http_status: Option<u16>,
+    pub display_place: Option<String>,
+    pub components: Option<PlaceComponents>,
+    pub raw_response: Option<Value>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

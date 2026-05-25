@@ -1,8 +1,15 @@
 import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ResizableVirtualTable } from "./design-system/ResizableVirtualTable";
-import { revealFileInExplorer } from "../lib/api";
-import type { FileRecord, GpsCoordinate, MetadataResult, MovePlan, MoveResult } from "../lib/types";
+import { revealFileInExplorer, testPlaceLookup } from "../lib/api";
+import type {
+  FileRecord,
+  GpsCoordinate,
+  MetadataResult,
+  MovePlan,
+  MoveResult,
+  PlaceLookupDiagnosticResult
+} from "../lib/types";
 
 interface FileTableProps {
   rows: FileRecord[];
@@ -48,6 +55,14 @@ interface CellData {
   value: string;
   title: string;
   className: string;
+  fileId?: string;
+  coordinate?: GpsCoordinate | null;
+}
+
+interface PlaceLookupDiagnosticState {
+  loading: boolean;
+  result: PlaceLookupDiagnosticResult | null;
+  error: string | null;
 }
 
 type TableRowData = {
@@ -105,6 +120,10 @@ export function FileTable({
   activeMoveFileId,
   rootMediaFolder
 }: FileTableProps) {
+  const [diagnosticsByFileId, setDiagnosticsByFileId] = useState<
+    Record<string, PlaceLookupDiagnosticState>
+  >({});
+
   const defaultColumnSizing = useMemo<ColumnSizingState>(
     () =>
       COLUMNS.reduce<ColumnSizingState>((accumulator, column) => {
@@ -216,6 +235,28 @@ export function FileTable({
     ]
   );
 
+  const handleTestPlaceLookup = useCallback((fileId: string, coordinate: GpsCoordinate) => {
+    setDiagnosticsByFileId((previous) => ({
+      ...previous,
+      [fileId]: { loading: true, result: previous[fileId]?.result ?? null, error: null }
+    }));
+
+    void testPlaceLookup(coordinate)
+      .then((result) => {
+        setDiagnosticsByFileId((previous) => ({
+          ...previous,
+          [fileId]: { loading: false, result, error: null }
+        }));
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setDiagnosticsByFileId((previous) => ({
+          ...previous,
+          [fileId]: { loading: false, result: null, error: message }
+        }));
+      });
+  }, []);
+
   const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
     () =>
       COLUMNS.map((column) => ({
@@ -225,6 +266,17 @@ export function FileTable({
         minSize: HEADER_MIN_WIDTHS[column.key],
         cell: (context) => {
           const data = context.getValue() as CellData;
+          if (column.key === "coordinates") {
+            const diagnostic = data.fileId ? diagnosticsByFileId[data.fileId] : undefined;
+            return (
+              <CoordinateCell
+                data={data}
+                diagnostic={diagnostic}
+                onTestPlaceLookup={handleTestPlaceLookup}
+              />
+            );
+          }
+
           return (
             <div className={data.className} title={data.title}>
               {data.value}
@@ -232,7 +284,7 @@ export function FileTable({
           );
         }
       })),
-    []
+    [diagnosticsByFileId, handleTestPlaceLookup]
   );
 
   const calculateAutoSizedColumns = useCallback(() => {
@@ -334,6 +386,51 @@ export function FileTable({
   );
 }
 
+function CoordinateCell({
+  data,
+  diagnostic,
+  onTestPlaceLookup
+}: {
+  data: CellData;
+  diagnostic: PlaceLookupDiagnosticState | undefined;
+  onTestPlaceLookup: (fileId: string, coordinate: GpsCoordinate) => void;
+}) {
+  const canTest = Boolean(data.fileId && data.coordinate);
+  const diagnosticLabel = resolveDiagnosticLabel(diagnostic);
+  const diagnosticTitle = resolveDiagnosticTitle(diagnostic);
+  const title = diagnosticTitle ? `${data.title} | ${diagnosticTitle}` : data.title;
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 px-3 py-2 font-mono text-xs text-slate-300">
+      <span className="truncate" title={title}>
+        {data.value}
+      </span>
+      {canTest ? (
+        <button
+          type="button"
+          className="shrink-0 rounded border border-slate-700 px-1.5 py-0.5 font-sans text-[11px] text-slate-200 hover:border-cyan-500 hover:text-cyan-100 disabled:cursor-wait disabled:opacity-60"
+          title={title}
+          disabled={diagnostic?.loading}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!data.fileId || !data.coordinate) {
+              return;
+            }
+            onTestPlaceLookup(data.fileId, data.coordinate);
+          }}
+        >
+          {diagnostic?.loading ? "..." : "Test"}
+        </button>
+      ) : null}
+      {diagnosticLabel ? (
+        <span className="truncate font-sans text-[11px] text-cyan-100" title={diagnosticTitle}>
+          {diagnosticLabel}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function resolveColumnData(
   columnKey: ColumnKey,
   row: FileRecord,
@@ -342,7 +439,7 @@ function resolveColumnData(
   moveResult: MoveResult | undefined,
   activeMoveFileId: string | null,
   rootMediaFolder: string | null
-): { value: string; title: string; className: string } {
+): CellData {
   const metadataDateLabel = metadata
     ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
     : "pending";
@@ -387,7 +484,9 @@ function resolveColumnData(
       return {
         value: coordinateCellData.value,
         title: coordinateCellData.title,
-        className: "truncate px-3 py-2 font-mono text-xs text-slate-300"
+        className: "truncate px-3 py-2 font-mono text-xs text-slate-300",
+        fileId: row.id,
+        coordinate: metadata?.gps_coordinate ?? null
       };
     case "place":
       return {
@@ -398,6 +497,81 @@ function resolveColumnData(
     case "notes":
       return { value: notesLabel, title: notesLabel, className: "truncate px-3 py-2" };
   }
+}
+
+function resolveDiagnosticLabel(diagnostic: PlaceLookupDiagnosticState | undefined): string {
+  if (!diagnostic) {
+    return "";
+  }
+  if (diagnostic.loading) {
+    return "checking";
+  }
+  if (diagnostic.error) {
+    return "error";
+  }
+  if (diagnostic.result?.display_place) {
+    return `${diagnostic.result.http_status ?? "?"}: ${diagnostic.result.display_place}`;
+  }
+  if (diagnostic.result?.error) {
+    return `${diagnostic.result.http_status ?? "?"}: ${diagnostic.result.error}`;
+  }
+  if (diagnostic.result) {
+    return `${diagnostic.result.http_status ?? "?"}: no place`;
+  }
+  return "";
+}
+
+function resolveDiagnosticTitle(diagnostic: PlaceLookupDiagnosticState | undefined): string {
+  if (!diagnostic) {
+    return "";
+  }
+  if (diagnostic.loading) {
+    return "Testing place lookup";
+  }
+  if (diagnostic.error) {
+    return `Diagnostic command failed: ${diagnostic.error}`;
+  }
+
+  const result = diagnostic.result;
+  if (!result) {
+    return "";
+  }
+
+  const parts = [
+    `Provider: ${result.provider}`,
+    `HTTP: ${result.http_status ?? "unknown"}`,
+    `Bucket: ${result.bucket_id ?? "none"}`,
+    `Place: ${result.display_place ?? "none"}`,
+    result.error ? `Error: ${result.error}` : "",
+    `Request: ${result.request_url}`,
+    `Raw: ${summarizeRawLookupResponse(result.raw_response)}`
+  ].filter(Boolean);
+  return parts.join(" | ");
+}
+
+function summarizeRawLookupResponse(rawResponse: unknown): string {
+  if (!rawResponse || typeof rawResponse !== "object") {
+    return "none";
+  }
+
+  const response = rawResponse as {
+    display_name?: unknown;
+    name?: unknown;
+    type?: unknown;
+    class?: unknown;
+    address?: unknown;
+  };
+  const address =
+    response.address && typeof response.address === "object"
+      ? JSON.stringify(response.address)
+      : "none";
+  return JSON.stringify({
+    display_name: response.display_name,
+    name: response.name,
+    class: response.class,
+    type: response.type,
+    address
+  });
 }
 
 function resolveRelativePath(pathValue: string, basePath: string | null): string {

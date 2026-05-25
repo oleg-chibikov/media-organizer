@@ -29,6 +29,7 @@ pub fn run() {
             commands::cancel_scan,
             commands::read_metadata_for_file,
             commands::read_metadata_for_files,
+            commands::test_place_lookup,
             commands::create_move_plan,
             commands::get_move_confirmation_summary,
             commands::delete_history_run,

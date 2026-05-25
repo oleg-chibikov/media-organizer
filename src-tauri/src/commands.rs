@@ -17,13 +17,13 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     events, history, location, metadata,
     models::{
-        DestinationSettings, EffectiveDestinationRoot, FileKind, FileRecord, HistoryIndexEntry,
-        HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
-        HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus, HistoryUndoProgressEvent,
-        MetadataReadRequest, MetadataResult, MetadataResultsEvent, MetadataStatus,
-        MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent,
-        MoveProgressPhase, MoveResult, MoveResultStatus, MoveStrategy, PlaceStatus,
-        ProcessingConfig,
+        DestinationSettings, EffectiveDestinationRoot, FileKind, FileRecord, GpsCoordinate,
+        HistoryIndexEntry, HistoryIndexUpdatedEvent, HistoryOperation, HistoryOperationKind,
+        HistoryOperationStatus, HistoryRedoProgressEvent, HistoryRunDetails, HistoryRunStatus,
+        HistoryUndoProgressEvent, MetadataReadRequest, MetadataResult, MetadataResultsEvent,
+        MetadataStatus, MoveConfirmationSummary, MoveFileEvent, MoveFinishedEvent, MovePlan,
+        MoveProgressEvent, MoveProgressPhase, MoveResult, MoveResultStatus, MoveStrategy,
+        PlaceLookupDiagnosticResult, PlaceStatus, ProcessingConfig,
     },
     mover, planner, scanner, settings,
 };
@@ -236,6 +236,20 @@ pub async fn read_metadata_for_files(
     requests: Vec<MetadataReadRequest>,
 ) -> Result<Vec<MetadataResult>, String> {
     read_metadata_batch_internal(app, &state, requests).await
+}
+
+#[tauri::command]
+pub async fn test_place_lookup(
+    coordinate: GpsCoordinate,
+) -> Result<PlaceLookupDiagnosticResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let provider = location::NominatimReverseGeocodeProvider::new(
+            location::NominatimReverseGeocodeProvider::default_user_agent(),
+        )?;
+        provider.diagnostic_lookup(&coordinate)
+    })
+    .await
+    .map_err(|error| format!("Place lookup diagnostic task failed: {error}"))?
 }
 
 async fn read_metadata_batch_internal(

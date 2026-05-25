@@ -43,6 +43,18 @@ export interface PlaceCacheEntry {
   last_used_at: string;
 }
 
+export interface PlaceLookupDiagnosticResult {
+  coordinate: GpsCoordinate;
+  bucket_id: string | null;
+  provider: string;
+  request_url: string;
+  http_status: number | null;
+  display_place: string | null;
+  components: PlaceComponents | null;
+  raw_response: unknown | null;
+  error: string | null;
+}
+
 export interface MetadataResult {
   file_id: string;
   chosen_date: string | null;
