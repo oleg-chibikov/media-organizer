@@ -14,6 +14,9 @@ interface ResizableVirtualTableProps<TRow extends { id: string }, TColumnKey ext
   columnDefs: ColumnDef<TRow>[];
   defaultColumnSizing: ColumnSizingState;
   onAutoSizeColumns: () => ColumnSizingState;
+  selectable?: boolean;
+  virtualized?: boolean;
+  onRowClick?: (row: TRow, rowIndex: number) => void;
   getRowClassName?: (row: TRow, rowIndex: number) => string;
   getRowTooltip?: (row: TRow, rowIndex: number) => string | undefined;
   renderCellWrapper?: (row: TRow, rowIndex: number, columnId: string, cell: ReactNode) => ReactNode;
@@ -25,6 +28,9 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   columnDefs,
   defaultColumnSizing,
   onAutoSizeColumns,
+  selectable = false,
+  virtualized = true,
+  onRowClick,
   getRowClassName,
   getRowTooltip,
   renderCellWrapper
@@ -55,7 +61,8 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
     count: rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 38,
-    overscan: 20
+    overscan: 20,
+    enabled: virtualized
   });
 
   const markColumnAsResized = useCallback((columnKey: TColumnKey) => {
@@ -139,41 +146,83 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
             ref={parentRef}
             className="min-h-0 flex-1 overflow-y-scroll overflow-x-hidden [scrollbar-gutter:stable]"
           >
-            <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const row = table.getRowModel().rows[virtualRow.index];
-                const sourceRow = rows[virtualRow.index];
-                const rowClassName = getRowClassName?.(sourceRow, virtualRow.index) ?? "";
-                const rowTooltip = getRowTooltip?.(sourceRow, virtualRow.index);
+            {virtualized ? (
+              <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const row = table.getRowModel().rows[virtualRow.index];
+                  const sourceRow = rows[virtualRow.index];
+                  const rowClassName = getRowClassName?.(sourceRow, virtualRow.index) ?? "";
+                  const rowTooltip = getRowTooltip?.(sourceRow, virtualRow.index);
 
-                return (
-                  <div
-                    key={row.id}
-                    className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${rowClassName}`}
-                    title={rowTooltip}
-                    style={{
-                      gridTemplateColumns,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      height: `${virtualRow.size}px`
-                    }}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const renderedCell = flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      );
-                      const wrappedCell = renderCellWrapper?.(
-                        sourceRow,
-                        virtualRow.index,
-                        cell.column.id,
-                        renderedCell
-                      );
-                      return <div key={cell.id}>{wrappedCell ?? renderedCell}</div>;
-                    })}
-                  </div>
-                );
-              })}
-            </div>
+                  return (
+                    <div
+                      key={row.id}
+                      className={`absolute left-0 top-0 grid w-full border-t border-slate-800 text-sm ${selectable ? "cursor-pointer" : ""} ${rowClassName}`}
+                      title={rowTooltip}
+                      onClick={() => {
+                        if (selectable) {
+                          onRowClick?.(sourceRow, virtualRow.index);
+                        }
+                      }}
+                      style={{
+                        gridTemplateColumns,
+                        transform: `translateY(${virtualRow.start}px)`,
+                        height: `${virtualRow.size}px`
+                      }}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const renderedCell = flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        );
+                        const wrappedCell = renderCellWrapper?.(
+                          sourceRow,
+                          virtualRow.index,
+                          cell.column.id,
+                          renderedCell
+                        );
+                        return <div key={cell.id}>{wrappedCell ?? renderedCell}</div>;
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="min-h-full">
+                {table.getRowModel().rows.map((row, rowIndex) => {
+                  const sourceRow = rows[rowIndex];
+                  const rowClassName = getRowClassName?.(sourceRow, rowIndex) ?? "";
+                  const rowTooltip = getRowTooltip?.(sourceRow, rowIndex);
+                  return (
+                    <div
+                      key={row.id}
+                      className={`grid w-full border-t border-slate-800 text-sm ${selectable ? "cursor-pointer" : ""} ${rowClassName}`}
+                      title={rowTooltip}
+                      onClick={() => {
+                        if (selectable) {
+                          onRowClick?.(sourceRow, rowIndex);
+                        }
+                      }}
+                      style={{ gridTemplateColumns }}
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const renderedCell = flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        );
+                        const wrappedCell = renderCellWrapper?.(
+                          sourceRow,
+                          rowIndex,
+                          cell.column.id,
+                          renderedCell
+                        );
+                        return <div key={cell.id}>{wrappedCell ?? renderedCell}</div>;
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

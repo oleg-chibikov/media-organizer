@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunDetails, HistoryRunStatus } from "../lib/types";
+import { ResizableVirtualTable } from "./ResizableVirtualTable";
 
 interface ToolbarProps {
   selectedFolder: string | null;
@@ -21,6 +23,51 @@ interface ToolbarProps {
   onRedoProcessing: (runId: string) => void;
   onDeleteProcessing: (runId: string) => void;
 }
+
+const RECENT_RUN_COLUMNS = [
+  { key: "date", label: "Date / Time" },
+  { key: "folder", label: "Folder" },
+  { key: "status", label: "Status" },
+  { key: "actions", label: "Actions" }
+] as const;
+
+type RecentRunColumnKey = (typeof RECENT_RUN_COLUMNS)[number]["key"];
+type RecentRunTableRow = { id: string; run: HistoryIndexEntry } & Record<
+  RecentRunColumnKey,
+  string
+>;
+
+const RECENT_RUN_DEFAULT_SIZING: ColumnSizingState = {
+  date: 170,
+  folder: 220,
+  status: 140,
+  actions: 210
+};
+
+const DETAILS_COLUMNS = [
+  { key: "time", label: "Time" },
+  { key: "kind", label: "Kind" },
+  { key: "file", label: "File" },
+  { key: "size", label: "Size" },
+  { key: "status", label: "Status" },
+  { key: "source", label: "Source" },
+  { key: "destination", label: "Destination" },
+  { key: "error", label: "Error" }
+] as const;
+
+type DetailsColumnKey = (typeof DETAILS_COLUMNS)[number]["key"];
+type DetailsTableRow = { id: string } & Record<DetailsColumnKey, string>;
+
+const DETAILS_DEFAULT_SIZING: ColumnSizingState = {
+  time: 170,
+  kind: 80,
+  file: 200,
+  size: 90,
+  status: 90,
+  source: 220,
+  destination: 220,
+  error: 220
+};
 
 export function Toolbar({
   selectedFolder,
@@ -55,6 +102,145 @@ export function Toolbar({
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [historyOpen, handleClickOutside]);
+
+  const recentRunRows = useMemo<RecentRunTableRow[]>(
+    () =>
+      historyRuns.map((run) => ({
+        id: run.run_id,
+        run,
+        date: formatHistoryTimestamp(run.started_at),
+        folder: run.folder_label,
+        status: formatRunStatus(run.run_status),
+        actions: "actions"
+      })),
+    [historyRuns]
+  );
+
+  const recentRunColumnDefs = useMemo<ColumnDef<RecentRunTableRow>[]>(
+    () =>
+      RECENT_RUN_COLUMNS.map((column) => ({
+        id: column.key,
+        header: column.label,
+        accessorKey: column.key,
+        cell: (context) => {
+          const row = context.row.original;
+          if (column.key === "actions") {
+            const run = row.run;
+            return (
+              <div
+                className="flex justify-end gap-1 px-2 py-1"
+                onClick={(event) => event.stopPropagation()}
+              >
+                {run.undo_available ? (
+                  <button
+                    aria-label={`Undo ${run.folder_label}`}
+                    className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                    onClick={() => onUndoProcessing(run.run_id)}
+                    type="button"
+                  >
+                    Undo
+                  </button>
+                ) : run.redo_available ? (
+                  <button
+                    aria-label={`Redo ${run.folder_label}`}
+                    className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                    onClick={() => onRedoProcessing(run.run_id)}
+                    type="button"
+                  >
+                    Redo
+                  </button>
+                ) : null}
+                <button
+                  aria-label={`Open log for ${run.folder_label}`}
+                  className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                  onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
+                  type="button"
+                >
+                  Log
+                </button>
+                <button
+                  aria-label={`Delete ${run.folder_label}`}
+                  className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-red-400 hover:bg-red-900 hover:text-red-300"
+                  onClick={() => onDeleteProcessing(run.run_id)}
+                  type="button"
+                >
+                  x
+                </button>
+              </div>
+            );
+          }
+
+          const value = String(context.getValue() ?? "");
+          const mono = column.key === "date";
+          const muted = column.key === "status";
+          if (column.key === "folder") {
+            return (
+              <button
+                aria-label={`View ${value}`}
+                className="w-full truncate px-2 py-1 text-left text-xs"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelectHistoryRun(row.run.run_id);
+                }}
+                title={value}
+                type="button"
+              >
+                {value}
+              </button>
+            );
+          }
+          return (
+            <div
+              className={`truncate px-2 py-1 text-xs ${mono ? "font-mono text-[11px]" : ""} ${muted ? "text-[11px] text-slate-400" : ""}`}
+              title={value}
+            >
+              {value}
+            </div>
+          );
+        }
+      })),
+    [onDeleteProcessing, onRedoProcessing, onSelectHistoryRun, onUndoProcessing]
+  );
+
+  const detailsRows = useMemo<DetailsTableRow[]>(
+    () =>
+      details?.operations.map((operation) => ({
+        id: operation.operation_id,
+        time: formatHistoryTime(operation.timestamp),
+        kind: formatOperationKind(operation.operation_kind),
+        file: operation.original_name,
+        size: formatFileSize(operation.expected_destination_size ?? operation.expected_source_size),
+        status: formatOperationStatus(operation.status),
+        source: operation.source_path,
+        destination: operation.destination_path,
+        error: operation.error ?? "-"
+      })) ?? [],
+    [details]
+  );
+
+  const detailsColumnDefs = useMemo<ColumnDef<DetailsTableRow>[]>(
+    () =>
+      DETAILS_COLUMNS.map((column) => ({
+        id: column.key,
+        header: column.label,
+        accessorKey: column.key,
+        cell: (context) => {
+          const value = String(context.getValue() ?? "");
+          const isNarrow = column.key === "time" || column.key === "size";
+          const isPath = column.key === "source" || column.key === "destination";
+          const isError = column.key === "error";
+          return (
+            <div
+              className={`truncate px-2 py-1 ${isNarrow ? "font-mono text-slate-400" : ""} ${isPath ? "font-mono text-slate-400" : ""} ${isError ? "text-rose-400" : ""}`}
+              title={value}
+            >
+              {value}
+            </div>
+          );
+        }
+      })),
+    []
+  );
 
   return (
     <header className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2">
@@ -92,80 +278,21 @@ export function Toolbar({
               ) : historyRuns.length === 0 ? (
                 <p className="px-2 py-1 text-xs text-slate-500">No history runs</p>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    <span className="w-44 shrink-0">Date / Time</span>
-                    <span className="min-w-0 flex-1">Folder</span>
-                    <span className="w-28 shrink-0">Status</span>
-                    <span className="w-24 shrink-0 text-right">Actions</span>
-                  </div>
-                  {historyRuns.map((run) => (
-                    <div
-                      key={run.run_id}
-                      className={`mb-1 flex items-center gap-2 rounded px-2 py-1 text-xs ${selectedHistoryRunId === run.run_id ? "bg-sky-800 text-sky-100 hover:bg-sky-700" : "text-slate-300 hover:bg-slate-800"}`}
-                    >
-                      <button
-                        aria-label={`View ${run.folder_label}`}
-                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
-                        onClick={() => {
-                          onSelectHistoryRun(run.run_id);
-                        }}
-                        type="button"
-                      >
-                        <span className="w-44 shrink-0 font-mono text-[11px]">
-                          {formatHistoryTimestamp(run.started_at)}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{run.folder_label}</span>
-                        <span className="w-28 shrink-0 text-[11px] text-slate-400">
-                          {formatRunStatus(run.run_status)}
-                        </span>
-                      </button>
-                      <div className="flex w-24 shrink-0 justify-end gap-1">
-                        {run.undo_available ? (
-                          <button
-                            aria-label={`Undo ${run.folder_label}`}
-                            className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                            onClick={() => {
-                              onUndoProcessing(run.run_id);
-                            }}
-                            type="button"
-                          >
-                            Undo
-                          </button>
-                        ) : run.redo_available ? (
-                          <button
-                            aria-label={`Redo ${run.folder_label}`}
-                            className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                            onClick={() => {
-                              onRedoProcessing(run.run_id);
-                            }}
-                            type="button"
-                          >
-                            Redo
-                          </button>
-                        ) : null}
-                        <button
-                          aria-label={`Open log for ${run.folder_label}`}
-                          className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
-                          onClick={() =>
-                            revealFileInExplorer(run.history_file_path).catch(() => {})
-                          }
-                          type="button"
-                        >
-                          Log
-                        </button>
-                        <button
-                          aria-label={`Delete ${run.folder_label}`}
-                          className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-red-400 hover:bg-red-900 hover:text-red-300"
-                          onClick={() => onDeleteProcessing(run.run_id)}
-                          type="button"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </>
+                <ResizableVirtualTable
+                  rows={recentRunRows}
+                  columns={RECENT_RUN_COLUMNS}
+                  columnDefs={recentRunColumnDefs}
+                  defaultColumnSizing={RECENT_RUN_DEFAULT_SIZING}
+                  onAutoSizeColumns={() => RECENT_RUN_DEFAULT_SIZING}
+                  selectable={true}
+                  onRowClick={(row) => onSelectHistoryRun(row.run.run_id)}
+                  virtualized={false}
+                  getRowClassName={(row) =>
+                    selectedHistoryRunId === row.run.run_id
+                      ? "bg-sky-800 text-sky-100 hover:bg-sky-700"
+                      : "text-slate-300 hover:bg-slate-800"
+                  }
+                />
               )}
             </div>
 
@@ -195,51 +322,14 @@ export function Toolbar({
                 ) : details ? (
                   details.operations.length > 0 ? (
                     <div className="max-h-40 overflow-auto border border-slate-800">
-                      <table className="w-full border-collapse text-left text-[11px]">
-                        <thead>
-                          <tr className="bg-slate-900 text-slate-400">
-                            <th className="px-2 py-1">Time</th>
-                            <th className="px-2 py-1">Kind</th>
-                            <th className="px-2 py-1">File</th>
-                            <th className="px-2 py-1">Size</th>
-                            <th className="px-2 py-1">Status</th>
-                            <th className="px-2 py-1">Source</th>
-                            <th className="px-2 py-1">Destination</th>
-                            <th className="px-2 py-1">Error</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {details.operations.map((operation) => (
-                            <tr key={operation.operation_id} className="border-t border-slate-800">
-                              <td className="px-2 py-1 font-mono">
-                                {formatHistoryTime(operation.timestamp)}
-                              </td>
-                              <td className="px-2 py-1">
-                                {formatOperationKind(operation.operation_kind)}
-                              </td>
-                              <td className="px-2 py-1">{operation.original_name}</td>
-                              <td className="px-2 py-1 font-mono text-slate-400">
-                                {formatFileSize(
-                                  operation.expected_destination_size ??
-                                    operation.expected_source_size
-                                )}
-                              </td>
-                              <td className="px-2 py-1">
-                                {formatOperationStatus(operation.status)}
-                              </td>
-                              <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
-                                {operation.source_path}
-                              </td>
-                              <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
-                                {operation.destination_path}
-                              </td>
-                              <td className="max-w-[14rem] truncate px-2 py-1 text-rose-400">
-                                {operation.error ?? "-"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <ResizableVirtualTable
+                        rows={detailsRows}
+                        columns={DETAILS_COLUMNS}
+                        columnDefs={detailsColumnDefs}
+                        defaultColumnSizing={DETAILS_DEFAULT_SIZING}
+                        onAutoSizeColumns={() => DETAILS_DEFAULT_SIZING}
+                        virtualized={false}
+                      />
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-500">

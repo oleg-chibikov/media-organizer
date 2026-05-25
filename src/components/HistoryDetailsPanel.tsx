@@ -1,4 +1,7 @@
+﻿import { type ColumnDef, type ColumnSizingState } from "@tanstack/react-table";
+import { useMemo } from "react";
 import type { HistoryRunDetails } from "../lib/types";
+import { ResizableVirtualTable } from "./ResizableVirtualTable";
 
 interface HistoryDetailsPanelProps {
   details: HistoryRunDetails | null;
@@ -6,7 +9,75 @@ interface HistoryDetailsPanelProps {
   error: string | null;
 }
 
+const COLUMNS = [
+  { key: "time", label: "Time" },
+  { key: "kind", label: "Kind" },
+  { key: "file", label: "File" },
+  { key: "size", label: "Size" },
+  { key: "status", label: "Status" },
+  { key: "source", label: "Source" },
+  { key: "destination", label: "Destination" },
+  { key: "error", label: "Error" }
+] as const;
+
+type ColumnKey = (typeof COLUMNS)[number]["key"];
+
+type TableRowData = {
+  id: string;
+} & Record<ColumnKey, string>;
+
+const DEFAULT_COLUMN_SIZING: ColumnSizingState = {
+  time: 170,
+  kind: 80,
+  file: 200,
+  size: 90,
+  status: 90,
+  source: 220,
+  destination: 220,
+  error: 220
+};
+
 export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsPanelProps) {
+  const tableRows = useMemo<TableRowData[]>(
+    () =>
+      details?.operations.map((operation) => ({
+        id: operation.operation_id,
+        time: formatHistoryTime(operation.timestamp),
+        kind: formatOperationKind(operation.operation_kind),
+        file: operation.original_name,
+        size: formatFileSize(operation.expected_destination_size ?? operation.expected_source_size),
+        status: formatOperationStatus(operation.status),
+        source: operation.source_path,
+        destination: operation.destination_path,
+        error: operation.error ?? "-"
+      })) ?? [],
+    [details]
+  );
+
+  const tableColumns = useMemo<ColumnDef<TableRowData>[]>(
+    () =>
+      COLUMNS.map((column) => ({
+        id: column.key,
+        header: column.label,
+        accessorKey: column.key,
+        cell: (context) => {
+          const value = String(context.getValue() ?? "");
+          const isNarrow = column.key === "time" || column.key === "size";
+          const isPath = column.key === "source" || column.key === "destination";
+          const isError = column.key === "error";
+          return (
+            <div
+              className={`truncate px-2 py-1 ${isNarrow ? "font-mono text-slate-400" : ""} ${isPath ? "font-mono text-slate-400" : ""} ${isError ? "text-rose-400" : ""}`}
+              title={value}
+            >
+              {value}
+            </div>
+          );
+        }
+      })),
+    []
+  );
+
   return (
     <section className="border-t border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-300">
       <div className="mb-2 flex items-center gap-2">
@@ -29,46 +100,14 @@ export function HistoryDetailsPanel({ details, loading, error }: HistoryDetailsP
       ) : details ? (
         details.operations.length > 0 ? (
           <div className="max-h-40 overflow-auto border border-slate-800">
-            <table className="w-full border-collapse text-left text-[11px]">
-              <thead>
-                <tr className="bg-slate-900 text-slate-400">
-                  <th className="px-2 py-1">Time</th>
-                  <th className="px-2 py-1">Kind</th>
-                  <th className="px-2 py-1">File</th>
-                  <th className="px-2 py-1">Size</th>
-                  <th className="px-2 py-1">Status</th>
-                  <th className="px-2 py-1">Source</th>
-                  <th className="px-2 py-1">Destination</th>
-                  <th className="px-2 py-1">Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {details.operations.map((operation) => (
-                  <tr key={operation.operation_id} className="border-t border-slate-800">
-                    <td className="px-2 py-1 font-mono">
-                      {formatHistoryTime(operation.timestamp)}
-                    </td>
-                    <td className="px-2 py-1">{formatOperationKind(operation.operation_kind)}</td>
-                    <td className="px-2 py-1">{operation.original_name}</td>
-                    <td className="px-2 py-1 font-mono text-slate-400">
-                      {formatFileSize(
-                        operation.expected_destination_size ?? operation.expected_source_size
-                      )}
-                    </td>
-                    <td className="px-2 py-1">{formatOperationStatus(operation.status)}</td>
-                    <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
-                      {operation.source_path}
-                    </td>
-                    <td className="max-w-[12rem] truncate px-2 py-1 font-mono text-slate-400">
-                      {operation.destination_path}
-                    </td>
-                    <td className="max-w-[14rem] truncate px-2 py-1 text-rose-400">
-                      {operation.error ?? "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ResizableVirtualTable
+              rows={tableRows}
+              columns={COLUMNS}
+              columnDefs={tableColumns}
+              defaultColumnSizing={DEFAULT_COLUMN_SIZING}
+              onAutoSizeColumns={() => DEFAULT_COLUMN_SIZING}
+              virtualized={false}
+            />
           </div>
         ) : (
           <p className="text-slate-500">No history operations recorded for this run.</p>
