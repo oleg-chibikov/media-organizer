@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DestinationSettings } from "../lib/types";
+import { Button } from "./Button";
 
 interface DestinationSettingsMenuProps {
   settings: DestinationSettings | null;
@@ -49,11 +50,11 @@ export function DestinationSettingsMenu({
 
   return (
     <div ref={panelRef} className="relative">
-      <button
+      <Button
+        variant="secondary"
         aria-label="Settings"
-        className="rounded bg-slate-800 p-1.5 text-slate-100 hover:bg-slate-700"
+        className="p-1.5"
         onClick={() => setOpen((previous) => !previous)}
-        type="button"
       >
         <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none">
           <path
@@ -64,7 +65,7 @@ export function DestinationSettingsMenu({
             strokeLinejoin="round"
           />
         </svg>
-      </button>
+      </Button>
       {open ? (
         <section className="absolute right-0 z-30 mt-1 w-96 rounded border border-slate-700 bg-slate-900 p-3 shadow-lg">
           <h2 className="text-sm font-semibold text-slate-100">Destination Settings</h2>
@@ -86,22 +87,22 @@ export function DestinationSettingsMenu({
           ) : null}
 
           <div className="mt-3 flex gap-2">
-            <button
-              className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+            <Button
+              variant="primary"
+              className="px-2 py-1 text-xs"
               disabled={controlsDisabled}
               onClick={onChooseRoot}
-              type="button"
             >
               Choose Root
-            </button>
-            <button
-              className="rounded bg-slate-800 px-2 py-1 text-xs font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-500"
+            </Button>
+            <Button
+              variant="secondary"
+              className="px-2 py-1 text-xs disabled:text-slate-500"
               disabled={controlsDisabled || !rootPath}
               onClick={onClearRoot}
-              type="button"
             >
               Clear Root
-            </button>
+            </Button>
           </div>
 
           <label className="mt-3 flex items-center gap-2 text-xs text-slate-200">

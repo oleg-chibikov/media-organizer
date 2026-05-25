@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { revealFileInExplorer } from "../lib/api";
 import type { HistoryIndexEntry, HistoryRunDetails, HistoryRunStatus } from "../lib/types";
+import { Button } from "./Button";
 import { ResizableVirtualTable } from "./ResizableVirtualTable";
 
 interface ToolbarProps {
@@ -140,40 +141,40 @@ export function Toolbar({
                 onClick={(event) => event.stopPropagation()}
               >
                 {run.undo_available ? (
-                  <button
+                  <Button
+                    variant="secondary"
                     aria-label={`Undo ${run.folder_label}`}
-                    className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                    className="px-2 py-1 text-[11px]"
                     onClick={() => onUndoProcessing(run.run_id)}
-                    type="button"
                   >
                     Undo
-                  </button>
+                  </Button>
                 ) : run.redo_available ? (
-                  <button
+                  <Button
+                    variant="secondary"
                     aria-label={`Redo ${run.folder_label}`}
-                    className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                    className="px-2 py-1 text-[11px]"
                     onClick={() => onRedoProcessing(run.run_id)}
-                    type="button"
                   >
                     Redo
-                  </button>
+                  </Button>
                 ) : null}
-                <button
+                <Button
+                  variant="secondary"
                   aria-label={`Open log for ${run.folder_label}`}
-                  className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700"
+                  className="px-2 py-1 text-[11px]"
                   onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
-                  type="button"
                 >
                   Log
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   aria-label={`Delete ${run.folder_label}`}
-                  className="rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-red-400 hover:bg-red-900 hover:text-red-300"
+                  className="px-2 py-1 text-[11px] text-red-400 hover:bg-red-900 hover:text-red-300"
                   onClick={() => onDeleteProcessing(run.run_id)}
-                  type="button"
                 >
                   x
-                </button>
+                </Button>
               </div>
             );
           }
@@ -182,7 +183,8 @@ export function Toolbar({
           const mono = column.key === "date" || column.key === "migrated";
           const muted = column.key === "status";
           return (
-            <button
+            <Button
+              variant="secondary"
               aria-label={`View run ${row.run.run_id}`}
               className={`w-full truncate px-2 py-1 text-left text-xs ${mono ? "font-mono text-[11px]" : ""} ${muted ? "text-[11px] text-slate-400" : ""}`}
               onClick={(event) => {
@@ -190,10 +192,9 @@ export function Toolbar({
                 onSelectHistoryRun(row.run.run_id);
               }}
               title={value}
-              type="button"
             >
               {value}
-            </button>
+            </Button>
           );
         }
       })),
@@ -243,31 +244,27 @@ export function Toolbar({
 
   return (
     <header className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2">
-      <button
-        className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-700"
-        onClick={onChooseFolder}
-        type="button"
-      >
+      <Button variant="primary" className="px-3 py-1.5 text-sm" onClick={onChooseFolder}>
         Choose Folder
-      </button>
+      </Button>
       {isScanning ? (
-        <button
-          className="rounded bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+        <Button
+          variant="secondary"
+          className="bg-rose-600 px-3 py-1.5 text-sm text-white hover:bg-rose-500"
           onClick={onCancelScan}
-          type="button"
         >
           Stop Scan
-        </button>
+        </Button>
       ) : null}
 
       <div ref={historyRef} className="relative">
-        <button
-          className="cursor-pointer rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700"
+        <Button
+          variant="secondary"
+          className="px-3 py-1.5 text-sm"
           onClick={() => setHistoryOpen((prev) => !prev)}
-          type="button"
         >
           History
-        </button>
+        </Button>
         {historyOpen && (
           <div className="absolute left-0 z-20 mt-1 w-[48rem] rounded border border-slate-700 bg-slate-900 p-2 shadow-lg">
             <p className="mb-1 text-xs text-slate-400">Recent Runs</p>

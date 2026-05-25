@@ -7,6 +7,7 @@ import {
   useReactTable
 } from "@tanstack/react-table";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Button } from "./Button";
 
 interface ResizableVirtualTableProps<TRow extends { id: string }, TColumnKey extends string> {
   rows: TRow[];
@@ -124,10 +125,10 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
                   </span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     aria-label={`Resize ${String(header.column.columnDef.header)} column`}
-                    className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none rounded bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
+                    className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none bg-transparent hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none"
                     onMouseDown={(event) => {
                       markColumnAsResized(header.column.id as TColumnKey);
                       header.getResizeHandler()(event);
@@ -136,7 +137,9 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
                       markColumnAsResized(header.column.id as TColumnKey);
                       header.getResizeHandler()(event);
                     }}
-                  />
+                  >
+                    <span className="sr-only">Resize</span>
+                  </Button>
                 </div>
               ))
             )}

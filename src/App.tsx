@@ -3,6 +3,7 @@ import { FileTable } from "./components/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
+import { Button } from "./components/Button";
 import {
   attachHistoryListeners,
   attachMoveListeners,
@@ -1092,11 +1093,11 @@ export default function App() {
           ) : (
             <span className="text-slate-500">No move summary yet</span>
           )}
-          <button
-            className="ml-auto rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-slate-700"
+          <Button
+            variant="secondary"
+            className="ml-auto bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-500"
             disabled={moveCompleted || !hasPendingExecutableItems}
             onClick={handleExecutionAction}
-            type="button"
           >
             {moveCompleted
               ? "Complete"
@@ -1105,7 +1106,7 @@ export default function App() {
                 : isMoveDispatchPaused
                   ? "Resume Dispatch"
                   : "Pause Dispatch"}
-          </button>
+          </Button>
         </div>
         {executionConfirmed && !moveCompleted ? (
           <p className={`mt-1 ${isMoveDispatchPaused ? "text-amber-400" : "text-emerald-400"}`}>
