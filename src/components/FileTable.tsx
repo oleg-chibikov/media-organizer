@@ -37,6 +37,7 @@ const COLUMNS = [
   { key: "kind", label: "Kind" },
   { key: "originalName", label: "Original Name" },
   { key: "metadataDate", label: "Metadata Date" },
+  { key: "place", label: "Place" },
   { key: "notes", label: "Notes" }
 ] as const;
 
@@ -175,6 +176,15 @@ export function FileTable({
             activeMoveFileId,
             rootMediaFolder
           ),
+          place: resolveColumnData(
+            "place",
+            row,
+            metadata,
+            movePlan,
+            moveResult,
+            activeMoveFileId,
+            rootMediaFolder
+          ),
           notes: resolveColumnData(
             "notes",
             row,
@@ -223,6 +233,7 @@ export function FileTable({
       kind: HEADER_MIN_WIDTHS.kind,
       originalName: HEADER_MIN_WIDTHS.originalName,
       metadataDate: HEADER_MIN_WIDTHS.metadataDate,
+      place: HEADER_MIN_WIDTHS.place,
       notes: HEADER_MIN_WIDTHS.notes
     };
 
@@ -328,6 +339,7 @@ function resolveColumnData(
     movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
   const relativeDestinationLabel = resolveRelativePath(destinationLabel, rootMediaFolder);
   const statusLabel = resolveStatusLabel(row, metadata, movePlan, moveResult, activeMoveFileId);
+  const placeCellData = resolvePlaceCellData(metadata);
   const notesLabel = resolveNotesLabel(metadata, movePlan, moveResult);
 
   switch (columnKey) {
@@ -357,6 +369,12 @@ function resolveColumnData(
       return {
         value: metadataDateLabel,
         title: metadataDateLabel,
+        className: "truncate px-3 py-2"
+      };
+    case "place":
+      return {
+        value: placeCellData.value,
+        title: placeCellData.title,
         className: "truncate px-3 py-2"
       };
     case "notes":
@@ -467,6 +485,30 @@ function resolveNotesLabel(
   }
 
   return resolveDateSourceLabel(metadata.chosen_date_source);
+}
+
+function resolvePlaceCellData(metadata: MetadataResult | undefined): CellData {
+  if (!metadata) {
+    return { value: "-", title: "-", className: "" };
+  }
+
+  switch (metadata.place_status) {
+    case "pending":
+      return { value: "Pending lookup", title: "Pending lookup", className: "" };
+    case "resolved": {
+      const placeLabel = metadata.place?.trim() || "Resolved";
+      return { value: placeLabel, title: placeLabel, className: "" };
+    }
+    case "failed": {
+      const title = metadata.place_error?.trim()
+        ? `Lookup failed: ${metadata.place_error}`
+        : "Lookup failed";
+      return { value: "Lookup failed", title, className: "" };
+    }
+    case "not_available":
+    default:
+      return { value: "Not available", title: "Not available", className: "" };
+  }
 }
 
 function resolveDateSourceLabel(source: string | null): string {

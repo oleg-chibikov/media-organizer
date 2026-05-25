@@ -42,11 +42,11 @@
 
 ## Phase 6: Frontend Display
 
-- [ ] T023 Update API bindings to receive GPS and place fields.
-- [ ] T024 Add a place display to each media row near existing metadata columns.
-- [ ] T025 Render pending, resolved, unavailable, and failed location states.
-- [ ] T026 Keep raw coordinates hidden from the primary table by default.
-- [ ] T027 Add frontend tests for place display and non-blocking failed lookup behavior.
+- [x] T023 Update API bindings to receive GPS and place fields.
+- [x] T024 Add a place display to each media row near existing metadata columns.
+- [x] T025 Render pending, resolved, unavailable, and failed location states.
+- [x] T026 Keep raw coordinates hidden from the primary table by default.
+- [x] T027 Add frontend tests for place display and non-blocking failed lookup behavior.
 
 ## Phase 7: Validation
 

@@ -50,12 +50,12 @@ export interface MetadataResult {
   date_kind: DateKind | null;
   raw_metadata_date: string | null;
   device_name: string | null;
-  gps_coordinate?: GpsCoordinate | null;
-  gps_source?: string | null;
-  place_bucket_id?: string | null;
-  place_status?: PlaceStatus | null;
-  place?: string | null;
-  place_error?: string | null;
+  gps_coordinate: GpsCoordinate | null;
+  gps_source: string | null;
+  place_bucket_id: string | null;
+  place_status: PlaceStatus;
+  place: string | null;
+  place_error: string | null;
   metadata_status: MetadataStatus;
   error: string | null;
 }
