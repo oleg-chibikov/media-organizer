@@ -127,6 +127,7 @@ export interface MoveFinishedEvent {
   copied: number;
   skipped: number;
   failed: number;
+  results: MoveResult[];
 }
 
 export interface ScanStartedEvent {

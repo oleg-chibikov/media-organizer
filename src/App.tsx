@@ -745,6 +745,36 @@ export default function App() {
   useEffect(() => {
     let unsubs: (() => void)[] = [];
     let disposed = false;
+    const applyMoveResult = (result: MoveResult) => {
+      const wasAlreadyCompleted = completedMoveIdsRef.current.has(result.file_id);
+      setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
+      inflightMoveIdsRef.current.delete(result.file_id);
+      setActiveMoveFileId((current) => (current === result.file_id ? null : current));
+      completedMoveIdsRef.current.add(result.file_id);
+      trackedMoveIdsRef.current.add(result.file_id);
+
+      if (wasAlreadyCompleted) {
+        return;
+      }
+
+      if (result.result_status === "moved") {
+        setMovedCount((count) => count + 1);
+        return;
+      }
+      if (result.result_status === "copied") {
+        setCopiedCount((count) => count + 1);
+        return;
+      }
+      if (result.result_status === "skipped") {
+        setMoveSkippedCount((count) => count + 1);
+        return;
+      }
+      setMoveFailedCount((count) => count + 1);
+      if (result.error) {
+        setFolderError(`Move error: ${result.error}`);
+      }
+    };
+
     void attachMoveListeners({
       onProgress: (payload: MoveProgressEvent) => {
         const currentRow = payload.file_id ? rowByIdRef.current.get(payload.file_id) : undefined;
@@ -760,33 +790,12 @@ export default function App() {
         setActiveMoveFileId(payload.file_id);
       },
       onFile: ({ result }) => {
-        if (completedMoveIdsRef.current.has(result.file_id)) {
-          setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
-          return;
-        }
-        setMoveResultsByFileId((prev) => ({ ...prev, [result.file_id]: result }));
-        inflightMoveIdsRef.current.delete(result.file_id);
-        setActiveMoveFileId((current) => (current === result.file_id ? null : current));
-        completedMoveIdsRef.current.add(result.file_id);
-        trackedMoveIdsRef.current.add(result.file_id);
-        if (result.result_status === "moved") {
-          setMovedCount((count) => count + 1);
-          return;
-        }
-        if (result.result_status === "copied") {
-          setCopiedCount((count) => count + 1);
-          return;
-        }
-        if (result.result_status === "skipped") {
-          setMoveSkippedCount((count) => count + 1);
-          return;
-        }
-        setMoveFailedCount((count) => count + 1);
-        if (result.error) {
-          setFolderError(`Move error: ${result.error}`);
-        }
+        applyMoveResult(result);
       },
-      onFinished: () => {
+      onFinished: ({ results }) => {
+        for (const result of results) {
+          applyMoveResult(result);
+        }
         activeMoveRequestsRef.current = Math.max(0, activeMoveRequestsRef.current - 1);
         if (activeMoveRequestsRef.current === 0 && moveQueueRef.current.length === 0) {
           setIsExecutingMoves(false);

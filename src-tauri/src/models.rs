@@ -201,6 +201,7 @@ pub struct MoveFinishedEvent {
     pub copied: u64,
     pub skipped: u64,
     pub failed: u64,
+    pub results: Vec<MoveResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

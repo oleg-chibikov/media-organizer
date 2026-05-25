@@ -611,6 +611,7 @@ pub fn execute_move_plan(
         let mut skipped = 0u64;
         let mut failed = 0u64;
         let mut completed_operations = 0u64;
+        let mut results = Vec::new();
         let mut moved_source_directories = Vec::new();
         let mut history_log_had_error = false;
 
@@ -630,6 +631,7 @@ pub fn execute_move_plan(
             }
             count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
             completed_operations += 1;
+            results.push(result.clone());
             let _ = events::emit_move_file(&app, MoveFileEvent { result });
         }
 
@@ -664,6 +666,7 @@ pub fn execute_move_plan(
                 }
                 count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
                 completed_operations += 1;
+                results.push(result.clone());
                 let _ = events::emit_move_file(&app, MoveFileEvent { result });
             }
 
@@ -684,6 +687,7 @@ pub fn execute_move_plan(
                 }
                 count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
                 completed_operations += 1;
+                results.push(result.clone());
                 let _ = events::emit_move_file(&app, MoveFileEvent { result });
             }
 
@@ -720,6 +724,7 @@ pub fn execute_move_plan(
                 }
                 count_move_result(&result, &mut moved, &mut copied, &mut skipped, &mut failed);
                 completed_operations += 1;
+                results.push(result.clone());
                 let _ = events::emit_move_file(&app, MoveFileEvent { result });
             }
         }
@@ -751,6 +756,7 @@ pub fn execute_move_plan(
                 copied,
                 skipped,
                 failed,
+                results,
             },
         );
     });

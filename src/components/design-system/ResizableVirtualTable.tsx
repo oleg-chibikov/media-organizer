@@ -45,6 +45,7 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   const table = useReactTable({
     data: rows,
     columns: columnDefs,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: "onChange",
     enableColumnResizing: true,
