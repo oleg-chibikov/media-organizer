@@ -26,6 +26,12 @@
 - Source of truth for app behavior is the Rust backend; frontend state should mirror command results and emitted events.
 - Architecture notes live in `docs/architecture.md`.
 
+## Agent Context Files
+
+- Start with `docs/agent/quickstart.md` for token-efficient project conventions.
+- Read additional files in `docs/agent/upstream/` only when needed for the current task.
+- Refresh vendored upstream docs with `powershell -File scripts/sync-agent-docs.ps1`.
+
 ## Verification
 
 - Prefer targeted checks first, then broader checks when practical:
