@@ -94,6 +94,26 @@ function createMetadata(fileId: string, overrides: Partial<MetadataResult> = {})
 describe("FileTable place display", () => {
   const mockedTestPlaceLookup = vi.mocked(testPlaceLookup);
 
+  it("sorts displayed rows by name", () => {
+    render(
+      <FileTable
+        rows={[createRow("zeta"), createRow("Alpha"), createRow("beta")]}
+        metadataByFileId={{}}
+        movePlansByFileId={{}}
+        moveResultsByFileId={{}}
+        activeMoveFileId={null}
+        rootMediaFolder={null}
+      />
+    );
+
+    const renderedSourceOrder = screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[0]?.textContent);
+
+    expect(renderedSourceOrder).toEqual(["Alpha.jpg", "beta.jpg", "zeta.jpg"]);
+  });
+
   it("renders coordinates in the grid and includes reasons for unavailable places", () => {
     const rows = ["pending", "resolved", "unavailable", "failed"].map(createRow);
     const metadataByFileId = {

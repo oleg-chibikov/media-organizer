@@ -49,6 +49,10 @@ const COLUMNS = [
   { key: "place", label: "Place" },
   { key: "notes", label: "Notes" }
 ] as const;
+const FILE_NAME_COLLATOR = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base"
+});
 
 type ColumnKey = (typeof COLUMNS)[number]["key"];
 
@@ -135,9 +139,33 @@ export function FileTable({
     []
   );
 
+  const sortedRows = useMemo<FileRecord[]>(
+    () =>
+      [...rows].sort((left, right) => {
+        const originalNameComparison = FILE_NAME_COLLATOR.compare(
+          left.original_name,
+          right.original_name
+        );
+        if (originalNameComparison !== 0) {
+          return originalNameComparison;
+        }
+
+        const relativePathComparison = FILE_NAME_COLLATOR.compare(
+          left.relative_path,
+          right.relative_path
+        );
+        if (relativePathComparison !== 0) {
+          return relativePathComparison;
+        }
+
+        return FILE_NAME_COLLATOR.compare(left.id, right.id);
+      }),
+    [rows]
+  );
+
   const tableRows = useMemo<TableRowData[]>(
     () =>
-      rows.map((row) => {
+      sortedRows.map((row) => {
         const metadata = metadataByFileId[row.id];
         const movePlan = movePlansByFileId[row.id];
         const moveResult = moveResultsByFileId[row.id];
@@ -228,7 +256,7 @@ export function FileTable({
         };
       }),
     [
-      rows,
+      sortedRows,
       metadataByFileId,
       movePlansByFileId,
       moveResultsByFileId,
@@ -345,11 +373,11 @@ export function FileTable({
     });
 
     return desiredWidths;
-  }, [rows.length, tableRows]);
+  }, [sortedRows.length, tableRows]);
 
   const activePlaceMetadata = activePlaceFileId ? metadataByFileId[activePlaceFileId] : undefined;
   const activePlaceRow = activePlaceFileId
-    ? rows.find((row) => row.id === activePlaceFileId)
+    ? sortedRows.find((row) => row.id === activePlaceFileId)
     : undefined;
   const activePlaceDiagnostic = activePlaceFileId
     ? diagnosticsByFileId[activePlaceFileId]
@@ -364,7 +392,7 @@ export function FileTable({
         defaultColumnSizing={defaultColumnSizing}
         onAutoSizeColumns={calculateAutoSizedColumns}
         getRowClassName={(_, rowIndex) => {
-          const sourceRecord = rows[rowIndex];
+          const sourceRecord = sortedRows[rowIndex];
           const metadata = metadataByFileId[sourceRecord.id];
           const moveResult = moveResultsByFileId[sourceRecord.id];
           const isSkippedUnsupported = sourceRecord.scan_status === "skipped_unsupported";
@@ -378,7 +406,7 @@ export function FileTable({
         }}
         getRowTooltip={(row) => row.source.value}
         renderCellWrapper={(_, rowIndex, columnId, cell) => {
-          const sourceRecord = rows[rowIndex];
+          const sourceRecord = sortedRows[rowIndex];
           const movePlan = movePlansByFileId[sourceRecord.id];
           const moveResult = moveResultsByFileId[sourceRecord.id];
           const isSourceCell = columnId === "source";
