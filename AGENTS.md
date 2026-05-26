@@ -18,6 +18,17 @@
 - If explicitly asked to complete a task from `specs/**/tasks.md`, mark the corresponding task complete in that file.
 - Read `CONTRIBUTING.md` when making code changes or validating project workflow.
 
+## Code Quality Bar
+
+- Produce effective, performant, accessible, elegant, and very readable code.
+- Prefer simple, explicit designs over clever abstractions; add abstractions only when they remove real duplication or clarify intent.
+- Keep each file minimal and single-purpose. Split files when a second responsibility appears.
+- Allocate feature work into feature folders when a change spans components, state, helpers, tests, or styles.
+- Preserve semantic HTML, keyboard access, labels, focus behavior, and readable contrast for UI changes.
+- Avoid unnecessary renders, repeated filesystem calls, unbounded queues, and work on the UI thread.
+- Use descriptive names and direct control flow; comments should explain non-obvious reasoning, not restate code.
+- Keep public command/event contracts typed and stable across Rust and TypeScript.
+
 ## Repo Context
 
 - Frontend: React + TypeScript + Vite in `src/`.
@@ -26,11 +37,28 @@
 - Source of truth for app behavior is the Rust backend; frontend state should mirror command results and emitted events.
 - Architecture notes live in `docs/architecture.md`.
 
+## File Organization
+
+- Put reusable low-level UI primitives in `src/components/design-system/`.
+- Put app-level orchestration in `src/App.tsx` only when the state truly crosses feature boundaries.
+- For new multi-file frontend features, prefer `src/features/<feature>/` with focused components, hooks, helpers, and tests.
+- Keep Tauri command wrappers and event subscriptions centralized in `src/lib/api.ts`.
+- Keep shared frontend payload types in `src/lib/types.ts` aligned with Rust models.
+- Put backend behavior in focused Rust modules; create a folder module when one backend feature needs multiple files.
+
 ## Agent Context Files
 
 - Start with `docs/agent/quickstart.md` for token-efficient project conventions.
-- Read additional files in `docs/agent/upstream/` only when needed for the current task.
-- Refresh vendored upstream docs with `powershell -File scripts/sync-agent-docs.ps1`.
+- Read `docs/architecture.md` before changing command/event contracts, filesystem behavior, queueing, history, settings, or cross-boundary data flow.
+- Use `docs/agent/README.md` to decide whether guidance belongs in `AGENTS.md`, repo docs, or a skill.
+
+## Skills And Docs
+
+- Keep always-on repository rules in `AGENTS.md`: tooling, workflow, invariants, and the quality bar.
+- Keep deeper project explanations in `docs/agent/` or `docs/architecture.md`; docs should be concise and loaded only when relevant.
+- Use repo skills in `.agents/skills/` only for repeatable task workflows with clear trigger descriptions.
+- Do not put universal coding standards only in a skill, because skills are selected on demand.
+- Keep skill instructions concise; reference docs instead of copying long guidance into `SKILL.md`.
 
 ## Verification
 

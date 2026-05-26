@@ -16,6 +16,17 @@ Use this file as the default conventions contract for AI-assisted changes in thi
 - Keep components pure where possible; avoid unnecessary effects.
 - Prefer explicit types at command boundaries and event payload boundaries.
 - Keep orchestration in `src/App.tsx` and focused components; avoid hidden shared mutable state.
+- Keep UI accessible by default: semantic elements, clear labels, keyboard operation, visible focus, and usable contrast.
+- Avoid unnecessary re-renders by keeping derived state local, memoizing only when it removes measured or obvious churn, and not duplicating backend state.
+
+## File And Feature Shape
+
+- Keep every file single-purpose and short enough to scan.
+- Put multi-file frontend features in `src/features/<feature>/`.
+- Keep reusable primitives in `src/components/design-system/` and feature-specific components near the feature.
+- Put shared command/event bridge code in `src/lib/api.ts` and shared payload types in `src/lib/types.ts`.
+- Prefer backend folder modules when a Rust capability grows beyond one cohesive file.
+- Do not create broad utility files; name helpers after the domain decision they own.
 
 ## Tailwind + Vite
 
@@ -45,7 +56,3 @@ mise x -- pnpm build
 - Use Conventional Commits when possible.
 - Keep commits scoped to one logical change.
 - If behavior changes, include tests or justify why tests are not applicable.
-
-## Deeper References
-
-Use `docs/agent/upstream/` for canonical docs from React, Tailwind, Vite, Tauri, Rust API Guidelines, and commit/changelog specs.

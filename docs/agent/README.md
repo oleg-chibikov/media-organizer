@@ -1,27 +1,32 @@
-# Agent Standards Pack
+# Agent Guidance
 
-This folder is a low-token, repo-local standards setup for coding agents.
+This folder keeps repo-specific guidance short enough for agents to load only what they need.
 
-## What this gives you
+## Context Placement
 
-- A short project-specific operating guide: `quickstart.md`.
-- Vendored upstream docs from established sources under `upstream/`.
-- A one-command refresh script so docs can be updated without manual copy/paste.
+- `AGENTS.md`: always-on rules for tooling, workflow, repo invariants, quality, and verification.
+- `docs/agent/quickstart.md`: compact project conventions for day-to-day code changes.
+- `docs/architecture.md`: system behavior, data flow, backend/frontend boundaries, and safety invariants.
+- `.agents/skills/`: repeatable workflows that should trigger only for matching tasks.
 
 ## Usage order for agents
 
 1. `AGENTS.md`
 2. `docs/agent/quickstart.md`
-3. Only the relevant file(s) in `docs/agent/upstream/`
+3. `docs/architecture.md` when changing behavior or cross-boundary contracts
+4. A repo skill only when its description matches the task
 
-## Refresh upstream references
+## What Belongs Where
 
-```powershell
-powershell -File scripts/sync-agent-docs.ps1
-```
+- Put permanent non-negotiable rules in `AGENTS.md`.
+- Put explanatory project context and examples in docs.
+- Put specialized, repeatable procedures in skills.
+- Do not duplicate long docs inside skills; point to the relevant concise doc instead.
+- Do not hide universal code quality rules inside skills, because skill activation is conditional.
 
-## Why this is token-efficient
+## Skill Authoring Rules
 
-- Most tasks should only need `quickstart.md`.
-- Upstream docs are split by technology so agents can read only one file per task area.
-- Source URLs are tracked in `upstream/SOURCES.md`.
+- Use a clear `description` that states when the skill should and should not trigger.
+- Keep `SKILL.md` focused on the workflow.
+- Use `references/` only for optional details.
+- Use `scripts/` only for deterministic repetitive work.
