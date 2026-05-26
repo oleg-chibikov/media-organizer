@@ -345,7 +345,7 @@ export function FileTable({
       notes: HEADER_MIN_WIDTHS.notes
     };
 
-    if (rows.length === 0) {
+    if (sortedRows.length === 0) {
       return desiredWidths;
     }
 
