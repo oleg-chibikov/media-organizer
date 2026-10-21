@@ -1,34 +1,28 @@
 use tauri::AppHandle;
 
-use crate::{history, models::HistoryRunDetails, undo_redo};
+use super::{
+    app_dirs::history_store,
+    background::{run_blocking, spawn_job},
+};
+use crate::undo_redo::{self, ReplayDirection};
 
 #[tauri::command]
-pub fn undo_history_run(run_id: String, app: AppHandle) -> Result<(), String> {
-    let details = find_history_run(&app, &run_id)?;
-    let operations = undo_redo::undoable_operations(&details)?;
-    let initial_status = details.run.run_status;
-
-    tauri::async_runtime::spawn(async move {
-        undo_redo::run_undo(&app, &run_id, initial_status, &operations);
-    });
-
-    Ok(())
+pub async fn undo_history_run(run_id: String, app: AppHandle) -> Result<(), String> {
+    start_replay(app, run_id, ReplayDirection::Undo).await
 }
 
 #[tauri::command]
-pub fn redo_history_run(run_id: String, app: AppHandle) -> Result<(), String> {
-    let details = find_history_run(&app, &run_id)?;
-    let operations = undo_redo::redoable_operations(&details)?;
-    let initial_status = details.run.run_status;
-
-    tauri::async_runtime::spawn(async move {
-        undo_redo::run_redo(&app, &run_id, initial_status, &operations);
-    });
-
-    Ok(())
+pub async fn redo_history_run(run_id: String, app: AppHandle) -> Result<(), String> {
+    start_replay(app, run_id, ReplayDirection::Redo).await
 }
 
-fn find_history_run(app: &AppHandle, run_id: &str) -> Result<HistoryRunDetails, String> {
-    history::get_history_run(app, run_id)?
-        .ok_or_else(|| format!("History run '{run_id}' was not found."))
+async fn start_replay(
+    app: AppHandle,
+    run_id: String,
+    direction: ReplayDirection,
+) -> Result<(), String> {
+    let store = history_store(&app)?;
+    let job = run_blocking(move || undo_redo::prepare_replay(&store, &run_id, direction)).await?;
+    spawn_job(move || job.run(&app));
+    Ok(())
 }

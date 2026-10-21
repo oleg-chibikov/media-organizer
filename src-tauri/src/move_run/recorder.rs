@@ -1,23 +1,19 @@
 use std::collections::HashMap;
 
-use tauri::AppHandle;
-
 use super::{
     history_entry::{build_history_operation_for_result, ensure_expected_source_size},
     request::RunLookups,
     status_mapping::history_run_status_for_completion,
 };
 use crate::{
-    events,
-    history::{self, ActiveHistoryRun},
-    models::{
-        HistoryIndexUpdatedEvent, MoveFileEvent, MoveFinishedEvent, MoveResult, MoveResultStatus,
-    },
+    events::{self, EventSink},
+    history::ActiveHistoryRun,
+    models::{MoveFileEvent, MoveFinishedEvent, MoveResult, MoveResultStatus},
 };
 
 /// Logs every move result to history, tallies it and streams it to the frontend.
-pub(super) struct MoveRunRecorder<'a> {
-    app: &'a AppHandle,
+pub(super) struct MoveRunRecorder<'a, S> {
+    sink: &'a S,
     history_run: ActiveHistoryRun,
     lookups: RunLookups<'a>,
     expected_source_sizes: HashMap<&'a str, Option<u64>>,
@@ -25,14 +21,10 @@ pub(super) struct MoveRunRecorder<'a> {
     history_log_had_error: bool,
 }
 
-impl<'a> MoveRunRecorder<'a> {
-    pub(super) fn new(
-        app: &'a AppHandle,
-        history_run: ActiveHistoryRun,
-        lookups: RunLookups<'a>,
-    ) -> Self {
+impl<'a, S: EventSink> MoveRunRecorder<'a, S> {
+    pub(super) fn new(sink: &'a S, history_run: ActiveHistoryRun, lookups: RunLookups<'a>) -> Self {
         Self {
-            app,
+            sink,
             history_run,
             lookups,
             expected_source_sizes: HashMap::new(),
@@ -69,7 +61,7 @@ impl<'a> MoveRunRecorder<'a> {
             &self.lookups,
             &self.expected_source_sizes,
         );
-        if history::append_history_operation(&mut self.history_run, operation).is_err() {
+        if self.history_run.append_operation(operation).is_err() {
             self.history_log_had_error = true;
         }
 
@@ -80,21 +72,15 @@ impl<'a> MoveRunRecorder<'a> {
             MoveResultStatus::Failed => self.finished.failed += 1,
         }
         self.finished.results.push(result.clone());
-        let _ = events::emit_move_file(self.app, MoveFileEvent { result });
+        events::move_file(self.sink, MoveFileEvent { result });
     }
 
     pub(super) fn finish(mut self) {
         let run_status =
             history_run_status_for_completion(self.finished.failed, self.history_log_had_error);
-        let history_run_id = self.history_run.run.run_id.clone();
-        let _ = history::complete_history_run(&mut self.history_run, run_status);
-        let _ = events::emit_history_index_updated(
-            self.app,
-            HistoryIndexUpdatedEvent {
-                run_id: Some(history_run_id),
-            },
-        );
-
-        let _ = events::emit_move_finished(self.app, self.finished);
+        // A failed completion record leaves the run incomplete, which recovery reports as partial.
+        let _ = self.history_run.complete(run_status);
+        events::history_index_updated(self.sink, &self.history_run.run.run_id);
+        events::move_finished(self.sink, self.finished);
     }
 }

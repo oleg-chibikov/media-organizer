@@ -11,7 +11,7 @@ use crate::{
         index_updates::upsert_history_index_entry,
         log_file::append_history_record,
         paths::history_runs_dir,
-        queries::{get_history_run_from_root, list_history_runs_from_root},
+        queries::{get_history_run, list_history_runs},
     },
     models::{
         HistoryIndexEntry, HistoryOperation, HistoryOperationKind, HistoryRecord, HistoryRunStatus,
@@ -76,14 +76,14 @@ fn recovers_partial_trailing_history_record_as_partial_and_unsafe() {
         .expect("write partial trailing record");
     file.flush().expect("flush partial record");
 
-    let runs = list_history_runs_from_root(&history_root).expect("list runs");
+    let runs = list_history_runs(&history_root).expect("list runs");
     assert_eq!(runs.len(), 1);
     assert!(matches!(runs[0].run_status, HistoryRunStatus::Partial));
     assert_eq!(runs[0].files_migrated, 1);
     assert!(!runs[0].undo_available);
     assert!(!runs[0].redo_available);
 
-    let details = get_history_run_from_root(&history_root, "run-1")
+    let details = get_history_run(&history_root, "run-1")
         .expect("load run details")
         .expect("run details should exist");
     assert!(matches!(details.run.run_status, HistoryRunStatus::Partial));
@@ -108,14 +108,14 @@ fn marks_malformed_history_record_as_corrupt_and_unsafe() {
         .expect("write malformed record");
     file.flush().expect("flush malformed record");
 
-    let runs = list_history_runs_from_root(&history_root).expect("list runs");
+    let runs = list_history_runs(&history_root).expect("list runs");
     assert_eq!(runs.len(), 1);
     assert!(matches!(runs[0].run_status, HistoryRunStatus::Corrupt));
     assert_eq!(runs[0].files_migrated, 0);
     assert!(!runs[0].undo_available);
     assert!(!runs[0].redo_available);
 
-    let details = get_history_run_from_root(&history_root, "run-2")
+    let details = get_history_run(&history_root, "run-2")
         .expect("load run details")
         .expect("run details should exist");
     assert!(matches!(details.run.run_status, HistoryRunStatus::Corrupt));

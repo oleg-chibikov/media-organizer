@@ -1,9 +1,14 @@
-use tauri::{AppHandle, Emitter};
+//! Backend event names and typed emit helpers.
+//!
+//! Domain modules emit through [`EventSink`]; only this file knows the Tauri emitter.
+
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Runtime};
 
 use crate::models::{
-    HistoryIndexUpdatedEvent, HistoryRedoProgressEvent, HistoryUndoProgressEvent, MoveFileEvent,
-    MoveFinishedEvent, MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
-    ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
+    HistoryIndexUpdatedEvent, HistoryReplayProgressEvent, MoveFileEvent, MoveFinishedEvent,
+    MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent,
+    ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -21,70 +26,71 @@ pub const HISTORY_INDEX_UPDATED: &str = "history:index-updated";
 pub const HISTORY_UNDO_PROGRESS: &str = "history:undo-progress";
 pub const HISTORY_REDO_PROGRESS: &str = "history:redo-progress";
 
-pub fn emit_scan_started(app: &AppHandle, payload: ScanStartedEvent) -> Result<(), String> {
-    app.emit(SCAN_STARTED, payload).map_err(|e| e.to_string())
+/// Receives backend events; the app forwards them to the webview, tests record them.
+pub(crate) trait EventSink {
+    fn emit<P: Serialize + Clone>(&self, event: &'static str, payload: P);
 }
 
-pub fn emit_scan_file(app: &AppHandle, payload: ScanFileEvent) -> Result<(), String> {
-    app.emit(SCAN_FILE, payload).map_err(|e| e.to_string())
+impl<R: Runtime> EventSink for AppHandle<R> {
+    fn emit<P: Serialize + Clone>(&self, event: &'static str, payload: P) {
+        // Emitting only fails once the webview is gone, when no listener is left to tell.
+        let _ = Emitter::emit(self, event, payload);
+    }
 }
 
-pub fn emit_scan_skipped(app: &AppHandle, payload: ScanFileEvent) -> Result<(), String> {
-    app.emit(SCAN_SKIPPED, payload).map_err(|e| e.to_string())
+pub(crate) fn scan_started(sink: &impl EventSink, payload: ScanStartedEvent) {
+    sink.emit(SCAN_STARTED, payload);
 }
 
-pub fn emit_scan_error(app: &AppHandle, payload: ScanErrorEvent) -> Result<(), String> {
-    app.emit(SCAN_ERROR, payload).map_err(|e| e.to_string())
+pub(crate) fn scan_file(sink: &impl EventSink, payload: ScanFileEvent) {
+    sink.emit(SCAN_FILE, payload);
 }
 
-pub fn emit_scan_finished(app: &AppHandle, payload: ScanFinishedEvent) -> Result<(), String> {
-    app.emit(SCAN_FINISHED, payload).map_err(|e| e.to_string())
+pub(crate) fn scan_skipped(sink: &impl EventSink, payload: ScanFileEvent) {
+    sink.emit(SCAN_SKIPPED, payload);
 }
 
-pub fn emit_plan_file(app: &AppHandle, payload: PlanFileEvent) -> Result<(), String> {
-    app.emit(PLAN_FILE, payload).map_err(|e| e.to_string())
+pub(crate) fn scan_error(sink: &impl EventSink, payload: ScanErrorEvent) {
+    sink.emit(SCAN_ERROR, payload);
 }
 
-pub fn emit_plan_error(app: &AppHandle, payload: PlanErrorEvent) -> Result<(), String> {
-    app.emit(PLAN_ERROR, payload).map_err(|e| e.to_string())
+pub(crate) fn scan_finished(sink: &impl EventSink, payload: ScanFinishedEvent) {
+    sink.emit(SCAN_FINISHED, payload);
 }
 
-pub fn emit_plan_finished(app: &AppHandle, payload: PlanFinishedEvent) -> Result<(), String> {
-    app.emit(PLAN_FINISHED, payload).map_err(|e| e.to_string())
+pub(crate) fn plan_file(sink: &impl EventSink, payload: PlanFileEvent) {
+    sink.emit(PLAN_FILE, payload);
 }
 
-pub fn emit_move_file(app: &AppHandle, payload: MoveFileEvent) -> Result<(), String> {
-    app.emit(MOVE_FILE, payload).map_err(|e| e.to_string())
+pub(crate) fn plan_error(sink: &impl EventSink, payload: PlanErrorEvent) {
+    sink.emit(PLAN_ERROR, payload);
 }
 
-pub fn emit_move_progress(app: &AppHandle, payload: MoveProgressEvent) -> Result<(), String> {
-    app.emit(MOVE_PROGRESS, payload).map_err(|e| e.to_string())
+pub(crate) fn plan_finished(sink: &impl EventSink, payload: PlanFinishedEvent) {
+    sink.emit(PLAN_FINISHED, payload);
 }
 
-pub fn emit_move_finished(app: &AppHandle, payload: MoveFinishedEvent) -> Result<(), String> {
-    app.emit(MOVE_FINISHED, payload).map_err(|e| e.to_string())
+pub(crate) fn move_file(sink: &impl EventSink, payload: MoveFileEvent) {
+    sink.emit(MOVE_FILE, payload);
 }
 
-pub fn emit_history_index_updated(
-    app: &AppHandle,
-    payload: HistoryIndexUpdatedEvent,
-) -> Result<(), String> {
-    app.emit(HISTORY_INDEX_UPDATED, payload)
-        .map_err(|e| e.to_string())
+pub(crate) fn move_progress(sink: &impl EventSink, payload: MoveProgressEvent) {
+    sink.emit(MOVE_PROGRESS, payload);
 }
 
-pub fn emit_history_undo_progress(
-    app: &AppHandle,
-    payload: HistoryUndoProgressEvent,
-) -> Result<(), String> {
-    app.emit(HISTORY_UNDO_PROGRESS, payload)
-        .map_err(|e| e.to_string())
+pub(crate) fn move_finished(sink: &impl EventSink, payload: MoveFinishedEvent) {
+    sink.emit(MOVE_FINISHED, payload);
 }
 
-pub fn emit_history_redo_progress(
-    app: &AppHandle,
-    payload: HistoryRedoProgressEvent,
-) -> Result<(), String> {
-    app.emit(HISTORY_REDO_PROGRESS, payload)
-        .map_err(|e| e.to_string())
+pub(crate) fn history_index_updated(sink: &impl EventSink, run_id: &str) {
+    let run_id = Some(run_id.to_string());
+    sink.emit(HISTORY_INDEX_UPDATED, HistoryIndexUpdatedEvent { run_id });
+}
+
+pub(crate) fn history_undo_progress(sink: &impl EventSink, payload: HistoryReplayProgressEvent) {
+    sink.emit(HISTORY_UNDO_PROGRESS, payload);
+}
+
+pub(crate) fn history_redo_progress(sink: &impl EventSink, payload: HistoryReplayProgressEvent) {
+    sink.emit(HISTORY_REDO_PROGRESS, payload);
 }

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use tauri::{AppHandle, State};
-use tauri_plugin_dialog::DialogExt;
 
+use super::{background::run_blocking, folder_dialog::pick_folder};
 use crate::{app_state::AppState, models::ProcessingConfig, system_explorer};
 
 #[tauri::command]
@@ -16,19 +16,14 @@ pub fn get_processing_config(state: State<'_, AppState>) -> ProcessingConfig {
 }
 
 #[tauri::command]
-pub fn choose_folder(app: AppHandle) -> Option<String> {
-    app.dialog()
-        .file()
-        .blocking_pick_folder()
-        .map(|path| path.to_string())
+pub async fn choose_folder(app: AppHandle) -> Option<String> {
+    pick_folder(&app).await
 }
 
 #[tauri::command]
-pub fn reveal_file_in_explorer(source_path: String) -> Result<(), String> {
-    let source = PathBuf::from(&source_path);
-    if !source.exists() {
-        return Err("File no longer exists on disk.".to_string());
-    }
-
-    system_explorer::reveal_path_in_system_explorer(&source)
+pub async fn reveal_file_in_explorer(source_path: String) -> Result<(), String> {
+    run_blocking(move || {
+        system_explorer::reveal_path_in_system_explorer(&PathBuf::from(source_path))
+    })
+    .await
 }

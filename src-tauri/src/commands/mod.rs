@@ -1,4 +1,10 @@
-//! Tauri command boundary: thin handlers that validate input and delegate to backend modules.
+//! Tauri command boundary: thin handlers that resolve app paths and delegate to backend modules.
+//!
+//! Filesystem work runs through `background`, so no handler blocks the UI thread.
+
+mod app_dirs;
+mod background;
+mod folder_dialog;
 
 pub(crate) mod destination;
 pub(crate) mod history;

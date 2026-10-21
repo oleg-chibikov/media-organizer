@@ -6,6 +6,7 @@ mod limits;
 mod results;
 
 use std::{
+    path::PathBuf,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
@@ -15,9 +16,11 @@ use std::{
 
 use tokio::sync::Semaphore;
 
-use crate::{metadata::ExifToolWorkerManager, models::ProcessingConfig};
-
-pub(crate) use results::metadata_error_result;
+use crate::{
+    metadata::ExifToolWorkerManager,
+    models::{MetadataReadRequest, MetadataResult, ProcessingConfig},
+};
+use results::metadata_error_result;
 
 pub(crate) struct MetadataQueue {
     workers: Vec<Arc<Mutex<ExifToolWorkerManager>>>,
@@ -53,6 +56,18 @@ impl MetadataQueue {
             metadata_queue_capacity: self.capacity,
             metadata_timeout_ms: self.timeout.as_millis() as u64,
         }
+    }
+
+    pub(crate) async fn read_one(
+        &self,
+        resource_dir: Option<PathBuf>,
+        request: MetadataReadRequest,
+    ) -> Result<MetadataResult, String> {
+        let file_id = request.file_id.clone();
+        let mut results = self.read_batch(resource_dir, vec![request]).await?;
+        Ok(results.pop().unwrap_or_else(|| {
+            metadata_error_result(file_id, "Metadata worker returned no result.".to_string())
+        }))
     }
 
     fn select_worker(&self) -> Arc<Mutex<ExifToolWorkerManager>> {

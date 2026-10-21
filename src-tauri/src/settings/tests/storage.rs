@@ -55,3 +55,20 @@ fn persists_and_reloads_destination_settings() {
     assert!(!reloaded.force_processed_folder);
     assert!(reloaded.updated_at.is_some());
 }
+
+#[test]
+fn store_update_applies_change_to_saved_settings() {
+    let temp = tempdir().expect("temp dir should be created");
+    let store = crate::settings::SettingsStore::in_app_data(temp.path());
+
+    store
+        .update(|current| crate::settings::set_force_processed_folder(current, true))
+        .expect("settings should update");
+
+    assert!(
+        store
+            .load()
+            .expect("settings should load")
+            .force_processed_folder
+    );
+}

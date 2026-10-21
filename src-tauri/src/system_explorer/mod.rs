@@ -10,6 +10,10 @@ use std::path::PathBuf;
 use std::process::Command;
 
 pub(crate) fn reveal_path_in_system_explorer(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return Err("File no longer exists on disk.".to_string());
+    }
+
     #[cfg(target_os = "windows")]
     {
         let target = path

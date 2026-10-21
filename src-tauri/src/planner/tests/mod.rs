@@ -1,5 +1,6 @@
 mod conflicts;
 mod file_plan;
+mod streaming;
 
 use crate::{
     models::{FileKind, FileRecord},

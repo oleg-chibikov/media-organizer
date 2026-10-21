@@ -10,7 +10,7 @@ use crate::{
     },
     move_run::{
         history_entry::build_history_operation_for_result,
-        request::RunLookups,
+        request::{MoveBatch, RunLookups},
         status_mapping::{
             history_operation_status_for_move_result, history_run_status_for_completion,
         },
@@ -60,10 +60,12 @@ fn builds_processing_history_operation_with_required_fields() {
         scan_status: ScanStatus::Discovered,
     };
 
-    let files = [file];
-    let metadata_results = [metadata];
-    let plans = [plan];
-    let lookups = RunLookups::new(&files, &metadata_results, &plans);
+    let batch = MoveBatch {
+        files: vec![file],
+        metadata_results: vec![metadata],
+        plans: vec![plan],
+    };
+    let lookups = RunLookups::new(&batch);
     let expected_source_sizes = HashMap::from([("photo-1", Some(4096_u64))]);
 
     let operation =

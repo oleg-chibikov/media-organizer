@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::{
-    index::{load_history_index, write_history_index},
+    index::{load_history_index, with_index_lock, write_history_index},
     MAX_INDEX_RUNS,
 };
 use crate::models::{HistoryIndexEntry, HistoryRun};
@@ -10,16 +10,17 @@ pub(super) fn upsert_history_index_entry(
     history_root: &Path,
     entry: HistoryIndexEntry,
 ) -> Result<(), String> {
-    let mut index = load_history_index(history_root)?;
+    with_index_lock(|| {
+        let mut index = load_history_index(history_root)?;
+        if let Some(existing) = index.runs.iter_mut().find(|run| run.run_id == entry.run_id) {
+            *existing = entry;
+        } else {
+            index.runs.push(entry);
+        }
 
-    if let Some(existing) = index.runs.iter_mut().find(|run| run.run_id == entry.run_id) {
-        *existing = entry;
-    } else {
-        index.runs.push(entry);
-    }
-
-    keep_newest_runs(&mut index.runs);
-    write_history_index(history_root, &index)
+        keep_newest_runs(&mut index.runs);
+        write_history_index(history_root, &index)
+    })
 }
 
 /// Sorts newest first and drops runs beyond the index capacity.

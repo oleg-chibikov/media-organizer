@@ -9,7 +9,7 @@ use crate::models::{EffectiveDestinationRoot, HistoryRun, HistoryRunStatus};
 pub(super) fn new_history_run(
     run_id: String,
     selected_folder: &Path,
-    destination_root: Option<&EffectiveDestinationRoot>,
+    destination_root: &EffectiveDestinationRoot,
     started_at: DateTime<Utc>,
     log_path: &Path,
 ) -> HistoryRun {
@@ -19,8 +19,8 @@ pub(super) fn new_history_run(
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         selected_folder: selected_folder.to_string_lossy().to_string(),
         folder_label: folder_label_from_path(selected_folder),
-        destination_root_mode: destination_root.map(|root| root.mode.clone()),
-        destination_root_path: destination_root.map(|root| root.root_path.clone()),
+        destination_root_mode: Some(destination_root.mode.clone()),
+        destination_root_path: Some(destination_root.root_path.clone()),
         started_at: started_at.to_rfc3339(),
         completed_at: None,
         run_status: HistoryRunStatus::Running,

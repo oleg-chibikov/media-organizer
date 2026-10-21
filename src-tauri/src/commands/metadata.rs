@@ -1,8 +1,8 @@
 use tauri::{AppHandle, State};
 
+use super::app_dirs::resource_dir;
 use crate::{
     app_state::AppState,
-    metadata_queue::metadata_error_result,
     models::{FileKind, MetadataReadRequest, MetadataResult},
 };
 
@@ -15,14 +15,14 @@ pub async fn read_metadata_for_file(
     file_kind: FileKind,
 ) -> Result<MetadataResult, String> {
     let request = MetadataReadRequest {
-        file_id: file_id.clone(),
+        file_id,
         source_path,
         file_kind,
     };
-    let mut results = state.metadata_queue.read_batch(app, vec![request]).await?;
-    Ok(results.pop().unwrap_or_else(|| {
-        metadata_error_result(file_id, "Metadata worker returned no result.".to_string())
-    }))
+    state
+        .metadata_queue
+        .read_one(resource_dir(&app), request)
+        .await
 }
 
 #[tauri::command]
@@ -31,5 +31,8 @@ pub async fn read_metadata_for_files(
     state: State<'_, AppState>,
     requests: Vec<MetadataReadRequest>,
 ) -> Result<Vec<MetadataResult>, String> {
-    state.metadata_queue.read_batch(app, requests).await
+    state
+        .metadata_queue
+        .read_batch(resource_dir(&app), requests)
+        .await
 }

@@ -1,4 +1,7 @@
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use super::{
     worker::{ExifToolWorker, WorkerError},
@@ -12,9 +15,10 @@ pub struct ExifToolWorkerManager {
 }
 
 impl ExifToolWorkerManager {
+    /// `resource_dir` is where the bundled ExifTool sidecar is looked for first.
     pub fn read_metadata_batch(
         &mut self,
-        app: &tauri::AppHandle,
+        resource_dir: Option<&Path>,
         source_paths: &[PathBuf],
         timeout: Duration,
     ) -> Result<MetadataBatchReadOutcome, String> {
@@ -31,7 +35,7 @@ impl ExifToolWorkerManager {
             let had_worker = self.worker.is_some();
             if self.worker_needs_restart() {
                 self.shutdown_worker();
-                self.worker = Some(ExifToolWorker::start(app)?);
+                self.worker = Some(ExifToolWorker::start(resource_dir)?);
                 if had_worker {
                     did_restart = true;
                 }

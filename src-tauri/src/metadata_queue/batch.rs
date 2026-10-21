@@ -1,7 +1,5 @@
 use std::{path::PathBuf, sync::atomic::Ordering};
 
-use tauri::AppHandle;
-
 use super::{
     admission::{queue_full_results, split_missing_sources, PendingRead},
     results::{
@@ -19,7 +17,7 @@ impl MetadataQueue {
     /// Reads one batch on a single worker, returning one result per request in request order.
     pub(crate) async fn read_batch(
         &self,
-        app: AppHandle,
+        resource_dir: Option<PathBuf>,
         requests: Vec<MetadataReadRequest>,
     ) -> Result<Vec<MetadataResult>, String> {
         if requests.is_empty() {
@@ -47,7 +45,7 @@ impl MetadataQueue {
             .map_err(|_| "Metadata queue is unavailable.".to_string())?;
         self.waiting.fetch_sub(request_count, Ordering::SeqCst);
 
-        let read_result = self.read_on_worker(app, &pending).await?;
+        let read_result = self.read_on_worker(resource_dir, &pending).await?;
         drop(permit);
 
         match read_result {
@@ -75,7 +73,7 @@ impl MetadataQueue {
 
     async fn read_on_worker(
         &self,
-        app: AppHandle,
+        resource_dir: Option<PathBuf>,
         pending: &[PendingRead],
     ) -> Result<Result<MetadataBatchReadOutcome, String>, String> {
         let worker = self.select_worker();
@@ -86,7 +84,7 @@ impl MetadataQueue {
             let mut manager = worker
                 .lock()
                 .map_err(|_| "Failed to lock ExifTool worker state.".to_string())?;
-            manager.read_metadata_batch(&app, &source_paths, timeout)
+            manager.read_metadata_batch(resource_dir.as_deref(), &source_paths, timeout)
         })
         .await
         .map_err(|error| format!("Metadata worker task failed: {error}"))

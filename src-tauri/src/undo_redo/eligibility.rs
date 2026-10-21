@@ -3,7 +3,7 @@ use crate::{
     models::{HistoryOperation, HistoryRunDetails, HistoryRunStatus},
 };
 
-pub(crate) fn undoable_operations(
+pub(super) fn undoable_operations(
     details: &HistoryRunDetails,
 ) -> Result<Vec<HistoryOperation>, String> {
     ensure_safe_for_replay(details)?;
@@ -23,7 +23,7 @@ pub(crate) fn undoable_operations(
     Ok(operations)
 }
 
-pub(crate) fn redoable_operations(
+pub(super) fn redoable_operations(
     details: &HistoryRunDetails,
 ) -> Result<Vec<HistoryOperation>, String> {
     ensure_safe_for_replay(details)?;

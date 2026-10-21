@@ -1,12 +1,8 @@
-use std::sync::{Arc, Mutex};
-
-use tokio_util::sync::CancellationToken;
-
-use crate::metadata_queue::MetadataQueue;
+use crate::{metadata_queue::MetadataQueue, scanner::ActiveScan};
 
 /// Process-wide state registered with Tauri and shared by command handlers.
 #[derive(Default)]
 pub struct AppState {
-    pub(crate) scan_cancellation_token: Arc<Mutex<Option<CancellationToken>>>,
+    pub(crate) active_scan: std::sync::Arc<ActiveScan>,
     pub(crate) metadata_queue: MetadataQueue,
 }

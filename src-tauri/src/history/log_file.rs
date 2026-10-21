@@ -4,21 +4,39 @@ use std::{
     path::Path,
 };
 
-use crate::models::HistoryRecord;
+use crate::models::{HistoryOperation, HistoryRecord};
 
-pub(super) fn create_run_log(log_path: &Path) -> Result<File, String> {
-    OpenOptions::new()
-        .create_new(true)
-        .append(true)
-        .open(log_path)
-        .map_err(|error| open_error(log_path, error))
+/// An open run log; each append writes one flushed JSONL record.
+#[derive(Debug)]
+pub(crate) struct RunLogWriter {
+    file: File,
 }
 
-pub(super) fn open_run_log_for_append(log_path: &Path) -> Result<File, String> {
-    OpenOptions::new()
-        .append(true)
-        .open(log_path)
-        .map_err(|error| open_error(log_path, error))
+impl RunLogWriter {
+    pub(super) fn create(log_path: &Path) -> Result<Self, String> {
+        OpenOptions::new()
+            .create_new(true)
+            .append(true)
+            .open(log_path)
+            .map(|file| Self { file })
+            .map_err(|error| open_error(log_path, error))
+    }
+
+    pub(super) fn open_existing(log_path: &Path) -> Result<Self, String> {
+        OpenOptions::new()
+            .append(true)
+            .open(log_path)
+            .map(|file| Self { file })
+            .map_err(|error| open_error(log_path, error))
+    }
+
+    pub(crate) fn append_operation(&mut self, operation: HistoryOperation) -> Result<(), String> {
+        self.append(&HistoryRecord::Operation(operation))
+    }
+
+    pub(super) fn append(&mut self, record: &HistoryRecord) -> Result<(), String> {
+        append_history_record(&mut self.file, record)
+    }
 }
 
 /// Writes one JSONL record and flushes so a crash loses at most a partial trailing line.

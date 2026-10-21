@@ -1,20 +1,18 @@
-use tauri::AppHandle;
-
 use crate::{
-    events,
+    events::{self, EventSink},
     models::{MoveProgressEvent, MoveProgressPhase},
 };
 
-pub(crate) fn emit_move_progress_message(
-    app: &AppHandle,
+pub(super) fn emit_move_progress_message(
+    sink: &impl EventSink,
     phase: MoveProgressPhase,
     file_id: Option<&str>,
     message: &str,
     completed: u64,
     total: u64,
 ) {
-    let _ = events::emit_move_progress(
-        app,
+    events::move_progress(
+        sink,
         MoveProgressEvent {
             phase,
             file_id: file_id.map(str::to_string),

@@ -1,36 +1,79 @@
-use tauri::AppHandle;
-
-use super::outcome::{OperationOutcome, ReplaySummary};
+use super::{direction::ReplayDirection, outcome::ReplaySummary};
 use crate::{
-    events, history,
-    models::{HistoryIndexUpdatedEvent, HistoryOperation, HistoryRunStatus},
+    events::{self, EventSink},
+    history::{HistoryStore, RunLogWriter},
+    models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRunStatus},
 };
 
-/// Executes each operation, appends its replay record to the run log and reports progress.
-pub(super) fn replay_operations(
-    app: &AppHandle,
+/// An eligible undo or redo whose run log is already open for its replay records.
+pub(crate) struct ReplayJob {
+    direction: ReplayDirection,
+    run_id: String,
+    initial_status: HistoryRunStatus,
+    operations: Vec<HistoryOperation>,
+    log: RunLogWriter,
+    history: HistoryStore,
+}
+
+/// Fails before any file is touched when the run is unknown, ineligible or its log cannot open.
+pub(crate) fn prepare_replay(
+    history: &HistoryStore,
     run_id: &str,
-    operations: &[HistoryOperation],
-    execute: impl Fn(&HistoryOperation) -> OperationOutcome,
-    record: impl Fn(&str, &HistoryOperation, &OperationOutcome) -> HistoryOperation,
-    emit_progress: impl Fn(u64, u64, HistoryOperation),
-) -> ReplaySummary {
-    let total_operations = operations.len() as u64;
-    let mut summary = ReplaySummary::new(total_operations);
+    direction: ReplayDirection,
+) -> Result<ReplayJob, String> {
+    let details = history.require_run(run_id)?;
+    let operations = direction.eligible_operations(&details)?;
+    let log = history.open_run_log(run_id)?;
+    Ok(ReplayJob {
+        direction,
+        run_id: run_id.to_string(),
+        initial_status: details.run.run_status,
+        operations,
+        log,
+        history: history.clone(),
+    })
+}
 
-    for (index, operation) in operations.iter().enumerate() {
-        let outcome = execute(operation);
-        let history_operation = record(run_id, operation, &outcome);
-        let _ = history::append_history_operation_for_run(app, run_id, history_operation.clone());
-        summary.count(&history_operation.status);
-        emit_progress(total_operations, index as u64 + 1, history_operation);
+impl ReplayJob {
+    /// Replays each operation, logging and reporting it; blocks until the run is updated.
+    pub(crate) fn run(mut self, sink: &impl EventSink) {
+        let total_operations = self.operations.len() as u64;
+        let mut summary = ReplaySummary::new(total_operations);
+
+        for (index, operation) in self.operations.iter().enumerate() {
+            let outcome = self.direction.execute(operation);
+            let record = self.direction.record(&self.run_id, operation, &outcome);
+            let logged = self.log.append_operation(record.clone());
+            summary.count(&record.status);
+            self.direction.emit_progress(
+                sink,
+                HistoryReplayProgressEvent {
+                    run_id: self.run_id.clone(),
+                    total_operations,
+                    completed_operations: index as u64 + 1,
+                    operation: record,
+                },
+            );
+            if logged.is_err() {
+                // Stop moving files that the history could no longer undo or redo.
+                break;
+            }
+        }
+
+        let final_status = completion_status(
+            &self.initial_status,
+            &summary,
+            self.direction.fully_replayed_status(),
+        );
+        if final_status != self.initial_status {
+            let _ = self.history.update_run_status(&self.run_id, final_status);
+        }
+        events::history_index_updated(sink, &self.run_id);
     }
-
-    summary
 }
 
 /// Partial replays of either direction leave the run as `PartiallyUndone`.
-pub(super) fn completion_status(
+fn completion_status(
     initial_status: &HistoryRunStatus,
     summary: &ReplaySummary,
     fully_replayed: HistoryRunStatus,
@@ -42,22 +85,4 @@ pub(super) fn completion_status(
         return fully_replayed;
     }
     HistoryRunStatus::PartiallyUndone
-}
-
-pub(super) fn finish_replay(
-    app: &AppHandle,
-    run_id: &str,
-    initial_status: &HistoryRunStatus,
-    final_status: HistoryRunStatus,
-) {
-    if final_status != *initial_status {
-        let _ = history::update_history_run_status(app, run_id, final_status);
-    }
-
-    let _ = events::emit_history_index_updated(
-        app,
-        HistoryIndexUpdatedEvent {
-            run_id: Some(run_id.to_string()),
-        },
-    );
 }

@@ -1,46 +1,32 @@
 use std::path::Path;
 
-use tauri::AppHandle;
-
 use super::{
-    index::{load_history_index, write_history_index},
+    index::{load_history_index, with_index_lock, write_history_index},
     index_updates::keep_newest_runs,
-    paths::history_root_for_app,
     recovery::{recover_history_run_from_entry, RecoveredHistoryRun},
 };
 use crate::models::{
     HistoryIndexEntry, HistoryOperationKind, HistoryOperationStatus, HistoryRunDetails,
 };
 
-pub(crate) fn list_history_runs(app: &AppHandle) -> Result<Vec<HistoryIndexEntry>, String> {
-    list_history_runs_from_root(&history_root_for_app(app)?)
-}
-
-pub(crate) fn get_history_run(
-    app: &AppHandle,
-    run_id: &str,
-) -> Result<Option<HistoryRunDetails>, String> {
-    get_history_run_from_root(&history_root_for_app(app)?, run_id)
-}
-
 /// Lists runs with state recovered from their logs, persisting any index drift.
-pub(super) fn list_history_runs_from_root(
-    history_root: &Path,
-) -> Result<Vec<HistoryIndexEntry>, String> {
-    let mut index = load_history_index(history_root)?;
-    let mut recovered_entries: Vec<HistoryIndexEntry> =
-        index.runs.iter().map(refreshed_index_entry).collect();
-    keep_newest_runs(&mut recovered_entries);
+pub(super) fn list_history_runs(history_root: &Path) -> Result<Vec<HistoryIndexEntry>, String> {
+    with_index_lock(|| {
+        let mut index = load_history_index(history_root)?;
+        let mut recovered_entries: Vec<HistoryIndexEntry> =
+            index.runs.iter().map(refreshed_index_entry).collect();
+        keep_newest_runs(&mut recovered_entries);
 
-    if recovered_entries != index.runs {
-        index.runs = recovered_entries.clone();
-        write_history_index(history_root, &index)?;
-    }
+        if recovered_entries != index.runs {
+            index.runs = recovered_entries.clone();
+            write_history_index(history_root, &index)?;
+        }
 
-    Ok(recovered_entries)
+        Ok(recovered_entries)
+    })
 }
 
-pub(super) fn get_history_run_from_root(
+pub(super) fn get_history_run(
     history_root: &Path,
     run_id: &str,
 ) -> Result<Option<HistoryRunDetails>, String> {

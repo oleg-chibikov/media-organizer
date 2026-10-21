@@ -1,14 +1,12 @@
-use std::path::PathBuf;
-
-use tauri::Manager;
+use std::path::{Path, PathBuf};
 
 const SIDECAR_FILE_NAME: &str = "exiftool-x86_64-pc-windows-msvc.exe";
 
 /// Finds the bundled ExifTool sidecar in resource, executable and dev source locations.
-pub(super) fn resolve_exiftool_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(super) fn resolve_exiftool_path(resource_dir: Option<&Path>) -> Result<PathBuf, String> {
     let mut candidates: Vec<PathBuf> = Vec::new();
 
-    if let Ok(resource_dir) = app.path().resource_dir() {
+    if let Some(resource_dir) = resource_dir {
         candidates.push(resource_dir.join(SIDECAR_FILE_NAME));
         candidates.push(resource_dir.join("exiftool.exe"));
         candidates.push(resource_dir.join("binaries").join(SIDECAR_FILE_NAME));

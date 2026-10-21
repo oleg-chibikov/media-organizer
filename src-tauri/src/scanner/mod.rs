@@ -1,33 +1,35 @@
 //! Recursive TODO-folder scan that streams discovered and skipped files as events.
 
+mod active_scan;
 mod classification;
 mod scanned_file;
 
 #[cfg(test)]
 mod tests;
 
-use std::path::PathBuf;
+use std::path::Path;
 
 use tokio_util::sync::CancellationToken;
 use walkdir::WalkDir;
 
 use crate::{
-    events,
+    events::{self, EventSink},
     models::{ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
 };
+pub(crate) use active_scan::ActiveScan;
 use scanned_file::record_for_path;
 
 pub(crate) fn scan_folder(
-    app: tauri::AppHandle,
-    root: PathBuf,
-    cancellation_token: CancellationToken,
-) -> Result<(), String> {
-    events::emit_scan_started(
-        &app,
+    sink: &impl EventSink,
+    root: &Path,
+    cancellation_token: &CancellationToken,
+) {
+    events::scan_started(
+        sink,
         ScanStartedEvent {
             root: root.to_string_lossy().to_string(),
         },
-    )?;
+    );
 
     let mut totals = ScanFinishedEvent {
         discovered: 0,
@@ -36,7 +38,7 @@ pub(crate) fn scan_folder(
         cancelled: false,
     };
 
-    for entry in WalkDir::new(&root) {
+    for entry in WalkDir::new(root) {
         if cancellation_token.is_cancelled() {
             totals.cancelled = true;
             break;
@@ -50,8 +52,8 @@ pub(crate) fn scan_folder(
                     .path()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_else(|| "<unknown>".to_string());
-                let _ = events::emit_scan_error(
-                    &app,
+                events::scan_error(
+                    sink,
                     ScanErrorEvent {
                         path,
                         error: error.to_string(),
@@ -65,15 +67,15 @@ pub(crate) fn scan_folder(
             continue;
         }
 
-        let record = record_for_path(&root, &entry.into_path());
+        let record = record_for_path(root, &entry.into_path());
         if matches!(record.scan_status, ScanStatus::Discovered) {
             totals.discovered += 1;
-            let _ = events::emit_scan_file(&app, ScanFileEvent { record });
+            events::scan_file(sink, ScanFileEvent { record });
         } else {
             totals.skipped += 1;
-            let _ = events::emit_scan_skipped(&app, ScanFileEvent { record });
+            events::scan_skipped(sink, ScanFileEvent { record });
         }
     }
 
-    events::emit_scan_finished(&app, totals)
+    events::scan_finished(sink, totals);
 }

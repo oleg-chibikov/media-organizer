@@ -1,5 +1,6 @@
 use std::{
     io::Write,
+    path::Path,
     process::{Child, ChildStdin, Command, Stdio},
     sync::mpsc::Receiver,
 };
@@ -25,8 +26,8 @@ pub(super) struct ExifToolWorker {
 }
 
 impl ExifToolWorker {
-    pub(super) fn start(app: &tauri::AppHandle) -> Result<Self, String> {
-        let exiftool_path = resolve_exiftool_path(app)?;
+    pub(super) fn start(resource_dir: Option<&Path>) -> Result<Self, String> {
+        let exiftool_path = resolve_exiftool_path(resource_dir)?;
 
         let mut child = Command::new(&exiftool_path)
             .args(["-stay_open", "True", "-@", "-"])

@@ -1,7 +1,19 @@
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::Path,
+    sync::{Mutex, PoisonError},
+};
 
 use super::{paths::history_index_path, HISTORY_VERSION};
-use crate::models::HistoryIndexEntry;
+use crate::{atomic_file::write_atomically, models::HistoryIndexEntry};
+
+static INDEX_LOCK: Mutex<()> = Mutex::new(());
+
+/// Serializes index read-modify-write cycles so concurrent runs and replays keep every update.
+pub(super) fn with_index_lock<T>(update: impl FnOnce() -> T) -> T {
+    let _guard = INDEX_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    update()
+}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(super) struct HistoryIndexFile {
@@ -57,7 +69,7 @@ pub(super) fn write_history_index(
         .map_err(|error| format!("Failed to serialize history index: {error}"))?;
 
     let index_path = history_index_path(history_root);
-    fs::write(&index_path, serialized).map_err(|error| {
+    write_atomically(&index_path, serialized.as_bytes()).map_err(|error| {
         format!(
             "Failed to write history index at '{}': {error}",
             index_path.display()

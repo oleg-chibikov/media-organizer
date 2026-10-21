@@ -40,16 +40,9 @@ pub struct HistoryOperation {
     pub timestamp: String,
 }
 
+/// Payload of both `history:undo-progress` and `history:redo-progress`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryUndoProgressEvent {
-    pub run_id: String,
-    pub total_operations: u64,
-    pub completed_operations: u64,
-    pub operation: HistoryOperation,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryRedoProgressEvent {
+pub struct HistoryReplayProgressEvent {
     pub run_id: String,
     pub total_operations: u64,
     pub completed_operations: u64,

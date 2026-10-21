@@ -1,46 +1,46 @@
-use std::path::PathBuf;
-
 use tauri::AppHandle;
-use tauri_plugin_dialog::DialogExt;
 
-use crate::{
-    models::DestinationSettings,
-    settings::{self, load_destination_settings_for_app, save_destination_settings_for_app},
-};
+use super::{app_dirs::settings_store, background::run_blocking, folder_dialog::pick_folder};
+use crate::{models::DestinationSettings, settings};
 
 #[tauri::command]
-pub fn get_destination_settings(app: AppHandle) -> Result<DestinationSettings, String> {
-    load_destination_settings_for_app(&app)
+pub async fn get_destination_settings(app: AppHandle) -> Result<DestinationSettings, String> {
+    let store = settings_store(&app)?;
+    run_blocking(move || store.load()).await
 }
 
 #[tauri::command]
-pub fn choose_root_media_folder(app: AppHandle) -> Result<Option<DestinationSettings>, String> {
-    let Some(selected_path) = app.dialog().file().blocking_pick_folder() else {
+pub async fn choose_root_media_folder(
+    app: AppHandle,
+) -> Result<Option<DestinationSettings>, String> {
+    let Some(root_path) = pick_folder(&app).await else {
         return Ok(None);
     };
-
-    let root_path = PathBuf::from(selected_path.to_string());
-    settings::validate_custom_root_media_folder(&root_path)?;
-
-    let current = load_destination_settings_for_app(&app)?;
-    let updated =
-        settings::set_root_media_folder(&current, Some(root_path.to_string_lossy().to_string()));
-    save_destination_settings_for_app(&app, &updated).map(Some)
+    let store = settings_store(&app)?;
+    run_blocking(move || {
+        settings::validate_custom_root_media_folder(root_path.as_ref())?;
+        store
+            .update(|current| settings::set_root_media_folder(current, Some(root_path)))
+            .map(Some)
+    })
+    .await
 }
 
 #[tauri::command]
-pub fn clear_root_media_folder(app: AppHandle) -> Result<DestinationSettings, String> {
-    let current = load_destination_settings_for_app(&app)?;
-    let updated = settings::clear_root_media_folder(&current);
-    save_destination_settings_for_app(&app, &updated)
+pub async fn clear_root_media_folder(app: AppHandle) -> Result<DestinationSettings, String> {
+    let store = settings_store(&app)?;
+    run_blocking(move || store.update(settings::clear_root_media_folder)).await
 }
 
 #[tauri::command]
-pub fn set_force_processed_folder(
+pub async fn set_force_processed_folder(
     force_processed_folder: bool,
     app: AppHandle,
 ) -> Result<DestinationSettings, String> {
-    let current = load_destination_settings_for_app(&app)?;
-    let updated = settings::set_force_processed_folder(&current, force_processed_folder);
-    save_destination_settings_for_app(&app, &updated)
+    let store = settings_store(&app)?;
+    run_blocking(move || {
+        store
+            .update(|current| settings::set_force_processed_folder(current, force_processed_folder))
+    })
+    .await
 }
