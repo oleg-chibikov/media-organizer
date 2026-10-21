@@ -44,7 +44,7 @@ Use this file as the default conventions contract for AI-assisted changes in thi
 - Emit events through `EventSink`; test streams with `test_support::events::RecordingSink`.
 - Return `String` errors at the command boundary; add an error enum only where code branches on the kind.
 - Do not use `unwrap`/`expect` in command paths unless failure is intentionally fatal and documented.
-- Keep path safety checks in `path_safety.rs` and byte-level copies in `file_ops/`; preserve no-overwrite guarantees.
+- Keep path safety checks in `path_safety.rs`. Rename, copy and delete only through `safe_fs/`; clippy rejects raw `std::fs` mutations elsewhere.
 
 ## Validation Strategy
 

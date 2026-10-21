@@ -15,12 +15,12 @@ Media Organizer is a Tauri 2 desktop app. The Rust backend owns every filesystem
 
 Each layer may depend only on the layers below it.
 
-| Layer         | Backend (`src-tauri/src`)                                               | Frontend (`src`)                                      |
-| ------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
-| Entry         | `main.rs` registers state and commands                                  | `main.tsx`, `App.tsx` lays out features               |
-| Orchestration | `commands/` thin async handlers                                         | `app/` wires features together                        |
-| Features      | domain modules listed below                                             | `features/<name>/`, used only through `index.ts`      |
-| Shared        | `models/`, `events.rs`, `path_safety.rs`, `file_ops/`, `atomic_file.rs` | `lib/api/`, `lib/types/`, `components/design-system/` |
+| Layer         | Backend (`src-tauri/src`)                                         | Frontend (`src`)                                      |
+| ------------- | ----------------------------------------------------------------- | ----------------------------------------------------- |
+| Entry         | `main.rs` registers state and commands                            | `main.tsx`, `App.tsx` lays out features               |
+| Orchestration | `commands/` thin async handlers                                   | `app/` wires features together                        |
+| Features      | domain modules listed below                                       | `features/<name>/`, used only through `index.ts`      |
+| Shared        | `models/`, `events.rs`, `path_safety.rs`, `file_ops/`, `safe_fs/` | `lib/api/`, `lib/types/`, `components/design-system/` |
 
 - **Tauri stays at the edge.** Only `main.rs`, `commands/` and `events.rs` use `AppHandle`. Domain modules take paths, stores and an `EventSink`.
 - **Commands stay thin.** A handler resolves app paths in `commands/app_dirs.rs`, runs filesystem work through `commands/background.rs`, and delegates. Validation and orchestration live in the domain module, as in `move_run::start_move_run` and `undo_redo::prepare_replay`.
@@ -42,7 +42,9 @@ Each layer may depend only on the layers below it.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery and undo/redo candidates.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution.
-- `filename/`, `system_explorer/`, `path_safety.rs`, `file_ops/`, `atomic_file.rs`: focused helpers named after what they decide.
+- `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
+- `picked_folders.rs`: folders the user chose in the native picker this session.
+- `filename/`, `system_explorer/`, `path_safety.rs`, `file_ops/`: focused helpers named after what they decide.
 
 ## Frontend Modules
 
@@ -63,11 +65,18 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 - **ExifTool** ships as a sidecar under `src-tauri/binaries/`.
 - **Specs** with feature intent and acceptance criteria live in `specs/`.
 
-## Safety Invariants
+## File Safety Guarantees
 
-- No file moves before the user confirms.
-- Existing destination files are not overwritten. Copies publish with `create_new`.
-- Conflicts are checked again right before each move.
-- Sources must sit inside the selected folder. Destinations must sit inside the effective destination root.
-- Cross-device rename failures fall back to a verified copy that keeps the source.
-- Undo and redo use recorded paths and sizes. A replay stops when its log can't record a step.
+When a step can't be done safely, the source stays in place and the step reports an error.
+
+- **Only `safe_fs` mutates files.** `src-tauri/clippy.toml` rejects `fs::rename`, `copy`, `hard_link`, `remove_*`, `write`, `File::create`, `set_len` and `OpenOptions::create`/`truncate` everywhere else. `create_dir_all` only adds folders.
+- **No overwrite.** `move_file_no_replace` uses an exclusive rename: `renamex_np(RENAME_EXCL)` on macOS, `renameat2(RENAME_NOREPLACE)` on Linux, `MoveFileExW` without `REPLACE_EXISTING` on Windows. Where that's unsupported it hard-links, checks identity, then unlinks the source. A destination that appears after the conflict check fails with `AlreadyExists` and both files stay.
+- **Copies keep the source.** Cross-volume moves fall back to `copy_verified_no_replace`: a `create_new` temp file beside the destination, fsync, size and byte check, no-replace publish, final check. A failed copy removes only the temp file this run created, matched by file identity.
+- **Deletes need proof.** Undo of a copy deletes it only when a different regular file at the source has the same bytes (`remove_verified_duplicate`). Source cleanup removes real, empty folders strictly inside the real selected root with `remove_dir`, never the root and never through a link (`remove_empty_dir_within`).
+- **Duplicates are kept.** The planner blocks a file whose bytes match the existing destination. Neither file is touched.
+- **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
+- **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it and destinations inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
+- **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A replay stops when its log can't record a step.
+- **ExifTool is read-only.** Requests carry only `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
+- **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
+- **Crashes lose nothing.** An interrupted move leaves the file at the source, at the destination, or under both names of one hard link. An interrupted copy leaves a hidden `.media-organizer-copying-*.tmp` file and the source. History recovery only reads logs.
