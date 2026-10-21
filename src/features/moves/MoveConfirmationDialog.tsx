@@ -6,6 +6,8 @@ import { fileCountLabel, moveConfirmationNotes } from "./moveConfirmationPrompt"
 interface MoveConfirmationDialogProps {
   summary: MoveConfirmationSummary;
   destinationRoot: string | null;
+  // The summary counts only files checked so far; the rest join the run as they become ready.
+  stillChecking: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -13,10 +15,12 @@ interface MoveConfirmationDialogProps {
 export function MoveConfirmationDialog({
   summary,
   destinationRoot,
+  stillChecking,
   onConfirm,
   onCancel
 }: MoveConfirmationDialogProps) {
-  const files = fileCountLabel(summary.ready_operations);
+  const ready = fileCountLabel(summary.ready_operations);
+  const files = stillChecking ? "all files" : ready;
   const notes = moveConfirmationNotes(summary);
 
   return (
@@ -49,9 +53,12 @@ export function MoveConfirmationDialog({
           ))}
         </ul>
       ) : null}
-      <p className="mt-3 text-slate-400">
-        Files still being checked move too when they are ready. You can undo this run in History.
-      </p>
+      {stillChecking ? (
+        <p className="mt-3 text-amber-200">
+          {ready} ready now. Files still being checked move too when they are ready.
+        </p>
+      ) : null}
+      <p className="mt-3 text-slate-400">You can undo this run in History.</p>
     </Dialog>
   );
 }

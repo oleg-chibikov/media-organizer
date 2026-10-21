@@ -92,6 +92,7 @@ export default function App() {
         <MoveConfirmationDialog
           summary={moves.confirmation.summary}
           destinationRoot={effectiveDestination.rootPath}
+          stillChecking={!planning.planCompleted && !scan.progress.cancelled}
           onConfirm={moves.confirmation.confirm}
           onCancel={moves.confirmation.cancel}
         />
