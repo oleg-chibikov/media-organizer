@@ -1,0 +1,32 @@
+use crate::settings::{
+    clear_root_media_folder, set_force_processed_folder, set_root_media_folder,
+    storage::default_destination_settings,
+};
+
+#[test]
+fn clears_root_media_folder_and_updates_timestamp() {
+    let settings = set_root_media_folder(
+        &default_destination_settings(),
+        Some(r"C:\Media\Library".to_string()),
+    );
+    let cleared = clear_root_media_folder(&settings);
+
+    assert_eq!(cleared.root_media_folder, None);
+    assert!(cleared.updated_at.is_some());
+}
+
+#[test]
+fn updates_force_toggle_and_keeps_existing_root() {
+    let settings = set_root_media_folder(
+        &default_destination_settings(),
+        Some(r"C:\Media\Library".to_string()),
+    );
+    let toggled = set_force_processed_folder(&settings, true);
+
+    assert!(toggled.force_processed_folder);
+    assert_eq!(
+        toggled.root_media_folder,
+        Some(r"C:\Media\Library".to_string())
+    );
+    assert!(toggled.updated_at.is_some());
+}

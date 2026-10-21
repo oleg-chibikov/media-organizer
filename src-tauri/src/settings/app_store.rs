@@ -7,14 +7,14 @@ use crate::models::{DestinationSettings, EffectiveDestinationRoot};
 pub(crate) fn load_destination_settings_for_app(
     app: &AppHandle,
 ) -> Result<DestinationSettings, String> {
-    super::load_destination_settings(&app_data_dir(app)?)
+    super::storage::load_destination_settings(&app_data_dir(app)?)
 }
 
 pub(crate) fn save_destination_settings_for_app(
     app: &AppHandle,
     destination_settings: &DestinationSettings,
 ) -> Result<DestinationSettings, String> {
-    super::save_destination_settings(&app_data_dir(app)?, destination_settings)
+    super::storage::save_destination_settings(&app_data_dir(app)?, destination_settings)
 }
 
 pub(crate) fn resolve_effective_destination_root_for_app(
@@ -22,7 +22,10 @@ pub(crate) fn resolve_effective_destination_root_for_app(
     selected_folder: &Path,
 ) -> Result<EffectiveDestinationRoot, String> {
     let destination_settings = load_destination_settings_for_app(app)?;
-    super::resolve_effective_destination_root(selected_folder, &destination_settings)
+    super::effective_root::resolve_effective_destination_root(
+        selected_folder,
+        &destination_settings,
+    )
 }
 
 fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
