@@ -39,6 +39,8 @@ if (-not (Test-Path $jdkDir)) {
 $env:JAVA_HOME = $jdkDir
 
 $env:ANDROID_HOME = Join-Path $toolsDir "android-sdk"
+# Gradle stops when an older ANDROID_SDK_ROOT points at another SDK.
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 $cmdlineTools = Join-Path $env:ANDROID_HOME "cmdline-tools\latest"
 $sdkmanager = Join-Path $cmdlineTools "bin\sdkmanager.bat"
 if (-not (Test-Path $sdkmanager)) {

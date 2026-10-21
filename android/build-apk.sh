@@ -55,7 +55,9 @@ fi
 export JAVA_HOME
 
 ANDROID_HOME="$tools_dir/android-sdk"
-export ANDROID_HOME
+# Gradle stops when an older ANDROID_SDK_ROOT points at another SDK.
+ANDROID_SDK_ROOT="$ANDROID_HOME"
+export ANDROID_HOME ANDROID_SDK_ROOT
 sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 if [ ! -x "$sdkmanager" ]; then
   download "https://dl.google.com/android/repository/commandlinetools-$sdk_os-${cmdline_tools_build}_latest.zip" "$tools_dir/cmdline-tools.zip"
