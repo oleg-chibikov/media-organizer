@@ -17,7 +17,7 @@ pub(super) fn skipped_result(
     }
 }
 
-pub(super) fn skipped_operation(operation: &MoveOperation, reason: &str) -> MoveResult {
+pub(crate) fn skipped_operation(operation: &MoveOperation, reason: &str) -> MoveResult {
     skipped_result(
         &operation.file_id,
         &operation.source_path,

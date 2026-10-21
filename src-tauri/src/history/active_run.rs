@@ -65,6 +65,11 @@ impl ActiveHistoryRun {
         self.log.append_operation(operation)
     }
 
+    #[cfg(test)]
+    pub(crate) fn break_log_for_tests(&mut self) {
+        self.log = RunLogWriter::read_only_for_tests(Path::new(&self.run.history_file_path));
+    }
+
     pub(crate) fn complete(&mut self, run_status: HistoryRunStatus) -> Result<(), String> {
         let completed_at = Utc::now().to_rfc3339();
         self.log

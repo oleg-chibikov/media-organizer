@@ -43,6 +43,11 @@ impl<'a, S: EventSink> MoveRunRecorder<'a, S> {
         self.finished.results.len() as u64
     }
 
+    /// True once an operation couldn't be written to the run log.
+    pub(super) fn history_log_failed(&self) -> bool {
+        self.history_log_had_error
+    }
+
     pub(super) fn record_all(&mut self, results: Vec<MoveResult>) {
         for result in results {
             self.record(result);

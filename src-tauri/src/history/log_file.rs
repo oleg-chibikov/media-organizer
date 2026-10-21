@@ -30,6 +30,13 @@ impl RunLogWriter {
             .map_err(|error| open_error(log_path, error))
     }
 
+    /// A writer whose appends all fail, for tests of a log that stops recording.
+    #[cfg(test)]
+    pub(super) fn read_only_for_tests(log_path: &Path) -> Self {
+        let file = File::open(log_path).expect("open run log read-only");
+        Self { file }
+    }
+
     pub(crate) fn append_operation(&mut self, operation: HistoryOperation) -> Result<(), String> {
         self.append(&HistoryRecord::Operation(operation))
     }

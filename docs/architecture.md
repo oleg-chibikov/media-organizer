@@ -76,7 +76,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **Duplicates are kept.** The planner blocks a file whose bytes match the existing destination. Neither file is touched.
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
 - **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it and destinations inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
-- **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A replay stops when its log can't record a step.
+- **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A move run or a replay stops moving files once its log can't record a step.
 - **ExifTool is read-only.** Requests carry only `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
 - **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
 - **Crashes lose nothing.** An interrupted move leaves the file at the source, at the destination, or under both names of one hard link. An interrupted copy leaves a hidden `.media-organizer-copying-*.tmp` file and the source. History recovery only reads logs.

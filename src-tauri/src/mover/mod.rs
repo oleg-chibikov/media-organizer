@@ -13,6 +13,7 @@ mod tests;
 
 pub(crate) use confirmation_summary::build_move_confirmation_summary;
 pub(crate) use conflict_recheck::recheck_destination_conflicts;
+pub(crate) use outcome::skipped_operation;
 pub(crate) use preparation::prepare_move_operations;
 pub(crate) use rename::execute_move_with_rename;
 pub(crate) use safety::validate_move_safety_with_roots;
