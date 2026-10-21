@@ -2,6 +2,7 @@ import { Button } from "../../components/design-system/Button";
 import { Pane } from "../../components/design-system/Pane";
 import type { DestinationSettings } from "../../lib/types";
 import { effectiveDestinationMode } from "./effectiveDestinationMode";
+import { RootFolderStatus } from "./RootFolderStatus";
 import { SettingsIcon } from "./SettingsIcon";
 
 interface DestinationSettingsMenuProps {
@@ -49,14 +50,7 @@ export function DestinationSettingsMenu({
       <section>
         <h2 className="text-sm font-semibold text-slate-100">Destination Settings</h2>
         <p className="mt-1 text-xs text-slate-400">{effectiveMode}</p>
-        <div className="mt-3 rounded border border-slate-800 bg-slate-950 p-2">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">Root Media Folder</p>
-          {rootPath ? (
-            <p className="mt-1 break-all font-mono text-xs text-slate-200">{rootPath}</p>
-          ) : (
-            <p className="mt-1 text-xs text-slate-400">Not set</p>
-          )}
-        </div>
+        <RootFolderStatus rootPath={rootPath} />
         {warning ? <p className="mt-2 text-xs text-amber-300">{warning}</p> : null}
         {error ? (
           <p role="alert" className="mt-2 text-xs text-rose-400">
