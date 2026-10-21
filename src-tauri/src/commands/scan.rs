@@ -18,8 +18,9 @@ pub async fn start_scan(
     let active_scan = state.active_scan.clone();
     let ticket = active_scan.begin();
     spawn_job(move || {
-        scanner::scan_folder(&app, &selected_folder, &ticket.token);
-        active_scan.finish(&ticket);
+        active_scan.run(&ticket, |token| {
+            scanner::scan_folder(&app, &selected_folder, token);
+        });
     });
     Ok(())
 }

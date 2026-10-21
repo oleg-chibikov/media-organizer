@@ -5,11 +5,13 @@ use std::sync::{
 
 use tokio_util::sync::CancellationToken;
 
-/// Cancellation handle of the most recently started scan.
+/// The most recently started scan. Starting a scan cancels the one before it, and scans
+/// run one at a time, so a new folder's events can't mix with an old folder's.
 #[derive(Default)]
 pub(crate) struct ActiveScan {
     slot: Mutex<Option<ScanTicket>>,
     started_scans: AtomicU64,
+    running: Mutex<()>,
 }
 
 /// Identifies one started scan so a finished older scan cannot clear a newer one.
@@ -25,8 +27,17 @@ impl ActiveScan {
             generation: self.started_scans.fetch_add(1, Ordering::Relaxed),
             token: CancellationToken::new(),
         };
-        *self.lock() = Some(ticket.clone());
+        if let Some(previous) = self.lock().replace(ticket.clone()) {
+            previous.token.cancel();
+        }
         ticket
+    }
+
+    /// Runs `scan` once the previous scan has finished, then clears the ticket.
+    pub(crate) fn run(&self, ticket: &ScanTicket, scan: impl FnOnce(&CancellationToken)) {
+        let _one_at_a_time = self.running.lock().unwrap_or_else(PoisonError::into_inner);
+        scan(&ticket.token);
+        self.finish(ticket);
     }
 
     pub(crate) fn finish(&self, ticket: &ScanTicket) {

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::mpsc, sync::Arc, thread, time::Duration};
 
 use crate::models::FileKind;
 use crate::scanner::classification::{classify_extension, is_in_processed};
@@ -39,16 +39,54 @@ fn detects_processed_segment_in_relative_path() {
 }
 
 #[test]
-fn finishing_an_older_scan_keeps_the_newer_scan_cancellable() {
+fn starting_a_scan_cancels_the_previous_one() {
     let active_scan = crate::scanner::ActiveScan::default();
     let older = active_scan.begin();
     let newer = active_scan.begin();
+    assert!(older.token.is_cancelled());
+    assert!(!newer.token.is_cancelled());
 
     active_scan.finish(&older);
     active_scan.cancel();
 
     assert!(newer.token.is_cancelled());
-    assert!(!older.token.is_cancelled());
+}
+
+#[test]
+fn a_new_scan_starts_only_after_the_previous_one_finished() {
+    let active_scan = Arc::new(crate::scanner::ActiveScan::default());
+    let (order_tx, order_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let older = active_scan.begin();
+    let older_scan = {
+        let (active_scan, order_tx) = (active_scan.clone(), order_tx.clone());
+        thread::spawn(move || {
+            active_scan.run(&older, |token| {
+                order_tx.send("older started").expect("send");
+                release_rx.recv().expect("release");
+                order_tx
+                    .send(if token.is_cancelled() {
+                        "older cancelled"
+                    } else {
+                        "older ran on"
+                    })
+                    .expect("send");
+            });
+        })
+    };
+    assert_eq!(order_rx.recv().expect("older start"), "older started");
+
+    let newer = active_scan.begin();
+    let newer_scan = thread::spawn(move || {
+        active_scan.run(&newer, |_| order_tx.send("newer started").expect("send"));
+    });
+    assert!(order_rx.recv_timeout(Duration::from_millis(50)).is_err());
+    release_tx.send(()).expect("release older scan");
+    older_scan.join().expect("older scan");
+    newer_scan.join().expect("newer scan");
+
+    let order: Vec<&str> = order_rx.try_iter().collect();
+    assert_eq!(order, ["older cancelled", "newer started"]);
 }
 
 #[test]
