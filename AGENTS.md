@@ -28,6 +28,7 @@
 - Allocate feature work into feature folders when a change spans components, state, helpers, tests, or styles.
 - Preserve semantic HTML, keyboard access, labels, focus behavior, and readable contrast for UI changes.
 - Avoid unnecessary renders, repeated filesystem calls, unbounded queues, and work on the UI thread.
+- React to a user action at once. Clear the data the action makes stale and show progress before awaiting the backend. Drop late events from the work the action replaced.
 - Use descriptive names and direct control flow; comments should explain non-obvious reasoning, not restate code.
 - Keep public command/event contracts typed and stable across Rust and TypeScript.
 

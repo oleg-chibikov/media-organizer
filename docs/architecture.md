@@ -2,9 +2,63 @@
 
 Media Organizer is a Tauri 2 desktop app. The Rust backend owns every filesystem decision: scanning, metadata, planning, moves, history, settings and safety checks. The React frontend renders backend state, queues work and sends confirmed batches.
 
+## Big Picture
+
+```mermaid
+flowchart LR
+  person(["Person"])
+  subgraph webview["React webview (src/)"]
+    features["features/<br/>scan, metadata, planning, moves, history"]
+    api["lib/api/<br/>command wrappers, event listeners"]
+    features --> api
+  end
+  subgraph rust["Rust backend (src-tauri/src/)"]
+    commands["commands/<br/>thin async handlers"]
+    domain["scanner, planner, move_run,<br/>undo_redo, settings"]
+    safe["safe_fs/<br/>the only code that changes files"]
+    events["events.rs<br/>scan, plan, move, history events"]
+    commands --> domain --> safe
+    domain --> events
+  end
+  exif[["ExifTool sidecar<br/>reads capture dates"]]
+  folders[("TODO folder and<br/>dated destination")]
+  appdata[("appData<br/>settings and history logs")]
+  person --> features
+  api -->|invoke| commands
+  events -->|emit| api
+  domain --> exif
+  safe --> folders
+  domain --> appdata
+```
+
 ## Main Flow
 
-1. The user picks a TODO folder. `features/scan` calls `start_scan`.
+```mermaid
+sequenceDiagram
+  actor Person
+  participant UI as React features
+  participant Rust as Rust commands and modules
+  participant Exif as ExifTool workers
+  participant Disk as Folders and appData
+  Person->>UI: Picks a TODO folder
+  UI->>Rust: start_scan
+  Rust-->>UI: scan:file events
+  UI->>Rust: read_metadata_for_files, in batches
+  Rust->>Exif: reads tags
+  Rust-->>UI: capture dates
+  UI->>Rust: create_move_plan
+  Rust-->>UI: plan:file events with destinations
+  Person->>UI: Confirms the move
+  UI->>Rust: execute_move_plan
+  Rust->>Disk: checks, moves and logs each file
+  Rust-->>UI: move:file and move:progress events
+  Person->>UI: Undoes or redoes a run in History
+  UI->>Rust: undo_history_run or redo_history_run
+  Rust->>Disk: replays the run log
+  Rust-->>UI: history progress events
+```
+
+1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers.
 4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews.
@@ -59,7 +113,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 ## Android App
 
-`android/` is a separate Kotlin app that sorts the phone gallery on the device. It shares no code with the desktop app.
+`android/` is a separate Kotlin app that sorts the phone gallery on the device. It shares no code with the desktop app. Its user flow and code diagrams are in `android/README.md`.
 
 - **`organize/`** copies the scanner, planner, filename and date rules with no Android imports, so JVM tests cover it.
 - **`folders/`** lets the person pick the gallery and Move to folders, and keeps both between launches.

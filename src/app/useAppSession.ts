@@ -21,7 +21,10 @@ export function useAppSession() {
     onSettingsFailed: destination.settingsFailed,
     reportError: setFolderError
   });
-  const scan = useScanSession(setFolderError);
+  const scan = useScanSession({
+    reportError: setFolderError,
+    onNewScan: () => resetPipeline()
+  });
   const planning = useMovePlanning({
     selectedFolder: scan.selectedFolder,
     reportError: setFolderError
@@ -53,18 +56,15 @@ export function useAppSession() {
   });
   const history = useHistory(setFolderError);
 
-  useBackendEvents(
-    attachScanListeners,
-    {
-      ...scan.events,
-      onStarted: (payload) => {
-        scan.events.onStarted(payload);
-        metadata.resetMetadata();
-        planning.resetPlanning();
-        moves.resetMoves();
-      }
-    },
-    (error) => setFolderError(`Failed to attach scan listeners: ${String(error)}`)
+  // Metadata, plans and moves belong to the old folder's files.
+  const resetPipeline = () => {
+    metadata.resetMetadata();
+    planning.resetPlanning();
+    moves.resetMoves();
+  };
+
+  useBackendEvents(attachScanListeners, scan.events, (error) =>
+    setFolderError(`Failed to attach scan listeners: ${String(error)}`)
   );
 
   const effectiveDestination = useEffectiveDestinationRoot(
