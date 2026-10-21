@@ -42,20 +42,22 @@ ESLint enforces these in `eslint.config.js`.
 flowchart LR
   A["Picks a folder"] --> B{"Inside a Processed folder?"}
   B -->|yes| C["Sees an error, the old list stays"]
-  B -->|no| D["Watches files stream into the table"]
-  D --> E["Sees dates and destinations fill in"]
-  E --> F["Presses Confirm and Execute"]
-  F --> G{"Accepts the backend summary?"}
-  G -->|no| E
-  G -->|yes| H["Watches files move, can pause"]
-  H --> I["Sees moved, copied and failed counts"]
-  I --> J["Opens History"]
-  J --> K{"Confirms undo, redo or delete?"}
-  K -->|yes| L["Sees the run update"]
-  K -->|no| J
+  B -->|no| D["Sees From and To, files stream into the table"]
+  D --> E["Sees dates and destinations fill in, problem files on top"]
+  E --> F["Filters to Needs review or Errors"]
+  F --> E
+  E --> G["Presses Move Files"]
+  G --> H{"Moves the files in the dialog?"}
+  H -->|no| E
+  H -->|yes| I["Watches files move, can pause"]
+  I --> J["Reads the summary, opens the destination"]
+  J --> K["Opens History"]
+  K --> L{"Confirms undo, redo or delete?"}
+  L -->|yes| M["Sees the run update"]
+  L -->|no| K
 ```
 
-[Open the diagram](https://mermaid.live/view#pako:eNplkrluwzAQRH9lwVr-ARcJfMjxBcRIihRRCppcwYR5CDySCLb_PUtCsos0AqSdmd030IUJJ5FNgbXa_YgT9xH2b40FmH027KDEOQCH1mmJvmFfMJk8wfzSsI0NSiKNDt4JDAHlIHpu2C3b51l67TFcYUFJ74gUZAG9d76CeEIgOWgVIoTI-0DhD5t1V1iS64NHcSJjqzQ9Q_TIDSgbXQmI_Khx8C3LZfW4SfJY9kmQGKKyPCpnS44m_-Cpi2eVOX1GCLBwtlXeFGP9iyLFMX9VtC9EPhMCuxjKBUcuzkjakIzhvh_ZX-4Q9eO1VLH-B2XcN1YgqJqOpzCuW5d1mxEniySpXKeo6Hxdy8kt6UuycexuU0xbMr12SLRrKtf5fphuy3RHBANlgGSlq8CjdOA8NaUx4siwexy9H8_IyD5ZSF3ud8jd3WG3rAJm0BuuZP6jaBU5DAmnDZPY8qQjpbPbH61UzTo)
+[Open the diagram](https://mermaid.live/view#pako:eNpNkt1u2zAMhV-F0LX7Ar3YsLZxkyb9QTdgF_MuNItehEmiQcotgqbvPkqxm15aPOcjeeg305NDc2mGQK_93nKG3XOXAL796syT7_8JWBgoOOTO_IaLiy9w9daZTRLvUEtPTD2KoJtFXzvzXuxXRXo8oBzhWknfERWUAJmJG8h7BJVD8JJBsj2Iws-2REe4WVwtU1Srgx_UwOCDPklmtBF8ylRR2f4JOBNu6oyrxe1srp0dOJTsk82ekhROUH8DI5N64wymBJnGmbSqpFZJrQ8ZWbQGD4hOgPHF4ysQw6ostEzfnnqfzbclRC75CNzTC0Jb2szq2ypZa5qlJHWT0xg-1Q_nbaC_S6Lrj2hW588a8Ea7_LS536PMgKjABnoNfLSTLNFsasM7VT-jdaeGMsVo-dAAjZhOT5-Cmo131bhV42NVrfVsxIe5uq3Vne5xTWnwHAWm5PRYjI5KRg4DZlz22J0Hv1-uVNrylGAay71m7u5j4W2XTGMicrTe6b-qrdQRVXjZGYeDnUJWunn_D0Qk6gk)
 
 ## What happens inside
 
