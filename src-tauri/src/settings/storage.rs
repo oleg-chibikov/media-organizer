@@ -6,7 +6,7 @@ use std::{
 use chrono::Utc;
 
 use super::DESTINATION_SETTINGS_VERSION;
-use crate::{atomic_file::write_atomically, models::DestinationSettings};
+use crate::{models::DestinationSettings, safe_fs::replace_app_file};
 
 const SETTINGS_DIR_NAME: &str = "settings";
 const SETTINGS_FILE_NAME: &str = "destination-settings.json";
@@ -77,7 +77,7 @@ pub(super) fn save_destination_settings(
     let serialized = serde_json::to_string_pretty(&persisted)
         .map_err(|error| format!("Failed to serialize destination settings JSON: {error}"))?;
 
-    write_atomically(&settings_path, serialized.as_bytes()).map_err(|error| {
+    replace_app_file(&settings_path, serialized.as_bytes()).map_err(|error| {
         format!(
             "Failed to write destination settings file at {}: {error}",
             settings_path.display()

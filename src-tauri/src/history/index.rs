@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::{paths::history_index_path, HISTORY_VERSION};
-use crate::{atomic_file::write_atomically, models::HistoryIndexEntry};
+use crate::{models::HistoryIndexEntry, safe_fs::replace_app_file};
 
 static INDEX_LOCK: Mutex<()> = Mutex::new(());
 
@@ -69,7 +69,7 @@ pub(super) fn write_history_index(
         .map_err(|error| format!("Failed to serialize history index: {error}"))?;
 
     let index_path = history_index_path(history_root);
-    write_atomically(&index_path, serialized.as_bytes()).map_err(|error| {
+    replace_app_file(&index_path, serialized.as_bytes()).map_err(|error| {
         format!(
             "Failed to write history index at '{}': {error}",
             index_path.display()
