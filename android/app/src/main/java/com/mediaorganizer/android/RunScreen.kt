@@ -47,6 +47,7 @@ class RunScreen(activity: Activity) {
             snapshot.counts.getValue(FileOutcome.MOVED),
             snapshot.counts.getValue(FileOutcome.DUPLICATE),
             snapshot.counts.getValue(FileOutcome.NO_DATE),
+            snapshot.counts.getValue(FileOutcome.WAITING),
             snapshot.counts.getValue(FileOutcome.FAILED),
             snapshot.skipped,
         )

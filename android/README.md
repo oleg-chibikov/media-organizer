@@ -42,7 +42,7 @@ Choose next to "Move to" creates the folder first when it doesn't exist yet, so 
 
 ## Move new photos automatically
 
-Turn on "Move new photos and videos automatically". The app then sorts each new photo or video a few seconds after the camera saves it, with the app closed.
+Turn on "Move new photos and videos automatically". The app then sorts each new photo or video about 30 seconds after the camera saves it, with the app closed.
 
 - **Folders** are the last ones on screen. Change a field and the next sort uses it.
 - **No app runs in between.** Android starts the app when the gallery changes, and the app exits after the sort. Once a day it also sorts the whole gallery folder, for files the trigger missed.
@@ -57,6 +57,13 @@ Turn on "Move new photos and videos automatically". The app then sorts each new 
 - **Conflicts** get a ` (n)` suffix. A file with the same bytes already there stays in place.
 - **Skipped** files are anything under `Processed`, the destination, and non-media files.
 - **Cleanup** removes source folders the run emptied, but keeps the gallery folder.
+
+## How the app keeps photos safe
+
+- **No overwrite.** A move checks the name is free right before it renames. A taken name fails the file, and both files stay.
+- **Files still saving wait.** A file changed in the last 30 seconds stays for the next run, so a camera can finish a video. With automatic moves on, that run starts by itself.
+- **Another storage** such as an SD card gets a hidden copy first. The app syncs it, checks the bytes, then gives it the name. The source goes last, and only when no app changed it meanwhile.
+- **Deletes** touch only empty folders and the app's own temporary copies.
 
 ## What differs
 

@@ -6,7 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeText
@@ -69,8 +72,24 @@ class OrganizerTest {
         assertEquals("Stopped", progress.snapshot().log.last())
     }
 
+    @Test fun leavesFileThatIsStillSavingForTheNextRun() {
+        val source = temp.root.toPath()
+        val photo = source.resolve("IMG_1.jpg")
+        write(photo, "one")
+        Files.setLastModifiedTime(photo, FileTime.from(Instant.now()))
+
+        val progress = RunProgress()
+        val moved = organize(OrganizeRequest(source, source.resolve("Processed")), readMetadata, progress) { false }
+
+        assertTrue(moved.isEmpty())
+        assertTrue(photo.exists())
+        assertEquals(1, progress.snapshot().counts[FileOutcome.WAITING])
+    }
+
+    /** Written an hour ago, so the file counts as settled. */
     private fun write(path: Path, text: String) {
         path.parent.createDirectories()
         path.writeText(text)
+        Files.setLastModifiedTime(path, FileTime.from(Instant.now().minusSeconds(3600)))
     }
 }

@@ -23,5 +23,5 @@
     <string name="progress_label">Sorting progress</string>
     <string name="log_label">Log</string>
     <string name="allow_all_files">Allow access to all files, then press the button again.</string>
-    <string name="counts">%1$d of %2$d files\nMoved: %3$d\nAlready there: %4$d\nNo date: %5$d\nErrors: %6$d\nNot photo or video: %7$d</string>
+    <string name="counts">%1$d of %2$d files\nMoved: %3$d\nAlready there: %4$d\nNo date: %5$d\nStill saving, next run: %6$d\nErrors: %7$d\nNot photo or video: %8$d</string>
 </resources>

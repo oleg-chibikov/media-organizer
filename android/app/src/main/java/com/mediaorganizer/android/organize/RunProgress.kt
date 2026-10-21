@@ -1,6 +1,7 @@
 package com.mediaorganizer.android.organize
 
-enum class FileOutcome { MOVED, DUPLICATE, NO_DATE, FAILED }
+/** [WAITING] is a file an app may still write. It stays for the next run. */
+enum class FileOutcome { MOVED, DUPLICATE, NO_DATE, WAITING, FAILED }
 
 enum class RunEnd { DONE, STOPPED, FAILED }
 

@@ -25,5 +25,6 @@ class RequestValidationTest {
     @Test fun rejectsDestinationEqualToSource() {
         val source = temp.root.path
         assertTrue(checkRequest(source, source) is RequestCheck.Invalid)
+        assertTrue(checkRequest(source, "$source/.") is RequestCheck.Invalid)
     }
 }

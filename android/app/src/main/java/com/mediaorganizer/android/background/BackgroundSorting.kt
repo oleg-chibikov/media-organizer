@@ -5,10 +5,12 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.provider.MediaStore
+import com.mediaorganizer.android.organize.SETTLE_TIME
 import java.util.concurrent.TimeUnit
 
 const val NEW_MEDIA_JOB = 1
 const val DAILY_JOB = 2
+const val SETTLED_JOB = 3
 
 /**
  * The background sort: Android starts the app when the gallery changes, and once a day as a fallback.
@@ -38,6 +40,15 @@ object BackgroundSorting {
      */
     fun watchGalleryAgain(context: Context) {
         if (isEnabled(context)) scheduler(context).schedule(newMediaJob(context))
+    }
+
+    /** One sort once files skipped as still saving have settled. A newer call moves it later. */
+    fun sortAgainWhenSettled(context: Context) {
+        if (!isEnabled(context)) return
+        val job = JobInfo.Builder(SETTLED_JOB, service(context))
+            .setMinimumLatency(SETTLE_TIME.plusSeconds(1).toMillis())
+            .build()
+        scheduler(context).schedule(job)
     }
 
     private fun newMediaJob(context: Context): JobInfo {
