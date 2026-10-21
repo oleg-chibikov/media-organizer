@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "resources": {
+      "binaries/exiftool_files/": "exiftool_files/"
+    }
+  }
+}
