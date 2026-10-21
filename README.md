@@ -157,6 +157,16 @@ mise x -- pnpm knip
 mise x -- cargo shear src-tauri
 ```
 
+Rebuild the offline place table in `src-tauri/assets/geodata.tsv.gz` from GeoNames. The script downloads about 640 MB into `scripts/geodata/.cache`:
+
+```powershell
+python3 scripts/geodata/build_geodata.py
+```
+
+## Third-party data
+
+Place names come from [GeoNames](https://www.geonames.org/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Docs
 
 - Architecture, and the commands and events between frontend and backend: `docs/architecture.md`
