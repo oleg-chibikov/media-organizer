@@ -65,6 +65,7 @@ describe("History Menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo TODO Camera" }));
     expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
 
+    expect(screen.getByRole("button", { name: "Delete TODO Camera" })).toHaveTextContent("Delete");
     fireEvent.click(screen.getByRole("button", { name: "Redo TODO Drone" }));
     expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
 

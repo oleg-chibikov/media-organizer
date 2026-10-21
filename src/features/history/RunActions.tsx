@@ -55,7 +55,7 @@ export function RunActions({
         className="px-2 py-1 text-[11px] text-red-400 hover:bg-red-900 hover:text-red-300"
         onClick={() => onDeleteRun(run.run_id)}
       >
-        x
+        Delete
       </Button>
     </div>
   );
