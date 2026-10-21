@@ -6,14 +6,9 @@ import { buildOperationRows } from "./operationRows";
 interface HistoryRunDetailsSectionProps {
   details: HistoryRunDetails | null;
   loading: boolean;
-  error: string | null;
 }
 
-export function HistoryRunDetailsSection({
-  details,
-  loading,
-  error
-}: HistoryRunDetailsSectionProps) {
+export function HistoryRunDetailsSection({ details, loading }: HistoryRunDetailsSectionProps) {
   const rows = useMemo(() => (details ? buildOperationRows(details, "relative") : []), [details]);
 
   return (
@@ -32,7 +27,6 @@ export function HistoryRunDetailsSection({
           </span>
         ) : null}
       </div>
-      {error ? <p className="mb-1 text-[11px] text-rose-400">{error}</p> : null}
       {loading ? (
         <p className="text-[11px] text-slate-400">Loading history details...</p>
       ) : details ? (

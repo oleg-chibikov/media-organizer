@@ -71,7 +71,7 @@ const DETAILS: HistoryRunDetails = {
 
 describe("HistoryRunDetailsSection", () => {
   it("renders source/destination/status and exposes errors via status tooltip", () => {
-    render(<HistoryRunDetailsSection details={DETAILS} loading={false} error={null} />);
+    render(<HistoryRunDetailsSection details={DETAILS} loading={false} />);
 
     expect(screen.getByText("History Details")).toBeInTheDocument();
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();

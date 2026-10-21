@@ -25,7 +25,7 @@ export default function App() {
             loading={history.loading}
             details={history.details}
             detailsLoading={history.detailsLoading}
-            detailsError={history.error}
+            error={history.error}
             onSelectRun={history.selectRun}
             onUndoRun={history.undoRun}
             onRedoRun={history.redoRun}

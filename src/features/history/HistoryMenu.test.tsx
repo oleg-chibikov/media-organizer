@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryMenu } from "./HistoryMenu";
 import type { HistoryIndexEntry } from "../../lib/types";
 
@@ -28,6 +28,8 @@ const RUNS: HistoryIndexEntry[] = [
   }
 ];
 
+afterEach(cleanup);
+
 describe("History Menu", () => {
   it("shows a single undo or redo action next to each run", () => {
     const onSelectHistoryRun = vi.fn();
@@ -41,7 +43,7 @@ describe("History Menu", () => {
         loading={false}
         details={null}
         detailsLoading={false}
-        detailsError={null}
+        error={null}
         onSelectRun={onSelectHistoryRun}
         onUndoRun={onUndoProcessing}
         onRedoRun={onRedoProcessing}
@@ -68,5 +70,27 @@ describe("History Menu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "C:\\TODO\\Drone" }));
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");
+  });
+
+  it("shows a history error even when no run is selected", () => {
+    render(
+      <HistoryMenu
+        runs={[]}
+        selectedRunId={null}
+        loading={false}
+        details={null}
+        detailsLoading={false}
+        error="Failed to open the history log: missing"
+        onSelectRun={vi.fn()}
+        onUndoRun={vi.fn()}
+        onRedoRun={vi.fn()}
+        onDeleteRun={vi.fn()}
+        onOpenLog={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText("History"));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Failed to open the history log: missing");
   });
 });

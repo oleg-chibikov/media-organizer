@@ -11,7 +11,7 @@ interface HistoryMenuProps extends RunActionHandlers {
   loading: boolean;
   details: HistoryRunDetails | null;
   detailsLoading: boolean;
-  detailsError: string | null;
+  error: string | null;
   onSelectRun: (runId: string) => void;
 }
 
@@ -20,10 +20,10 @@ export function HistoryMenu({
   loading,
   details,
   detailsLoading,
-  detailsError,
+  error,
   ...tableProps
 }: HistoryMenuProps) {
-  const showDetails = tableProps.selectedRunId && (details || detailsLoading || detailsError);
+  const showDetails = tableProps.selectedRunId && (details || detailsLoading);
 
   return (
     <Pane
@@ -40,6 +40,11 @@ export function HistoryMenu({
       )}
     >
       <p className="mb-1 text-xs text-slate-400">Recent Runs</p>
+      {error ? (
+        <p role="alert" className="mb-1 px-2 text-xs text-rose-400">
+          {error}
+        </p>
+      ) : null}
       <div className="max-h-56 overflow-y-auto">
         {loading ? (
           <p className="px-2 py-1 text-xs text-slate-400">Loading history...</p>
@@ -49,9 +54,7 @@ export function HistoryMenu({
           <RecentRunsTable runs={runs} {...tableProps} />
         )}
       </div>
-      {showDetails ? (
-        <HistoryRunDetailsSection details={details} loading={detailsLoading} error={detailsError} />
-      ) : null}
+      {showDetails ? <HistoryRunDetailsSection details={details} loading={detailsLoading} /> : null}
     </Pane>
   );
 }
