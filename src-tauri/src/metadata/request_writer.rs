@@ -1,8 +1,8 @@
 use std::{io::Write, path::PathBuf};
 
-use super::worker::WorkerError;
+use super::{argfile_path::exiftool_path_argument, worker::WorkerError};
 
-const EXIFTOOL_TAGS: [&str; 11] = [
+pub(super) const EXIFTOOL_TAGS: [&str; 11] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -16,12 +16,19 @@ const EXIFTOOL_TAGS: [&str; 11] = [
     "-CameraModelName",
 ];
 
-/// Writes one `-stay_open` JSON request terminated by `-execute{request_id}`.
+/// Writes one read-only `-stay_open` JSON request terminated by `-execute{request_id}`.
+/// The whole request is refused before anything is written if one path is unsafe.
 pub(super) fn write_request(
     stdin: &mut impl Write,
     source_paths: &[PathBuf],
     request_id: u64,
 ) -> Result<(), WorkerError> {
+    let path_arguments = source_paths
+        .iter()
+        .map(|path| exiftool_path_argument(path))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(WorkerError::Protocol)?;
+
     stdin.write_all(b"-json\n").map_err(|error| {
         WorkerError::Crashed(format!("Failed to write ExifTool request: {error}"))
     })?;
@@ -34,9 +41,9 @@ pub(super) fn write_request(
             })?;
     }
 
-    for source_path in source_paths {
+    for path_argument in path_arguments {
         stdin
-            .write_all(format!("{}\n", source_path.to_string_lossy()).as_bytes())
+            .write_all(format!("{path_argument}\n").as_bytes())
             .map_err(|error| {
                 WorkerError::Crashed(format!("Failed to write ExifTool source path: {error}"))
             })?;

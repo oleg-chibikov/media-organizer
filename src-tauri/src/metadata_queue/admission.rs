@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
 use super::results::metadata_error_result;
-use crate::models::{MetadataReadRequest, MetadataResult};
+use crate::{
+    metadata::exiftool_path_argument,
+    models::{MetadataReadRequest, MetadataResult},
+};
 
 /// A request whose source file still exists and must be read by a worker.
 pub(super) struct PendingRead {
@@ -33,7 +36,9 @@ pub(super) fn split_missing_sources(
 
     for (index, request) in requests.into_iter().enumerate() {
         let source = PathBuf::from(&request.source_path);
-        if source.exists() {
+        if let Err(reason) = exiftool_path_argument(&source) {
+            results[index] = Some(metadata_error_result(request.file_id, reason));
+        } else if source.exists() {
             pending.push(PendingRead {
                 index,
                 request,

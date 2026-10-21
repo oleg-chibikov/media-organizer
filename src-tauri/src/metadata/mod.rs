@@ -1,5 +1,6 @@
 //! Capture metadata: persistent ExifTool workers, JSON parsing and capture-date selection.
 
+mod argfile_path;
 mod date_selection;
 mod exiftool_json;
 mod exiftool_path;
@@ -17,6 +18,7 @@ use crate::models::DateKind;
 
 pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
 
+pub(crate) use argfile_path::exiftool_path_argument;
 pub(crate) use date_selection::select_metadata_date;
 pub(crate) use worker_manager::ExifToolWorkerManager;
 

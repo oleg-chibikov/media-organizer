@@ -19,14 +19,18 @@ pub(super) fn resolve_exiftool_path(resource_dir: Option<&Path>) -> Result<PathB
         }
     }
 
-    let current_dir = std::env::current_dir()
-        .map_err(|error| format!("Failed to resolve current directory: {error}"))?;
-    candidates.push(
-        current_dir
-            .join("src-tauri")
-            .join("binaries")
-            .join(SIDECAR_FILE_NAME),
-    );
+    // Only dev builds look in the working directory; a release must not run whatever
+    // executable happens to sit under the folder it was started from.
+    if cfg!(debug_assertions) {
+        let current_dir = std::env::current_dir()
+            .map_err(|error| format!("Failed to resolve current directory: {error}"))?;
+        candidates.push(
+            current_dir
+                .join("src-tauri")
+                .join("binaries")
+                .join(SIDECAR_FILE_NAME),
+        );
+    }
 
     if let Some(found) = candidates.into_iter().find(|path| path.exists()) {
         return Ok(found);
