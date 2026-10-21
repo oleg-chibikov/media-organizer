@@ -247,7 +247,7 @@ fn empty_plan(file: &FileRecord, plan_status: PlanStatus) -> MovePlan {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use super::{allocate_destination_path, create_plan_for_file};
     use crate::models::{
@@ -285,15 +285,14 @@ mod tests {
         let file = file_record("IMG_1001", "mp4");
         let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
 
-        let plan = create_plan_for_file(
-            Path::new(r"C:\todo\Processed"),
-            &file,
-            Some(&metadata),
-            &mut reserved,
-        )
-        .expect("plan should be created");
+        let root = Path::new("todo").join("Processed");
+        let plan = create_plan_for_file(&root, &file, Some(&metadata), &mut reserved)
+            .expect("plan should be created");
 
-        assert!(plan.destination_dir.ends_with(r"Processed\2026\3\5"));
+        assert_eq!(
+            PathBuf::from(&plan.destination_dir),
+            root.join("2026").join("3").join("5")
+        );
         assert_eq!(
             plan.destination_filename,
             "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"
@@ -306,15 +305,14 @@ mod tests {
         let file = file_record("IMG_1001", "mp4");
         let metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
 
-        let plan = create_plan_for_file(
-            Path::new(r"C:\MediaRoot"),
-            &file,
-            Some(&metadata),
-            &mut reserved,
-        )
-        .expect("plan should be created");
+        let root = Path::new("MediaRoot");
+        let plan = create_plan_for_file(root, &file, Some(&metadata), &mut reserved)
+            .expect("plan should be created");
 
-        assert!(plan.destination_dir.ends_with(r"MediaRoot\2026\3\5"));
+        assert_eq!(
+            PathBuf::from(&plan.destination_dir),
+            root.join("2026").join("3").join("5")
+        );
         assert_eq!(
             plan.destination_filename,
             "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4"

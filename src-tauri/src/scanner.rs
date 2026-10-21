@@ -187,18 +187,22 @@ mod tests {
 
     #[test]
     fn detects_processed_segment_in_relative_path() {
-        let root = Path::new(r"C:\todo");
+        let root = Path::new("todo");
         assert!(is_in_processed(
             root,
-            Path::new(r"C:\todo\Processed\2026\01\example.jpg")
+            &root
+                .join("Processed")
+                .join("2026")
+                .join("01")
+                .join("example.jpg")
         ));
         assert!(is_in_processed(
             root,
-            Path::new(r"C:\todo\nested\processed\image.jpg")
+            &root.join("nested").join("processed").join("image.jpg")
         ));
         assert!(!is_in_processed(
             root,
-            Path::new(r"C:\todo\nested\inbox\image.jpg")
+            &root.join("nested").join("inbox").join("image.jpg")
         ));
     }
 }

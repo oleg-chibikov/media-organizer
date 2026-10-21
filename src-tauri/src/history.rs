@@ -783,23 +783,15 @@ mod tests {
 
     #[test]
     fn builds_history_paths_under_app_data() {
-        let app_data = Path::new(r"C:\Users\user\AppData\Roaming\media-organizer");
-        let history_root = history_root_from_app_data(app_data);
+        let app_data = Path::new("app-data").join("media-organizer");
+        let history_root = history_root_from_app_data(&app_data);
         let runs_dir = history_runs_dir(&history_root);
         let index_path = history_index_path(&history_root);
 
-        assert_eq!(
-            history_root,
-            Path::new(r"C:\Users\user\AppData\Roaming\media-organizer\history")
-        );
-        assert_eq!(
-            runs_dir,
-            Path::new(r"C:\Users\user\AppData\Roaming\media-organizer\history\runs")
-        );
-        assert_eq!(
-            index_path,
-            Path::new(r"C:\Users\user\AppData\Roaming\media-organizer\history\index.json")
-        );
+        let expected_root = app_data.join("history");
+        assert_eq!(history_root, expected_root);
+        assert_eq!(runs_dir, expected_root.join("runs"));
+        assert_eq!(index_path, expected_root.join("index.json"));
     }
 
     #[test]
