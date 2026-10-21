@@ -1,6 +1,6 @@
 import { useAppSession } from "./app/useAppSession";
 import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
-import { FileTable } from "./components/FileTable";
+import { FileTable } from "./features/file-table/FileTable";
 import { StatusBar } from "./components/StatusBar";
 import { Toolbar } from "./components/Toolbar";
 import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "./lib/api";

@@ -1,9 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FileTable } from "./FileTable";
-import type { FileRecord } from "../lib/types";
+import type { FileRecord } from "../../lib/types";
 
-vi.mock("../lib/api", () => ({
+vi.mock("../../lib/api", () => ({
   revealFileInExplorer: vi.fn()
 }));
 
@@ -11,7 +11,7 @@ afterEach(() => {
   cleanup();
 });
 
-vi.mock("./design-system/ResizableVirtualTable", () => ({
+vi.mock("../../components/design-system/ResizableVirtualTable", () => ({
   ResizableVirtualTable: ({
     rows,
     columns
