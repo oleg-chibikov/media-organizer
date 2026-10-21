@@ -11,21 +11,26 @@ export function useScanSession(reportError: (message: string | null) => void) {
   const [progress, setProgress] = useState<ScanProgress>(EMPTY_SCAN_PROGRESS);
 
   const chooseFolderAndScan = async () => {
+    const previousFolder = selectedFolder;
+    let chosen: string | null = null;
     try {
-      const chosen = await chooseFolder();
+      chosen = await chooseFolder();
       if (!chosen) {
         return;
       }
-      setSelectedFolder(chosen);
+      // The file list belongs to the selected folder, so it only switches when a scan starts.
       if (isProcessedPath(chosen)) {
         reportError("Selected folder is inside a Processed path.");
         return;
       }
       reportError(null);
+      setSelectedFolder(chosen);
       await startScan(chosen);
     } catch (error) {
       reportError(`Failed to choose folder or start scan: ${String(error)}`);
       setIsScanning(false);
+      const failed = chosen;
+      setSelectedFolder((current) => (current === failed ? previousFolder : current));
     }
   };
 
