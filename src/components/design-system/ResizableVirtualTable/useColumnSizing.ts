@@ -28,6 +28,11 @@ export function useColumnSizing<TColumnKey extends string>({
     document.body.classList.add(...RESIZING_BODY_CLASSES);
   }, []);
 
+  const setColumnWidth = useCallback((columnKey: TColumnKey, width: number) => {
+    manuallyResizedColumnsRef.current.add(columnKey);
+    setColumnSizing((previous) => ({ ...previous, [columnKey]: width }));
+  }, []);
+
   const latestRef = useRef({ columns, onAutoSizeColumns });
   const autoSizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -77,5 +82,5 @@ export function useColumnSizing<TColumnKey extends string>({
     };
   }, []);
 
-  return { columnSizing, setColumnSizing, markColumnAsResized };
+  return { columnSizing, setColumnSizing, markColumnAsResized, setColumnWidth };
 }

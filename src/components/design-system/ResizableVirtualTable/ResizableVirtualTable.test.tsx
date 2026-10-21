@@ -28,7 +28,9 @@ describe("ResizableVirtualTable", () => {
     );
 
     expect(screen.getByRole("table", { name: "Names" })).toHaveAttribute("aria-rowcount", "2");
-    expect(screen.getByRole("button", { name: "Resize Name column" })).toBeInTheDocument();
+    const resize = screen.getByRole("button", { name: "Resize Name column" });
+    fireEvent.keyDown(resize, { key: "ArrowRight" });
+    expect(screen.getByRole("row", { name: /Name/ })).toHaveStyle({ gridTemplateColumns: "136px" });
     expect(screen.getByRole("columnheader", { name: /Name/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("cell", { name: "Alpha" }));
     expect(onRowClick).toHaveBeenCalledWith({ id: "a", name: "Alpha" }, 0);
