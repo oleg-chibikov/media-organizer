@@ -7,11 +7,10 @@ export interface TableColumn<TColumnKey extends string> {
 }
 
 export interface RowBehavior<TRow> {
-  selectable?: boolean;
+  // Mouse only: put a button in a cell for the same action from the keyboard.
   onRowClick?: (row: TRow, rowIndex: number) => void;
   getRowClassName?: (row: TRow, rowIndex: number) => string;
   getRowTooltip?: (row: TRow, rowIndex: number) => string | undefined;
-  getRowAriaLabel?: (row: TRow, rowIndex: number) => string | undefined;
   renderCellWrapper?: (row: TRow, rowIndex: number, columnId: string, cell: ReactNode) => ReactNode;
 }
 
@@ -20,6 +19,7 @@ export interface ResizableVirtualTableProps<
   TColumnKey extends string
 > extends RowBehavior<TRow> {
   rows: TRow[];
+  label: string;
   columns: readonly TableColumn<TColumnKey>[];
   columnDefs: ColumnDef<TRow>[];
   defaultColumnSizing: ColumnSizingState;

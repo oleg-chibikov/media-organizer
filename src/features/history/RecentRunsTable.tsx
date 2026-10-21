@@ -9,6 +9,7 @@ import {
   type RecentRunTableRow
 } from "./recentRunRows";
 import { RunActions, type RunActionHandlers } from "./RunActions";
+import { SelectRunButton } from "./SelectRunButton";
 
 interface RecentRunsTableProps extends RunActionHandlers {
   runs: HistoryIndexEntry[];
@@ -36,9 +37,19 @@ export function RecentRunsTable({
         header: column.label,
         accessorKey: column.key,
         cell: (context) => {
+          const { run } = context.row.original;
           if (column.key === "actions") {
             const handlers = { onUndoRun, onRedoRun, onDeleteRun, onOpenLog };
-            return <RunActions run={context.row.original.run} {...handlers} />;
+            return <RunActions run={run} {...handlers} />;
+          }
+          if (column.key === "source") {
+            return (
+              <SelectRunButton
+                run={run}
+                selected={run.run_id === selectedRunId}
+                onSelectRun={onSelectRun}
+              />
+            );
           }
           const value = String(context.getValue() ?? "");
           const mono = column.key === "date" || column.key === "migrated";
@@ -53,19 +64,18 @@ export function RecentRunsTable({
           );
         }
       })),
-    [onDeleteRun, onOpenLog, onRedoRun, onUndoRun]
+    [onDeleteRun, onOpenLog, onRedoRun, onSelectRun, onUndoRun, selectedRunId]
   );
 
   return (
     <ResizableVirtualTable
       rows={rows}
+      label="Recent runs"
       columns={RECENT_RUN_COLUMNS}
       columnDefs={columnDefs}
       defaultColumnSizing={RECENT_RUN_DEFAULT_SIZING}
       onAutoSizeColumns={keepDefaultSizing}
-      selectable={true}
       onRowClick={(row) => onSelectRun(row.run.run_id)}
-      getRowAriaLabel={(row) => `View run ${row.run.run_id}`}
       virtualized={false}
       getRowClassName={(row) =>
         selectedRunId === row.run.run_id

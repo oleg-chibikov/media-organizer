@@ -8,6 +8,7 @@ import { useColumnSizing } from "./useColumnSizing";
 
 export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey extends string>({
   rows,
+  label,
   columns,
   columnDefs,
   defaultColumnSizing,
@@ -51,47 +52,55 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   return (
     <div className="h-full overflow-hidden">
       <div ref={parentRef} className="h-full overflow-auto [scrollbar-gutter:stable]">
-        <div className="min-h-full" style={{ width: `max(100%, ${table.getTotalSize()}px)` }}>
+        <div
+          aria-label={label}
+          aria-rowcount={rows.length + 1}
+          className="min-h-full"
+          role="table"
+          style={{ width: `max(100%, ${table.getTotalSize()}px)` }}
+        >
           <TableHeader
             table={table}
             gridTemplateColumns={gridTemplateColumns}
             onResizeStart={(columnId) => markColumnAsResized(columnId as TColumnKey)}
           />
-          <div>
-            {virtualized ? (
-              <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => (
-                  <TableRow
-                    key={tableRows[virtualRow.index].id}
-                    {...rowBehavior}
-                    row={tableRows[virtualRow.index]}
-                    sourceRow={rows[virtualRow.index]}
-                    rowIndex={virtualRow.index}
-                    layoutClassName="absolute left-0 top-0 grid w-full"
-                    style={{
-                      gridTemplateColumns,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      height: `${virtualRow.size}px`
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="min-h-full">
-                {tableRows.map((row, rowIndex) => (
-                  <TableRow
-                    key={row.id}
-                    {...rowBehavior}
-                    row={row}
-                    sourceRow={rows[rowIndex]}
-                    rowIndex={rowIndex}
-                    layoutClassName="grid w-full"
-                    style={{ gridTemplateColumns }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {virtualized ? (
+            <div
+              className="relative"
+              role="rowgroup"
+              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                <TableRow
+                  key={tableRows[virtualRow.index].id}
+                  {...rowBehavior}
+                  row={tableRows[virtualRow.index]}
+                  sourceRow={rows[virtualRow.index]}
+                  rowIndex={virtualRow.index}
+                  layoutClassName="absolute left-0 top-0 grid w-full"
+                  style={{
+                    gridTemplateColumns,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    height: `${virtualRow.size}px`
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="min-h-full" role="rowgroup">
+              {tableRows.map((row, rowIndex) => (
+                <TableRow
+                  key={row.id}
+                  {...rowBehavior}
+                  row={row}
+                  sourceRow={rows[rowIndex]}
+                  rowIndex={rowIndex}
+                  layoutClassName="grid w-full"
+                  style={{ gridTemplateColumns }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

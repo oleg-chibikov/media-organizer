@@ -33,6 +33,7 @@ export function HistoryOperationsTable({ rows }: { rows: OperationTableRow[] }) 
     <div className="max-h-40 overflow-auto border border-slate-800">
       <ResizableVirtualTable
         rows={rows}
+        label="Operations in this run"
         columns={OPERATION_COLUMNS}
         columnDefs={OPERATION_COLUMN_DEFS}
         defaultColumnSizing={OPERATION_DEFAULT_SIZING}

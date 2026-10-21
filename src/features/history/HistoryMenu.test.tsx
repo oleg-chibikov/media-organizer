@@ -54,8 +54,11 @@ describe("History Menu", () => {
 
     fireEvent.click(screen.getByText("History"));
 
-    expect(screen.getByText("C:\\TODO\\Camera")).toBeInTheDocument();
-    expect(screen.getByText("C:\\TODO\\Drone")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Recent runs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "C:\\TODO\\Camera" })).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Undo TODO Camera" }));
     expect(onUndoProcessing).toHaveBeenCalledWith("run-a");
@@ -63,7 +66,7 @@ describe("History Menu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Redo TODO Drone" }));
     expect(onRedoProcessing).toHaveBeenCalledWith("run-b");
 
-    fireEvent.click(screen.getAllByRole("button", { name: "View run run-b" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "C:\\TODO\\Drone" }));
     expect(onSelectHistoryRun).toHaveBeenCalledWith("run-b");
   });
 });

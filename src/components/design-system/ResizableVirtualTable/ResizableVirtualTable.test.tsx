@@ -12,24 +12,25 @@ const SIZING = { name: 120 };
 afterEach(cleanup);
 
 describe("ResizableVirtualTable", () => {
-  it("renders resizable headers and keyboard-selectable rows", () => {
+  it("renders a labelled table with resizable headers and clickable rows", () => {
     const onRowClick = vi.fn();
     render(
       <ResizableVirtualTable
         rows={[{ id: "a", name: "Alpha" }]}
+        label="Names"
         columns={COLUMNS}
         columnDefs={COLUMN_DEFS}
         defaultColumnSizing={SIZING}
         onAutoSizeColumns={() => SIZING}
         virtualized={false}
-        selectable={true}
         onRowClick={onRowClick}
-        getRowAriaLabel={(row) => `Open ${row.name}`}
       />
     );
 
+    expect(screen.getByRole("table", { name: "Names" })).toHaveAttribute("aria-rowcount", "2");
     expect(screen.getByRole("button", { name: "Resize Name column" })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("button", { name: "Open Alpha" }), { key: "Enter" });
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("cell", { name: "Alpha" }));
     expect(onRowClick).toHaveBeenCalledWith({ id: "a", name: "Alpha" }, 0);
   });
 });

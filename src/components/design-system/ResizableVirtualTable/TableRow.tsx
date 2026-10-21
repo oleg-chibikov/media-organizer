@@ -10,46 +10,40 @@ interface TableRowProps<TRow> extends RowBehavior<TRow> {
   style: CSSProperties;
 }
 
+// The header is row 1, so data rows start at aria-rowindex 2.
+const FIRST_DATA_ROW_INDEX = 2;
+
 export function TableRow<TRow>({
   row,
   sourceRow,
   rowIndex,
   layoutClassName,
   style,
-  selectable = false,
   onRowClick,
   getRowClassName,
   getRowTooltip,
-  getRowAriaLabel,
   renderCellWrapper
 }: TableRowProps<TRow>) {
   const rowClassName = getRowClassName?.(sourceRow, rowIndex) ?? "";
 
   return (
+    // A row click is a mouse shortcut; keyboard users get a real control inside the row.
     <div
-      aria-label={selectable ? getRowAriaLabel?.(sourceRow, rowIndex) : undefined}
-      className={`${layoutClassName} border-t border-slate-800 text-sm ${selectable ? "cursor-pointer" : ""} ${rowClassName}`}
-      role={selectable ? "button" : undefined}
-      tabIndex={selectable ? 0 : undefined}
+      aria-rowindex={rowIndex + FIRST_DATA_ROW_INDEX}
+      className={`${layoutClassName} border-t border-slate-800 text-sm ${onRowClick ? "cursor-pointer" : ""} ${rowClassName}`}
+      role="row"
       title={getRowTooltip?.(sourceRow, rowIndex)}
-      onClick={() => {
-        if (selectable) {
-          onRowClick?.(sourceRow, rowIndex);
-        }
-      }}
-      onKeyDown={(event) => {
-        if (!selectable || (event.key !== "Enter" && event.key !== " ")) {
-          return;
-        }
-        event.preventDefault();
-        onRowClick?.(sourceRow, rowIndex);
-      }}
+      onClick={onRowClick ? () => onRowClick(sourceRow, rowIndex) : undefined}
       style={style}
     >
       {row.getVisibleCells().map((cell) => {
         const renderedCell = flexRender(cell.column.columnDef.cell, cell.getContext());
         const wrappedCell = renderCellWrapper?.(sourceRow, rowIndex, cell.column.id, renderedCell);
-        return <div key={cell.id}>{wrappedCell ?? renderedCell}</div>;
+        return (
+          <div key={cell.id} role="cell">
+            {wrappedCell ?? renderedCell}
+          </div>
+        );
       })}
     </div>
   );

@@ -15,6 +15,8 @@ export function TableHeader<TRow>({
 }: TableHeaderProps<TRow>) {
   return (
     <div
+      aria-rowindex={1}
+      role="row"
       className="sticky top-0 z-10 grid w-full border-b border-slate-800 bg-slate-950 text-left text-xs uppercase tracking-wide text-slate-400"
       style={{ gridTemplateColumns }}
     >
@@ -25,7 +27,7 @@ export function TableHeader<TRow>({
             header.getResizeHandler()(event);
           };
           return (
-            <div key={header.id} className="relative px-3 py-2">
+            <div key={header.id} className="relative px-3 py-2" role="columnheader">
               <span className="truncate">
                 {header.isPlaceholder
                   ? null

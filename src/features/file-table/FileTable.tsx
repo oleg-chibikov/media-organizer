@@ -50,6 +50,7 @@ export function FileTable({
   return (
     <ResizableVirtualTable
       rows={tableRows}
+      label="Files"
       columns={FILE_TABLE_COLUMNS}
       columnDefs={FILE_COLUMN_DEFS}
       defaultColumnSizing={DEFAULT_COLUMN_SIZING}
