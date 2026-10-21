@@ -3,6 +3,7 @@ import type { MoveConfirmationSummary } from "../../lib/types";
 import type { MoveCounts, MoveExecutionState } from "../moves";
 import type { ScanProgress } from "../scan";
 import { finishSummary } from "./finishSummary";
+import { moveProgressCount } from "./moveProgressCount";
 import { executionActionLabel, pipelineStatusLabel, type PlanningStatus } from "./statusBarLabels";
 import { StatusCounts } from "./StatusCounts";
 
@@ -13,7 +14,7 @@ interface StatusBarProps {
   summary: MoveConfirmationSummary;
   execution: MoveExecutionState;
   moveCounts: MoveCounts;
-  hasPendingExecutableItems: boolean;
+  canRunExecutionAction: boolean;
   destinationRoot: string | null;
   onExecutionAction: () => void;
   onOpenDestination: () => void;
@@ -26,7 +27,7 @@ export function StatusBar({
   summary,
   execution,
   moveCounts,
-  hasPendingExecutableItems,
+  canRunExecutionAction,
   destinationRoot,
   onExecutionAction,
   onOpenDestination
@@ -60,7 +61,7 @@ export function StatusBar({
           <Button
             variant="primary"
             className="ml-auto px-3 py-1.5 text-xs"
-            disabled={!hasPendingExecutableItems}
+            disabled={!canRunExecutionAction}
             onClick={onExecutionAction}
           >
             {executionActionLabel(execution)}
@@ -72,6 +73,7 @@ export function StatusBar({
       ) : null}
       {execution.confirmed && !execution.completed ? (
         <p className={`mt-1 ${execution.paused ? "text-amber-400" : "text-emerald-400"}`}>
+          {moveProgressCount(scan.discovered, planning.planErrors, summary, moveCounts)}{" "}
           {execution.paused
             ? "Paused. Files already moving will finish."
             : (execution.statusMessage ?? "Starting...")}

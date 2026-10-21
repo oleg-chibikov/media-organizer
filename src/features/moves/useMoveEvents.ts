@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { attachMoveListeners, useBackendEvents } from "../../lib/api";
 import type { FileRecord, MoveResult } from "../../lib/types";
-import { isDispatchDrained, recordMoveResult } from "./moveDispatchCompletion";
+import { FINISHED_RUN, isDispatchDrained, recordMoveResult } from "./moveDispatchCompletion";
 import type { MoveDispatchQueue } from "./moveDispatchQueue";
 import { formatMoveProgress } from "./formatMoveProgress";
 import type { MoveStatus } from "./useMoveStatus";
@@ -49,12 +49,7 @@ export function useMoveEvents({
         const queue = queueRef.current;
         queue.activeRequests = Math.max(0, queue.activeRequests - 1);
         if (isDispatchDrained(queue)) {
-          updateExecution({
-            executing: false,
-            activeFileId: null,
-            statusMessage: null,
-            completed: true
-          });
+          updateExecution(FINISHED_RUN);
         }
         queueMicrotask(() => pumpRef.current());
       }

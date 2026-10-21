@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { recordMoveResult, releaseFailedBatch } from "./moveDispatchCompletion";
+import { isDispatchDrained, recordMoveResult, releaseFailedBatch } from "./moveDispatchCompletion";
 import { createMoveDispatchQueue, enqueueReadyPlans, takeMoveBatch } from "./moveDispatchQueue";
 
 const plan = (fileId: string, status: MovePlan["plan_status"] = "ready") =>
@@ -40,5 +40,16 @@ describe("moveDispatchQueue", () => {
     expect(queue.inflightIds.size).toBe(0);
     expect(recordMoveResult(queue, "a")).toBe(true);
     expect(recordMoveResult(queue, "a")).toBe(false);
+  });
+
+  it("keeps a run open while files are still being checked", () => {
+    const queue = createMoveDispatchQueue();
+    queue.awaitingPlans = true;
+    expect(isDispatchDrained(queue)).toBe(false);
+    enqueueReadyPlans(queue, PLANS, {});
+    const batch = takeMoveBatch(queue, ROWS, METADATA, PLANS);
+    expect(releaseFailedBatch(queue, batch.fileIds, "offline")).not.toHaveProperty("completed");
+    queue.awaitingPlans = false;
+    expect(isDispatchDrained(queue)).toBe(true);
   });
 });

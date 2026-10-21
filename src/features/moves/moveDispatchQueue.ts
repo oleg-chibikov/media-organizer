@@ -9,6 +9,8 @@ export interface MoveDispatchQueue {
   completedIds: Set<string>;
   trackedIds: Set<string>;
   activeRequests: number;
+  // Files still being checked can join a confirmed run, so it isn't finished yet.
+  awaitingPlans: boolean;
 }
 
 export interface MoveBatch {
@@ -25,7 +27,8 @@ export function createMoveDispatchQueue(): MoveDispatchQueue {
     inflightIds: new Set(),
     completedIds: new Set(),
     trackedIds: new Set(),
-    activeRequests: 0
+    activeRequests: 0,
+    awaitingPlans: false
   };
 }
 

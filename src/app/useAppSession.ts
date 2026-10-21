@@ -34,7 +34,16 @@ export function useAppSession() {
     reportError: setFolderError,
     onMetadataRead: planning.requestPlans
   });
+  const { completed, cancelled, discovered } = scan.progress;
+  const planCompleted =
+    completed &&
+    !cancelled &&
+    metadata.activeMetadataRequests === 0 &&
+    planning.activePlanRequests === 0;
+  const stillChecking = !planCompleted && !cancelled;
   const moves = useMoveExecution({
+    stillChecking,
+    filesFound: discovered > 0,
     selectedFolder: scan.selectedFolder,
     rows: scan.rows,
     rowByIdRef: scan.rowByIdRef,
@@ -71,10 +80,6 @@ export function useAppSession() {
     moves
   });
 
-  const { activeMetadataRequests } = metadata;
-  const { activePlanRequests } = planning;
-  const { completed, cancelled } = scan.progress;
-
   return {
     folderError,
     dismissError: () => setFolderError(null),
@@ -92,9 +97,9 @@ export function useAppSession() {
       movePlansByFileId: planning.movePlansByFileId,
       planErrorsByFileId: planning.planErrorsByFileId,
       planErrors: Object.keys(planning.planErrorsByFileId).length,
-      isPlanning: activePlanRequests > 0,
-      planCompleted:
-        completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0
+      isPlanning: planning.activePlanRequests > 0,
+      planCompleted,
+      stillChecking
     },
     moves,
     history,

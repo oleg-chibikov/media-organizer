@@ -8,6 +8,9 @@ import { useMoveEvents } from "./useMoveEvents";
 import { useMoveStatus } from "./useMoveStatus";
 
 interface MoveExecutionOptions {
+  // Checking files can still add ready plans, so a run may start before the first one.
+  stillChecking: boolean;
+  filesFound: boolean;
   selectedFolder: string | null;
   rows: FileRecord[];
   rowByIdRef: RefObject<Map<string, FileRecord>>;
@@ -17,11 +20,12 @@ interface MoveExecutionOptions {
 }
 
 export function useMoveExecution(options: MoveExecutionOptions) {
-  const { selectedFolder, rows, rowByIdRef, metadataByFileId, movePlansByFileId, reportError } =
-    options;
+  const { stillChecking, filesFound, selectedFolder, rowByIdRef, reportError } = options;
+  const { rows, metadataByFileId, movePlansByFileId } = options;
   const status = useMoveStatus();
   const { execution, moveResultsByFileId, updateExecution, clearStatus } = status;
   const { queueRef, pumpRef, resetDispatch, startDispatch, togglePaused } = useMoveDispatch({
+    stillChecking,
     selectedFolder,
     rowByIdRef,
     metadataByFileId,
@@ -40,6 +44,8 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     moveResultsByFileId
   );
 
+  const canStart = pendingExecutableCount > 0 || (stillChecking && filesFound);
+
   const clearMoves = useCallback(
     (nextExecution: (previous: MoveExecutionState) => MoveExecutionState) => {
       resetDispatch();
@@ -48,7 +54,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     [clearStatus, resetDispatch]
   );
   const startExecution = () => {
-    if (pendingExecutableCount === 0 || execution.confirmed) {
+    if (!canStart || execution.confirmed) {
       return;
     }
     if (!selectedFolder) {
@@ -89,7 +95,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     moveResultsByFileId,
     moveCounts: status.moveCounts,
     confirmationSummary,
-    hasPendingExecutableItems: pendingExecutableCount > 0,
+    canRunExecutionAction: execution.confirmed || canStart,
     confirmation: {
       summary: confirmation.summary,
       confirm: confirmation.confirm,

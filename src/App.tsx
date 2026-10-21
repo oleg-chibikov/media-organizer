@@ -82,7 +82,7 @@ export default function App() {
         summary={moves.confirmationSummary}
         execution={execution}
         moveCounts={moves.moveCounts}
-        hasPendingExecutableItems={moves.hasPendingExecutableItems}
+        canRunExecutionAction={moves.canRunExecutionAction}
         destinationRoot={effectiveDestination.rootPath}
         onExecutionAction={moves.runExecutionAction}
         onOpenDestination={session.openDestination}
@@ -92,7 +92,7 @@ export default function App() {
         <MoveConfirmationDialog
           summary={moves.confirmation.summary}
           destinationRoot={effectiveDestination.rootPath}
-          stillChecking={!planning.planCompleted && !scan.progress.cancelled}
+          stillChecking={planning.stillChecking}
           onConfirm={moves.confirmation.confirm}
           onCancel={moves.confirmation.cancel}
         />

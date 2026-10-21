@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { executeMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { releaseFailedBatch } from "./moveDispatchCompletion";
+import { FINISHED_RUN, isDispatchDrained, releaseFailedBatch } from "./moveDispatchCompletion";
 import {
   createMoveDispatchQueue,
   enqueueReadyPlans,
@@ -11,6 +11,7 @@ import {
 import type { MoveExecutionState } from "./moveExecutionState";
 
 interface MoveDispatchOptions {
+  stillChecking: boolean;
   selectedFolder: string | null;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
   metadataByFileId: Record<string, MetadataResult>;
@@ -23,6 +24,7 @@ interface MoveDispatchOptions {
 
 // Owns the dispatch queue and sends ready plans to the backend one batch at a time.
 export function useMoveDispatch({
+  stillChecking,
   selectedFolder,
   rowByIdRef,
   metadataByFileId,
@@ -70,11 +72,18 @@ export function useMoveDispatch({
   }, [pump]);
 
   useEffect(() => {
-    enqueueReadyPlans(queueRef.current, movePlansByFileId, moveResultsByFileId);
-    if (executionConfirmed) {
-      pumpRef.current();
+    const queue = queueRef.current;
+    queue.awaitingPlans = stillChecking;
+    enqueueReadyPlans(queue, movePlansByFileId, moveResultsByFileId);
+    if (!executionConfirmed) {
+      return;
     }
-  }, [executionConfirmed, movePlansByFileId, moveResultsByFileId]);
+    pumpRef.current();
+    // A run started before any file was ready, or one whose last files were blocked, ends here.
+    if (isDispatchDrained(queue)) {
+      updateExecution(FINISHED_RUN);
+    }
+  }, [executionConfirmed, movePlansByFileId, moveResultsByFileId, stillChecking, updateExecution]);
 
   const restartQueue = useCallback((confirmed: boolean) => {
     queueRef.current = createMoveDispatchQueue();
@@ -84,8 +93,9 @@ export function useMoveDispatch({
   const resetDispatch = useCallback(() => restartQueue(false), [restartQueue]);
   const startDispatch = useCallback(() => {
     restartQueue(true);
+    queueRef.current.awaitingPlans = stillChecking;
     enqueueReadyPlans(queueRef.current, movePlansByFileId, {});
-  }, [movePlansByFileId, restartQueue]);
+  }, [movePlansByFileId, restartQueue, stillChecking]);
 
   const togglePaused = useCallback((): boolean => {
     pausedRef.current = !pausedRef.current;

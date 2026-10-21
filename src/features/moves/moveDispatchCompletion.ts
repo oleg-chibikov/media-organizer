@@ -1,6 +1,13 @@
 import type { MoveDispatchQueue } from "./moveDispatchQueue";
 import type { MoveExecutionState } from "./moveExecutionState";
 
+export const FINISHED_RUN: Partial<MoveExecutionState> = {
+  executing: false,
+  activeFileId: null,
+  statusMessage: null,
+  completed: true
+};
+
 // Mutates the queue: frees a batch the backend refused so it can be queued again.
 // Returns the execution patch that reports the failure.
 export function releaseFailedBatch(
@@ -30,5 +37,5 @@ export function recordMoveResult(queue: MoveDispatchQueue, fileId: string): bool
 }
 
 export function isDispatchDrained(queue: MoveDispatchQueue): boolean {
-  return queue.activeRequests === 0 && queue.pending.length === 0;
+  return queue.activeRequests === 0 && queue.pending.length === 0 && !queue.awaitingPlans;
 }
