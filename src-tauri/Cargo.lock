@@ -1769,6 +1769,7 @@ name = "media-organizer"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "flate2",
  "libc",
  "log",
  "same-file",

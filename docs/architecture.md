@@ -144,8 +144,19 @@ Each layer may depend only on the layers below it.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
+- `geo/`: offline reverse geocoding. See Offline Places.
 - `picked_folders.rs`: folders the user chose in the native picker this session.
 - `filename/`, `system_explorer/`, `path_safety.rs`, `file_ops/`: focused helpers named after what they decide.
+
+## Offline Places
+
+`geo/` turns a GPS point into a place name without a network call.
+
+- **Data** is `src-tauri/assets/geodata.tsv.gz`, a GeoNames extract (CC BY 4.0) built by `scripts/geodata/build_geodata.py`. It holds cities with 1000 people or more and points of interest such as gardens, museums, waterfalls and national parks. Small kinds need an English Wikipedia link to stay in.
+- **Loading** happens once, on the first lookup, through a `LazyLock`. Call lookups from a background thread.
+- **Search** uses a one-degree grid, so a lookup scans only nearby cells.
+- **Matching** gives each kind a radius in `geo/radius.rs`, since GeoNames has points and no outlines. The most nested match wins: a garden beats the city and a waterfall beats the national park. With no match, the nearest city within 50 km wins, then any place within 150 km.
+- **Countries** come from the nearest place, so a point near a border can get the neighbour.
 
 ## Frontend Modules
 

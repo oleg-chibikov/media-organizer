@@ -7,6 +7,9 @@ mod console_title;
 mod events;
 mod file_ops;
 mod filename;
+// Used by the trips module next.
+#[allow(dead_code, unused_imports)]
+mod geo;
 mod history;
 mod metadata;
 mod metadata_queue;
