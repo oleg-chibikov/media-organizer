@@ -15,7 +15,8 @@ export function useAppSession() {
   const destination = useDestinationSettings();
   const backend = useBackendBootstrap({
     onSettingsLoaded: destination.settingsLoaded,
-    onSettingsFailed: destination.settingsFailed
+    onSettingsFailed: destination.settingsFailed,
+    reportError: setFolderError
   });
   const scan = useScanSession(setFolderError);
   const planning = useMovePlanning({

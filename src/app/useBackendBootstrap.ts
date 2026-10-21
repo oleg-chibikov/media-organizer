@@ -5,36 +5,47 @@ import type { DestinationSettings } from "../lib/types";
 interface BootstrapCallbacks {
   onSettingsLoaded: (settings: DestinationSettings) => void;
   onSettingsFailed: (error: unknown) => void;
+  reportError: (message: string) => void;
 }
 
-// Loads health, processing config and destination settings together, as one startup step.
-export function useBackendBootstrap({ onSettingsLoaded, onSettingsFailed }: BootstrapCallbacks) {
+// Loads health, processing limits and settings at startup. Each one fails on its own.
+export function useBackendBootstrap({
+  onSettingsLoaded,
+  onSettingsFailed,
+  reportError
+}: BootstrapCallbacks) {
   const [health, setHealth] = useState<string>("checking");
   const [metadataConcurrency, setMetadataConcurrency] = useState(1);
   const [metadataQueueCapacity, setMetadataQueueCapacity] = useState(256);
 
   useEffect(() => {
     let ignore = false;
-    Promise.all([healthCheck(), getProcessingConfig(), getDestinationSettings()])
-      .then(([value, config, settings]) => {
-        if (ignore) {
-          return;
+    const whileMounted =
+      <T>(apply: (value: T) => void) =>
+      (value: T) => {
+        if (!ignore) {
+          apply(value);
         }
-        setHealth(value);
+      };
+
+    healthCheck().then(
+      whileMounted(setHealth),
+      whileMounted((error: unknown) => setHealth(`error: ${String(error)}`))
+    );
+    getProcessingConfig().then(
+      whileMounted((config) => {
         setMetadataConcurrency(config.metadata_concurrency);
         setMetadataQueueCapacity(config.metadata_queue_capacity);
-        onSettingsLoaded(settings);
-      })
-      .catch((error: unknown) => {
-        if (!ignore) {
-          setHealth(`error: ${String(error)}`);
-          onSettingsFailed(error);
-        }
-      });
+      }),
+      whileMounted((error: unknown) =>
+        reportError(`Failed to load processing limits, using defaults: ${String(error)}`)
+      )
+    );
+    getDestinationSettings().then(whileMounted(onSettingsLoaded), whileMounted(onSettingsFailed));
     return () => {
       ignore = true;
     };
-  }, [onSettingsFailed, onSettingsLoaded]);
+  }, [onSettingsFailed, onSettingsLoaded, reportError]);
 
   return { health, metadataConcurrency, metadataQueueCapacity };
 }
