@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { MoveListeners, PlanListeners, ScanListeners } from "./lib/api";
-import type { FileRecord, MetadataResult, MovePlan } from "./lib/types";
+import { METADATA, PLAN, RECORD } from "./test/pipelineFixtures";
 
 const listeners = vi.hoisted(() => ({
   scan: null as ScanListeners | null,
@@ -37,37 +37,6 @@ vi.mock("./lib/api", async (importOriginal) => ({
 }));
 
 const api = await import("./lib/api");
-
-const RECORD: FileRecord = {
-  id: "f1",
-  source_path: "C:\\in\\a.jpg",
-  relative_path: "a.jpg",
-  extension: "jpg",
-  original_name: "a.jpg",
-  kind: "photo",
-  scan_status: "discovered"
-};
-
-const METADATA: MetadataResult = {
-  file_id: "f1",
-  chosen_date: "2026-05-24T00:00:00Z",
-  chosen_date_source: "DateTimeOriginal",
-  date_kind: "timezone_aware",
-  raw_metadata_date: null,
-  device_name: null,
-  metadata_status: "ready",
-  error: null
-};
-
-const PLAN: MovePlan = {
-  file_id: "f1",
-  original_name: "a.jpg",
-  destination_dir: "C:\\in\\Processed\\2026",
-  destination_filename: "a.jpg",
-  destination_path: "C:\\in\\Processed\\2026\\a.jpg",
-  conflict_status: "none",
-  plan_status: "ready"
-};
 
 afterEach(cleanup);
 

@@ -1,35 +1,30 @@
 import type { RefObject } from "react";
 import { attachMoveListeners, useBackendEvents } from "../../lib/api";
 import type { FileRecord, MoveResult } from "../../lib/types";
-import { countMoveResult, type MoveCounts } from "./moveCounts";
-import { isDispatchDrained, recordMoveResult, type MoveDispatchQueue } from "./moveDispatchQueue";
-import { patchMoveExecution, type MoveExecutionState } from "./moveExecutionState";
+import { countMoveResult } from "./moveCounts";
+import { isDispatchDrained, recordMoveResult } from "./moveDispatchCompletion";
+import type { MoveDispatchQueue } from "./moveDispatchQueue";
+import { patchMoveExecution } from "./moveExecutionState";
 import { formatMoveProgress } from "./formatMoveProgress";
+import type { MoveStatus } from "./useMoveStatus";
 
 interface MoveEventsOptions {
   queueRef: RefObject<MoveDispatchQueue>;
   pumpRef: RefObject<() => void>;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
-  setExecution: (update: (previous: MoveExecutionState) => MoveExecutionState) => void;
-  setMoveResultsByFileId: (
-    update: (previous: Record<string, MoveResult>) => Record<string, MoveResult>
-  ) => void;
-  setMoveCounts: (update: (previous: MoveCounts) => MoveCounts) => void;
+  status: MoveStatus;
   reportError: (message: string) => void;
 }
 
+// Applies backend move progress and results to the dispatch queue and the visible status.
 export function useMoveEvents({
   queueRef,
   pumpRef,
   rowByIdRef,
-  setExecution,
-  setMoveResultsByFileId,
-  setMoveCounts,
+  status,
   reportError
 }: MoveEventsOptions) {
-  const updateExecution = (patch: Partial<MoveExecutionState>) =>
-    setExecution((previous) => patchMoveExecution(previous, patch));
-
+  const { setExecution, setMoveResultsByFileId, setMoveCounts, updateExecution } = status;
   const applyMoveResult = (result: MoveResult) => {
     const isFirstResult = recordMoveResult(queueRef.current, result.file_id);
     setMoveResultsByFileId((previous) => ({ ...previous, [result.file_id]: result }));

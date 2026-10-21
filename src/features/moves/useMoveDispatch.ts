@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { executeMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
+import { isDispatchDrained, releaseFailedBatch } from "./moveDispatchCompletion";
 import {
   createMoveDispatchQueue,
   enqueueReadyPlans,
-  isDispatchDrained,
   MOVE_DISPATCH_CONCURRENCY,
-  releaseFailedBatch,
   takeMoveBatch
 } from "./moveDispatchQueue";
 import type { MoveExecutionState } from "./moveExecutionState";

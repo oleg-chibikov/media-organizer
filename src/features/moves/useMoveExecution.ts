@@ -1,15 +1,11 @@
-import { useCallback, useMemo, useState, type RefObject } from "react";
-import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { EMPTY_MOVE_COUNTS } from "./moveCounts";
+import { useCallback, useMemo, type RefObject } from "react";
+import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
 import { buildMoveConfirmationPrompt, countPendingExecutableMoves } from "./moveConfirmationPrompt";
-import {
-  IDLE_MOVE_EXECUTION,
-  patchMoveExecution,
-  type MoveExecutionState
-} from "./moveExecutionState";
+import { IDLE_MOVE_EXECUTION, type MoveExecutionState } from "./moveExecutionState";
 import { summarizeMoveConfirmation } from "./summarizeMoveConfirmation";
 import { useMoveDispatch } from "./useMoveDispatch";
 import { useMoveEvents } from "./useMoveEvents";
+import { useMoveStatus } from "./useMoveStatus";
 
 interface MoveExecutionOptions {
   selectedFolder: string | null;
@@ -22,21 +18,15 @@ interface MoveExecutionOptions {
 
 export function useMoveExecution(options: MoveExecutionOptions) {
   const { selectedFolder, rows, metadataByFileId, movePlansByFileId, reportError } = options;
-  const [execution, setExecution] = useState<MoveExecutionState>(IDLE_MOVE_EXECUTION);
-  const [moveResultsByFileId, setMoveResultsByFileId] = useState<Record<string, MoveResult>>({});
-  const [moveCounts, setMoveCounts] = useState(EMPTY_MOVE_COUNTS);
-  const updateExecution = useCallback(
-    (patch: Partial<MoveExecutionState>) =>
-      setExecution((previous) => patchMoveExecution(previous, patch)),
-    []
-  );
+  const status = useMoveStatus();
+  const { execution, moveResultsByFileId, updateExecution, clearStatus } = status;
   const dispatch = useMoveDispatch({
     ...options,
-    moveResultsByFileId,
-    executionConfirmed: execution.confirmed,
-    updateExecution
+    ...status,
+    executionConfirmed: execution.confirmed
   });
-  useMoveEvents({ ...options, ...dispatch, setExecution, setMoveResultsByFileId, setMoveCounts });
+  const { resetDispatch, startDispatch, togglePaused, pumpRef } = dispatch;
+  useMoveEvents({ ...options, ...dispatch, status });
 
   const confirmationSummary = useMemo(
     () => summarizeMoveConfirmation(rows, metadataByFileId, movePlansByFileId),
@@ -46,16 +36,13 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     movePlansByFileId,
     moveResultsByFileId
   );
-  const { resetDispatch, startDispatch, togglePaused, pumpRef } = dispatch;
 
   const clearMoves = useCallback(
     (nextExecution: (previous: MoveExecutionState) => MoveExecutionState) => {
       resetDispatch();
-      setExecution(nextExecution);
-      setMoveResultsByFileId({});
-      setMoveCounts(EMPTY_MOVE_COUNTS);
+      clearStatus(nextExecution);
     },
-    [resetDispatch]
+    [clearStatus, resetDispatch]
   );
   const resetMoves = useCallback(() => clearMoves(() => IDLE_MOVE_EXECUTION), [clearMoves]);
   // Replanning keeps the executing flag because a running batch still reports back.
@@ -75,12 +62,8 @@ export function useMoveExecution(options: MoveExecutionOptions) {
       reportError("No selected folder for move execution.");
       return;
     }
-    clearMoves(() => ({
-      ...IDLE_MOVE_EXECUTION,
-      confirmed: true,
-      executing: true,
-      statusMessage: "Dispatching move execution."
-    }));
+    const statusMessage = "Dispatching move execution.";
+    clearMoves(() => ({ ...IDLE_MOVE_EXECUTION, confirmed: true, executing: true, statusMessage }));
     startDispatch();
     pumpRef.current();
   };
@@ -99,7 +82,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
   return {
     execution,
     moveResultsByFileId,
-    moveCounts,
+    moveCounts: status.moveCounts,
     confirmationSummary,
     hasPendingExecutableItems: pendingExecutableCount > 0,
     runExecutionAction: execution.confirmed ? togglePause : confirmExecution,
