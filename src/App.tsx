@@ -2,6 +2,7 @@ import { useAppSession } from "./app/useAppSession";
 import { DestinationSettingsMenu } from "./features/destination-settings";
 import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
+import { MoveConfirmationDialog } from "./features/moves";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
 
@@ -84,6 +85,15 @@ export default function App() {
         hasPendingExecutableItems={moves.hasPendingExecutableItems}
         onExecutionAction={moves.runExecutionAction}
       />
+
+      {moves.confirmation.summary ? (
+        <MoveConfirmationDialog
+          summary={moves.confirmation.summary}
+          destinationRoot={effectiveDestination.rootPath}
+          onConfirm={moves.confirmation.confirm}
+          onCancel={moves.confirmation.cancel}
+        />
+      ) : null}
     </div>
   );
 }

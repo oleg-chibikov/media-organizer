@@ -22,37 +22,50 @@ function renderConfirmation() {
       onConfirmed
     })
   );
-  return { confirm: result.current, onConfirmed, rowByIdRef };
+  return { result, onConfirmed, rowByIdRef };
 }
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("useMoveConfirmation", () => {
-  it("asks with the backend summary and starts only after a yes", async () => {
+  it("shows the backend summary and starts only after a yes", async () => {
     vi.mocked(getMoveConfirmationSummary).mockResolvedValue(SUMMARY);
-    const ask = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-    const { confirm, onConfirmed } = renderConfirmation();
+    const { result, onConfirmed } = renderConfirmation();
 
-    await act(confirm);
-    expect(onConfirmed).not.toHaveBeenCalled();
-    await act(confirm);
-
+    await act(() => result.current.request());
     expect(getMoveConfirmationSummary).toHaveBeenCalledWith([RECORD], [METADATA], [PLAN]);
-    expect(ask).toHaveBeenCalledWith(expect.stringContaining("Ready operations: 7"));
+    expect(result.current.summary).toBe(SUMMARY);
+    act(() => result.current.cancel());
+    expect(result.current.summary).toBeNull();
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    await act(() => result.current.request());
+    act(() => result.current.confirm());
+    expect(result.current.summary).toBeNull();
     expect(onConfirmed).toHaveBeenCalledTimes(1);
   });
 
   it("doesn't ask when a new scan started while the summary loaded", async () => {
-    const { confirm, onConfirmed, rowByIdRef } = renderConfirmation();
+    const { result, onConfirmed, rowByIdRef } = renderConfirmation();
     vi.mocked(getMoveConfirmationSummary).mockImplementation(async () => {
       rowByIdRef.current = new Map();
       return SUMMARY;
     });
-    const ask = vi.spyOn(window, "confirm");
 
-    await act(confirm);
+    await act(() => result.current.request());
 
-    expect(ask).not.toHaveBeenCalled();
+    expect(result.current.summary).toBeNull();
+    expect(onConfirmed).not.toHaveBeenCalled();
+  });
+
+  it("doesn't start when a new scan started while the dialog was open", async () => {
+    vi.mocked(getMoveConfirmationSummary).mockResolvedValue(SUMMARY);
+    const { result, onConfirmed, rowByIdRef } = renderConfirmation();
+
+    await act(() => result.current.request());
+    rowByIdRef.current = new Map();
+    act(() => result.current.confirm());
+
     expect(onConfirmed).not.toHaveBeenCalled();
   });
 });

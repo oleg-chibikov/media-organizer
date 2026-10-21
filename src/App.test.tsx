@@ -30,7 +30,12 @@ vi.mock("./lib/api", async (importOriginal) => ({
   startScan: vi.fn(async () => undefined),
   readMetadataForFiles: vi.fn(async () => [METADATA]),
   createMovePlan: vi.fn(async () => undefined),
-  getMoveConfirmationSummary: vi.fn(async () => ({ ready_operations: 1, skipped_operations: 0 })),
+  getMoveConfirmationSummary: vi.fn(async () => ({
+    ready_operations: 1,
+    skipped_operations: 0,
+    fallback_warnings: 0,
+    suffix_applied: 0
+  })),
   executeMovePlan: vi.fn(async () => undefined),
   attachScanListeners: vi.fn(async (handlers: ScanListeners) => ((listeners.scan = handlers), [])),
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), [])),
@@ -44,7 +49,6 @@ afterEach(cleanup);
 
 describe("App", () => {
   it("scans, plans and executes moves through the backend events", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<App />);
     await waitFor(() => expect(api.healthCheck).toHaveBeenCalled());
 
@@ -69,6 +73,7 @@ describe("App", () => {
     expect(screen.getByText("Ready: 1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
+    fireEvent.click(await screen.findByRole("button", { name: "Move 1 file" }));
     await waitFor(() =>
       expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA], [PLAN])
     );

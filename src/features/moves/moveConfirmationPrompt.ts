@@ -40,13 +40,27 @@ export function collectConfirmationInput(
   return input;
 }
 
-export function buildMoveConfirmationPrompt(summary: MoveConfirmationSummary): string {
-  return (
-    `Ready operations: ${summary.ready_operations}\n` +
-    `Skipped operations: ${summary.skipped_operations}\n` +
-    `Fallback warnings: ${summary.fallback_warnings}\n` +
-    `Suffix-applied destinations: ${summary.suffix_applied}\n\n` +
-    "Files in this folder that finish planning later are moved as well.\n" +
-    "Proceed with move execution now?"
-  );
+export function fileCountLabel(count: number): string {
+  return count === 1 ? "1 file" : `${count} files`;
+}
+
+// Only the parts of the summary that change what happens to some files.
+export function moveConfirmationNotes(summary: MoveConfirmationSummary): string[] {
+  const notes: string[] = [];
+  if (summary.fallback_warnings > 0) {
+    notes.push(
+      `${fileCountLabel(summary.fallback_warnings)} use the date the file last changed. They have no capture date.`
+    );
+  }
+  if (summary.suffix_applied > 0) {
+    notes.push(
+      `${fileCountLabel(summary.suffix_applied)} get a number added to the name. A file with that name is already there.`
+    );
+  }
+  if (summary.skipped_operations > 0) {
+    notes.push(
+      `${fileCountLabel(summary.skipped_operations)} stay where they are. See Needs review and Errors.`
+    );
+  }
+  return notes;
 }

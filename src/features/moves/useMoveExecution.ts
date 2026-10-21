@@ -47,13 +47,6 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     },
     [clearStatus, resetDispatch]
   );
-  const resetMoves = useCallback(() => clearMoves(() => IDLE_MOVE_EXECUTION), [clearMoves]);
-  // Replanning keeps the executing flag because a running batch still reports back.
-  const resetMovesForReplan = useCallback(
-    () => clearMoves((previous) => ({ ...IDLE_MOVE_EXECUTION, executing: previous.executing })),
-    [clearMoves]
-  );
-
   const startExecution = () => {
     if (pendingExecutableCount === 0 || execution.confirmed) {
       return;
@@ -67,7 +60,18 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     startDispatch();
     pumpRef.current();
   };
-  const confirmExecution = useMoveConfirmation({ ...options, onConfirmed: startExecution });
+  const confirmation = useMoveConfirmation({ ...options, onConfirmed: startExecution });
+
+  const { cancel: cancelConfirmation } = confirmation;
+  const resetMoves = useCallback(() => {
+    cancelConfirmation();
+    clearMoves(() => IDLE_MOVE_EXECUTION);
+  }, [cancelConfirmation, clearMoves]);
+  // Replanning keeps the executing flag because a running batch still reports back.
+  const resetMovesForReplan = useCallback(
+    () => clearMoves((previous) => ({ ...IDLE_MOVE_EXECUTION, executing: previous.executing })),
+    [clearMoves]
+  );
 
   const togglePause = () => {
     if (!execution.confirmed || execution.completed) {
@@ -86,7 +90,12 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     moveCounts: status.moveCounts,
     confirmationSummary,
     hasPendingExecutableItems: pendingExecutableCount > 0,
-    runExecutionAction: execution.confirmed ? togglePause : () => void confirmExecution(),
+    confirmation: {
+      summary: confirmation.summary,
+      confirm: confirmation.confirm,
+      cancel: confirmation.cancel
+    },
+    runExecutionAction: execution.confirmed ? togglePause : () => void confirmation.request(),
     resetMoves,
     resetMovesForReplan
   };
