@@ -22,7 +22,7 @@ export function HistoryRunDetailsSection({
         <span className="text-xs font-semibold text-slate-200">History Details</span>
         {details ? (
           <>
-            <span className="font-mono text-[10px] text-slate-500">{details.run.run_id}</span>
+            <span className="font-mono text-[10px] text-slate-400">{details.run.run_id}</span>
             <span className="text-xs text-slate-300">{details.run.folder_label}</span>
           </>
         ) : null}
@@ -34,12 +34,12 @@ export function HistoryRunDetailsSection({
       </div>
       {error ? <p className="mb-1 text-[11px] text-rose-400">{error}</p> : null}
       {loading ? (
-        <p className="text-[11px] text-slate-500">Loading history details...</p>
+        <p className="text-[11px] text-slate-400">Loading history details...</p>
       ) : details ? (
         rows.length > 0 ? (
           <HistoryOperationsTable rows={rows} />
         ) : (
-          <p className="text-[11px] text-slate-500">No history operations recorded for this run.</p>
+          <p className="text-[11px] text-slate-400">No history operations recorded for this run.</p>
         )
       ) : null}
     </div>

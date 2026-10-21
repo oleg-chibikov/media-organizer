@@ -30,7 +30,7 @@ export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCo
           ) : null}
         </>
       ) : (
-        <span className="text-slate-500">No move summary yet</span>
+        <span className="text-slate-400">No move summary yet</span>
       )}
       {hasMoveResults(moveCounts) ? (
         <>

@@ -50,7 +50,7 @@ export function Toolbar({
         {selectedFolder ? (
           <p className="truncate">{selectedFolder}</p>
         ) : (
-          <p className="text-slate-500">No folder selected</p>
+          <p className="text-slate-400">No folder selected</p>
         )}
         {folderError ? <p className="text-rose-400">{folderError}</p> : null}
       </div>

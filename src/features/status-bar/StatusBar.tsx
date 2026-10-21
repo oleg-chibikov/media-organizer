@@ -38,7 +38,7 @@ export function StatusBar({
           summary={summary}
           moveCounts={moveCounts}
         />
-        <span className="text-slate-500">Backend: {health}</span>
+        <span className="text-slate-400">Backend: {health}</span>
         <Button
           variant="primary"
           className="ml-auto px-3 py-1.5 text-xs"

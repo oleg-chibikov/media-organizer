@@ -50,11 +50,11 @@ export function DestinationSettingsMenu({
         <h2 className="text-sm font-semibold text-slate-100">Destination Settings</h2>
         <p className="mt-1 text-xs text-slate-400">{effectiveMode}</p>
         <div className="mt-3 rounded border border-slate-800 bg-slate-950 p-2">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Root Media Folder</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-400">Root Media Folder</p>
           {rootPath ? (
             <p className="mt-1 break-all font-mono text-xs text-slate-200">{rootPath}</p>
           ) : (
-            <p className="mt-1 text-xs text-slate-500">Not set</p>
+            <p className="mt-1 text-xs text-slate-400">Not set</p>
           )}
         </div>
         {warning ? <p className="mt-2 text-xs text-amber-300">{warning}</p> : null}

@@ -42,9 +42,9 @@ export function HistoryMenu({
       <p className="mb-1 text-xs text-slate-400">Recent Runs</p>
       <div className="max-h-56 overflow-y-auto">
         {loading ? (
-          <p className="px-2 py-1 text-xs text-slate-500">Loading history...</p>
+          <p className="px-2 py-1 text-xs text-slate-400">Loading history...</p>
         ) : runs.length === 0 ? (
-          <p className="px-2 py-1 text-xs text-slate-500">No history runs</p>
+          <p className="px-2 py-1 text-xs text-slate-400">No history runs</p>
         ) : (
           <RecentRunsTable runs={runs} {...tableProps} />
         )}
