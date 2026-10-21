@@ -58,7 +58,11 @@ export function DestinationSettingsMenu({
           )}
         </div>
         {warning ? <p className="mt-2 text-xs text-amber-300">{warning}</p> : null}
-        {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="mt-2 text-xs text-rose-400">
+            {error}
+          </p>
+        ) : null}
         {locked ? (
           <p className="mt-2 text-xs text-slate-400">
             Settings are locked once moves are confirmed. Choose a folder again to change them.

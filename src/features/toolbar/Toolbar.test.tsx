@@ -21,7 +21,9 @@ describe("Toolbar", () => {
     );
 
     expect(screen.getByText("No folder selected")).toBeInTheDocument();
-    expect(screen.getByText("Selected folder is inside a Processed path.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Selected folder is inside a Processed path."
+    );
     expect(screen.getByText("Root media: D:\\Media")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Stop Scan" }));

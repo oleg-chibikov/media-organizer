@@ -52,7 +52,11 @@ export function Toolbar({
         ) : (
           <p className="text-slate-400">No folder selected</p>
         )}
-        {folderError ? <p className="text-rose-400">{folderError}</p> : null}
+        {folderError ? (
+          <p role="alert" className="text-rose-400">
+            {folderError}
+          </p>
+        ) : null}
       </div>
 
       <div className="ml-auto flex min-w-0 items-center gap-2">
