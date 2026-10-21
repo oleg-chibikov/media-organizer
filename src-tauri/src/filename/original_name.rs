@@ -9,7 +9,11 @@ pub(crate) fn parse_original_name(file_name: &str) -> String {
         .rsplit_once('.')
         .map(|(without_extension, _)| without_extension)
         .unwrap_or(file_name);
+    original_name_from_stem(stem)
+}
 
+/// Same as `parse_original_name` for a name that has no extension to drop.
+pub(crate) fn original_name_from_stem(stem: &str) -> String {
     let stem_without_duplicate_suffix = strip_trailing_duplicate_suffix(stem);
     let end = stem_without_duplicate_suffix.rfind(')');
     let start =

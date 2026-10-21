@@ -2,6 +2,8 @@
 
 mod active_scan;
 mod classification;
+mod file_signature;
+mod media_identity;
 mod scanned_file;
 
 #[cfg(test)]

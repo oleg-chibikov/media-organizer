@@ -109,3 +109,5 @@ fn streams_discovered_and_skipped_files_then_totals() {
     assert_eq!(finished["skipped"], 2);
     assert_eq!(finished["cancelled"], false);
 }
+
+mod misnamed_media;

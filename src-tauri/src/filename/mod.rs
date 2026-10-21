@@ -7,5 +7,5 @@ mod windows_name;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use original_name::parse_original_name;
+pub(crate) use original_name::{original_name_from_stem, parse_original_name};
 pub(crate) use windows_name::sanitize_for_windows_filename;

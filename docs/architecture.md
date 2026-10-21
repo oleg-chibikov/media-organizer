@@ -132,7 +132,7 @@ Each layer may depend only on the layers below it.
 - `commands/`: one file per command group, plus `app_dirs`, `background` and `folder_dialog` helpers.
 - `models/`: serde payloads shared with `src/lib/types/`, split by domain and re-exported as `crate::models::*`.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
-- `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle.
+- `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing and capture-date selection.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
