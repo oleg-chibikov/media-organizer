@@ -28,8 +28,13 @@ export function HistoryMenu({
   return (
     <Pane
       panelClassName="w-[48rem] p-2"
-      renderTrigger={({ toggle }) => (
-        <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={toggle}>
+      renderTrigger={({ open, toggle }) => (
+        <Button
+          variant="secondary"
+          aria-expanded={open}
+          className="px-3 py-1.5 text-sm"
+          onClick={toggle}
+        >
           History
         </Button>
       )}

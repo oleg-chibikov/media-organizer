@@ -34,8 +34,14 @@ export function DestinationSettingsMenu({
     <Pane
       align="right"
       panelClassName="z-30 w-96 p-3"
-      renderTrigger={({ toggle }) => (
-        <Button variant="secondary" aria-label="Settings" className="p-1.5" onClick={toggle}>
+      renderTrigger={({ open, toggle }) => (
+        <Button
+          variant="secondary"
+          aria-expanded={open}
+          aria-label="Settings"
+          className="p-1.5"
+          onClick={toggle}
+        >
           <SettingsIcon />
         </Button>
       )}
