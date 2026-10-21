@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { TableColumn } from "./types";
 
 const RESIZING_BODY_CLASSES = ["cursor-col-resize", "select-none"];
+// Rows stream in one event at a time; measuring every cell per event froze large tables.
+export const AUTO_SIZE_INTERVAL_MS = 250;
 
 interface ColumnSizingOptions<TColumnKey extends string> {
   rowCount: number;
@@ -26,28 +28,42 @@ export function useColumnSizing<TColumnKey extends string>({
     document.body.classList.add(...RESIZING_BODY_CLASSES);
   }, []);
 
+  const latestRef = useRef({ columns, onAutoSizeColumns });
+  const autoSizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (rowCount === 0) {
-      return;
-    }
+    latestRef.current = { columns, onAutoSizeColumns };
+  });
 
-    const desiredWidths = onAutoSizeColumns();
+  const autoSize = useCallback(() => {
+    autoSizeTimerRef.current = null;
+    const { columns: latestColumns, onAutoSizeColumns: measure } = latestRef.current;
+    const desiredWidths = measure();
     setColumnSizing((previous) => {
-      let changed = false;
       const next: ColumnSizingState = { ...previous };
-      for (const column of columns) {
-        const desiredWidth = desiredWidths[column.key];
-        if (
-          !manuallyResizedColumnsRef.current.has(column.key) &&
-          next[column.key] !== desiredWidth
-        ) {
-          next[column.key] = desiredWidth;
-          changed = true;
-        }
-      }
-      return changed ? next : previous;
+      const resizedByHand = manuallyResizedColumnsRef.current;
+      const changed = latestColumns.filter(
+        ({ key }) => !resizedByHand.has(key) && next[key] !== desiredWidths[key]
+      );
+      changed.forEach(({ key }) => (next[key] = desiredWidths[key]));
+      return changed.length > 0 ? next : previous;
     });
-  }, [columns, onAutoSizeColumns, rowCount]);
+  }, []);
+
+  useEffect(() => {
+    if (rowCount > 0 && autoSizeTimerRef.current === null) {
+      autoSizeTimerRef.current = setTimeout(autoSize, AUTO_SIZE_INTERVAL_MS);
+    }
+  }, [autoSize, onAutoSizeColumns, rowCount]);
+
+  useEffect(
+    () => () => {
+      if (autoSizeTimerRef.current !== null) {
+        clearTimeout(autoSizeTimerRef.current);
+        autoSizeTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const stopResizing = () => {

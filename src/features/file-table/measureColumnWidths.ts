@@ -15,9 +15,23 @@ function createMeasureContext(): CanvasRenderingContext2D | null {
   return document.createElement("canvas").getContext("2d");
 }
 
+// Most cells keep their text between passes, so each width is measured once.
+const MAX_CACHED_WIDTHS = 50_000;
+const widthCache = new Map<string, number>();
+
 function measureText(context: CanvasRenderingContext2D, value: string, font: string): number {
+  const key = `${font}\n${value}`;
+  const cached = widthCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  if (widthCache.size >= MAX_CACHED_WIDTHS) {
+    widthCache.clear();
+  }
   context.font = font;
-  return Math.ceil(context.measureText(value).width);
+  const width = Math.ceil(context.measureText(value).width);
+  widthCache.set(key, width);
+  return width;
 }
 
 function measureHeaderMinWidths(): Record<FileColumnKey, number> {
