@@ -1,4 +1,4 @@
-import type { FileRecord, MetadataResult } from "../../lib/types";
+import type { FileRecord, MetadataReadRequest, MetadataResult } from "../../lib/types";
 
 export const METADATA_BATCH_SIZE = 8;
 
@@ -37,6 +37,10 @@ export function enqueueRowsNeedingMetadata(
     queue.pending.push(row.id);
     queue.queuedIds.add(row.id);
   }
+}
+
+export function toMetadataRequest(row: FileRecord): MetadataReadRequest {
+  return { file_id: row.id, source_path: row.source_path, file_kind: row.kind };
 }
 
 // Mutates the queue: takes up to one batch of known rows and marks them as requested.

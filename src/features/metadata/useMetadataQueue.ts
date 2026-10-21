@@ -4,7 +4,9 @@ import type { FileRecord, MetadataResult } from "../../lib/types";
 import {
   createMetadataQueue,
   enqueueRowsNeedingMetadata,
-  takeMetadataBatch
+  takeMetadataBatch,
+  toMetadataRequest,
+  type MetadataQueue
 } from "./metadataQueue";
 
 interface MetadataQueueOptions {
@@ -29,29 +31,24 @@ export function useMetadataQueue({
   const queueRef = useRef(createMetadataQueue());
   const pumpRef = useRef<() => void>(() => undefined);
 
-  const changeActiveRequests = useCallback((delta: number) => {
-    queueRef.current.activeRequests += delta;
-    setActiveMetadataRequests(queueRef.current.activeRequests);
+  const changeActiveRequests = useCallback((queue: MetadataQueue, delta: number) => {
+    queue.activeRequests += delta;
+    setActiveMetadataRequests(queue.activeRequests);
   }, []);
 
   const readBatch = useCallback(
     (batchRows: FileRecord[]) => {
-      changeActiveRequests(1);
-      void readMetadataForFiles(
-        batchRows.map((row) => ({
-          file_id: row.id,
-          source_path: row.source_path,
-          file_kind: row.kind
-        }))
-      )
+      // A reset swaps the queue; a batch from the old scan must not touch the new one.
+      const queue = queueRef.current;
+      const isCurrent = () => queueRef.current === queue;
+      changeActiveRequests(queue, 1);
+      void readMetadataForFiles(batchRows.map(toMetadataRequest))
         .then((results) => {
-          setMetadataByFileId((prev) => {
-            const next = { ...prev };
-            for (const result of results) {
-              next[result.file_id] = result;
-            }
-            return next;
-          });
+          if (!isCurrent()) {
+            return;
+          }
+          const byFileId = Object.fromEntries(results.map((result) => [result.file_id, result]));
+          setMetadataByFileId((prev) => ({ ...prev, ...byFileId }));
           for (const result of results) {
             if (result.metadata_status === "error" && result.error) {
               reportError(result.error);
@@ -60,11 +57,15 @@ export function useMetadataQueue({
           onMetadataRead(batchRows, results);
         })
         .catch((error: unknown) => {
-          reportError(`Failed to read metadata batch: ${String(error)}`);
+          if (isCurrent()) {
+            reportError(`Failed to read metadata batch: ${String(error)}`);
+          }
         })
         .finally(() => {
-          changeActiveRequests(-1);
-          pumpRef.current();
+          if (isCurrent()) {
+            changeActiveRequests(queue, -1);
+            pumpRef.current();
+          }
         });
     },
     [changeActiveRequests, onMetadataRead, reportError]
