@@ -24,7 +24,8 @@ export function RecentRunsTable({
   onSelectRun,
   onUndoRun,
   onRedoRun,
-  onDeleteRun
+  onDeleteRun,
+  onOpenLog
 }: RecentRunsTableProps) {
   const rows = useMemo(() => buildRecentRunRows(runs), [runs]);
 
@@ -36,7 +37,7 @@ export function RecentRunsTable({
         accessorKey: column.key,
         cell: (context) => {
           if (column.key === "actions") {
-            const handlers = { onUndoRun, onRedoRun, onDeleteRun };
+            const handlers = { onUndoRun, onRedoRun, onDeleteRun, onOpenLog };
             return <RunActions run={context.row.original.run} {...handlers} />;
           }
           const value = String(context.getValue() ?? "");
@@ -52,7 +53,7 @@ export function RecentRunsTable({
           );
         }
       })),
-    [onDeleteRun, onRedoRun, onUndoRun]
+    [onDeleteRun, onOpenLog, onRedoRun, onUndoRun]
   );
 
   return (

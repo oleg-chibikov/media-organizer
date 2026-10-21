@@ -30,6 +30,7 @@ export default function App() {
             onUndoRun={history.undoRun}
             onRedoRun={history.redoRun}
             onDeleteRun={history.deleteRun}
+            onOpenLog={history.openLog}
           />
         }
         rootMediaFolder={rootMediaFolder}

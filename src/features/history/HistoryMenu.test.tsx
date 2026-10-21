@@ -46,6 +46,7 @@ describe("History Menu", () => {
         onUndoRun={onUndoProcessing}
         onRedoRun={onRedoProcessing}
         onDeleteRun={vi.fn()}
+        onOpenLog={vi.fn()}
       />
     );
 

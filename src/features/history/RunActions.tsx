@@ -1,11 +1,11 @@
 import { Button } from "../../components/design-system/Button";
-import { revealFileInExplorer } from "../../lib/api";
 import type { HistoryIndexEntry } from "../../lib/types";
 
 export interface RunActionHandlers {
   onUndoRun: (runId: string) => void;
   onRedoRun: (runId: string) => void;
   onDeleteRun: (runId: string) => void;
+  onOpenLog: (historyFilePath: string) => void;
 }
 
 const ACTION_CLASS = "px-2 py-1 text-[11px]";
@@ -14,7 +14,8 @@ export function RunActions({
   run,
   onUndoRun,
   onRedoRun,
-  onDeleteRun
+  onDeleteRun,
+  onOpenLog
 }: RunActionHandlers & { run: HistoryIndexEntry }) {
   return (
     <div
@@ -44,7 +45,7 @@ export function RunActions({
         variant="secondary"
         aria-label={`Open log for ${run.folder_label}`}
         className={ACTION_CLASS}
-        onClick={() => revealFileInExplorer(run.history_file_path).catch(() => {})}
+        onClick={() => onOpenLog(run.history_file_path)}
       >
         Log
       </Button>
