@@ -4,13 +4,14 @@ mod admission;
 mod batch;
 mod limits;
 mod results;
+mod worker_pick;
+
+#[cfg(test)]
+mod tests;
 
 use std::{
     path::PathBuf,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
-    },
+    sync::{atomic::AtomicUsize, Arc, Mutex},
     time::Duration,
 };
 
@@ -21,9 +22,10 @@ use crate::{
     models::{MetadataReadRequest, MetadataResult, ProcessingConfig},
 };
 use results::metadata_error_result;
+use worker_pick::SharedWorker;
 
 pub(crate) struct MetadataQueue {
-    workers: Vec<Arc<Mutex<ExifToolWorkerManager>>>,
+    workers: Vec<SharedWorker>,
     next_worker: AtomicUsize,
     slots: Arc<Semaphore>,
     waiting: AtomicUsize,
@@ -68,11 +70,5 @@ impl MetadataQueue {
         Ok(results.pop().unwrap_or_else(|| {
             metadata_error_result(file_id, "Metadata worker returned no result.".to_string())
         }))
-    }
-
-    fn select_worker(&self) -> Arc<Mutex<ExifToolWorkerManager>> {
-        let index = self.next_worker.fetch_add(1, Ordering::Relaxed);
-        let slot = index % self.workers.len();
-        self.workers[slot].clone()
     }
 }

@@ -6,6 +6,7 @@ use super::{
         metadata_batch_timeout, metadata_error_result, metadata_result_from_slot,
         unwrap_metadata_results,
     },
+    worker_pick::lock_idle_worker,
     MetadataQueue,
 };
 use crate::{
@@ -81,14 +82,13 @@ impl MetadataQueue {
         resource_dir: Option<PathBuf>,
         pending: &[PendingRead],
     ) -> Result<Result<MetadataBatchReadOutcome, String>, String> {
-        let worker = self.select_worker();
+        let workers = self.workers.clone();
+        let start = self.next_worker.fetch_add(1, Ordering::Relaxed);
         let timeout = metadata_batch_timeout(self.timeout, pending.len());
         let source_paths: Vec<PathBuf> = pending.iter().map(|read| read.source.clone()).collect();
 
         tauri::async_runtime::spawn_blocking(move || {
-            let mut manager = worker
-                .lock()
-                .map_err(|_| "Failed to lock ExifTool worker state.".to_string())?;
+            let mut manager = lock_idle_worker(&workers, start);
             manager.read_metadata_batch(resource_dir.as_deref(), &source_paths, timeout)
         })
         .await
