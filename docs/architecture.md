@@ -62,7 +62,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 - **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`.
 - **History** is `<appData>/history/runs/*.jsonl` plus `index.json`, written by `HistoryStore`.
 - **Writes** to settings and the history index take a process lock and replace the file through a temp file.
-- **ExifTool** ships as a sidecar under `src-tauri/binaries/`.
+- **ExifTool** ships as a sidecar under `src-tauri/binaries/`. On macOS the sidecar is a launcher that runs the Perl script with the system Perl. Details are in `docs/exiftool-sidecar.md`.
 - **Specs** with feature intent and acceptance criteria live in `specs/`.
 
 ## File Safety Guarantees

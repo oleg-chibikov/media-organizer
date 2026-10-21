@@ -1,0 +1,12 @@
+#!/bin/sh
+# Tauri bundles this launcher as the ExifTool sidecar on macOS.
+# ExifTool there is a Perl script, run by the system Perl.
+dir=$(dirname "$0")
+# An installed app keeps the script in Contents/Resources; `tauri dev` keeps it next to this file.
+for script in "$dir/../Resources/exiftool-perl/exiftool" "$dir/exiftool-perl/exiftool"; do
+  if [ -f "$script" ]; then
+    exec perl "$script" "$@"
+  fi
+done
+echo "ExifTool script not found near $dir" >&2
+exit 127

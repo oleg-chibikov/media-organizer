@@ -25,10 +25,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "nsis",
+    "targets": ["nsis", "app"],
     "publisher": "Media Organizer",
     "shortDescription": "Organize NAS media TODO folder.",
-    "icon": ["icons/icon.ico"],
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
     "externalBin": ["binaries/exiftool"],
     "windows": {
       "webviewInstallMode": {

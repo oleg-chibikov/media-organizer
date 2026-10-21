@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "resources": {
+      "binaries/exiftool-perl/": "exiftool-perl/"
+    },
+    "macOS": {
+      "signingIdentity": "-"
+    }
+  }
+}
