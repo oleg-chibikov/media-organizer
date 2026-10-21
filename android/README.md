@@ -40,6 +40,19 @@ Choose opens a folder list inside the app. Tap a folder to open it, and "↑ Up"
 
 Choose next to "Move to" creates the folder first when it doesn't exist yet, so the picker opens inside it.
 
+```mermaid
+flowchart LR
+  open["Opens the app"] --> folders["Keeps or chooses the gallery and Move to folders"]
+  folders --> start["Presses Start"]
+  start --> access{"All files access granted?"}
+  access -->|no| allow["Allows it in Android settings"] --> start
+  access -->|yes| run["Watches the log, keeps the app on screen"]
+  run --> done["Sees Done"]
+  folders --> auto["Turns on automatic moves"]
+  auto --> camera["Takes a photo with the app closed"]
+  camera --> sorted["Finds it in the dated folder a few seconds later"]
+```
+
 ## Move new photos automatically
 
 Turn on "Move new photos and videos automatically". The app then sorts each new photo or video a few seconds after the camera saves it, with the app closed.
@@ -71,6 +84,23 @@ Turn on "Move new photos and videos automatically". The app then sorts each new 
 - **Video device name** is missing. Android doesn't expose the camera model of a video.
 - **Hidden files** such as `.trashed-*` and `.pending-*` stay put. They belong to the Android gallery.
 - **History and undo** don't exist. The log on screen shows the last 300 moves.
+
+## How the code fits
+
+```mermaid
+flowchart TD
+  screen["MainActivity and RunScreen<br/>folder fields, Start, log"] -->|Start| run
+  job["background/SortJobService<br/>gallery change or daily job"] -->|saved folders| run
+  boot["background/RestoreJobsReceiver<br/>reboot or app update"] --> sched["background/BackgroundSorting<br/>schedules the jobs"]
+  screen -->|automatic switch| sched
+  sched --> job
+  run["OrganizeRun<br/>one run at a time, on its own thread"] --> organize
+  organize["organize/<br/>scan, dates, names, safe move, cleanup"] --> meta["metadata/<br/>ExifInterface and MediaMetadataRetriever"]
+  organize --> disk[("Gallery folder and Move to folder")]
+  run -->|old and new paths| gallery["MediaScannerConnection<br/>refreshes the gallery"]
+  screen --> saved["folders/SavedFolders<br/>keeps both folders"]
+  job --> saved
+```
 
 The sorting code is a copy of `src-tauri/src/planner`, `filename` and `metadata/date_selection.rs`. A rule change there needs the same change in `app/src/main/java/com/mediaorganizer/android/organize`.
 

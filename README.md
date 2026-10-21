@@ -59,6 +59,26 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - Stores processing history in appData for inspection, undo, and redo.
 - Supports either legacy `<selected folder>/Processed` destinations or a persisted custom media root.
 
+## User Flow
+
+```mermaid
+flowchart LR
+  settings["Optional: picks a media root in Settings"] -.-> pick
+  pick["Picks a TODO folder"] --> scan["Sees files stream into the table"]
+  scan --> dates["Sees capture dates and planned names"]
+  dates --> review["Checks rows that need review"]
+  review --> confirm{"Confirms the move?"}
+  confirm -->|no| dates
+  confirm -->|yes| move["Watches files move into dated folders"]
+  move -->|a check fails| stay["File stays put, the row says why"]
+  move --> history["Opens History"]
+  history --> undo{"Undo, redo or delete a run?"}
+  undo -->|undo| back["Files return to the TODO folder"]
+  undo -->|redo| move
+```
+
+The frontend and backend views of the same flow are in `src/README.md` and `src-tauri/README.md`.
+
 ## Stack
 
 - Frontend: React, TypeScript, Vite, Tailwind CSS.
