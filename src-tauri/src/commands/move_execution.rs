@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use super::{
     app_dirs::{history_store, settings_store},
     background::{run_blocking, spawn_job},
 };
 use crate::{
+    app_state::AppState,
     models::{FileRecord, MetadataResult, MovePlan},
     move_run::{self, MoveBatch},
 };
@@ -19,6 +20,10 @@ pub async fn execute_move_plan(
     plans: Vec<MovePlan>,
     app: AppHandle,
 ) -> Result<(), String> {
+    let selected_folder = PathBuf::from(selected_path);
+    app.state::<AppState>()
+        .picked_folders
+        .ensure_picked(&selected_folder)?;
     let settings = settings_store(&app)?;
     let history = history_store(&app)?;
     let batch = MoveBatch {
@@ -28,7 +33,6 @@ pub async fn execute_move_plan(
     };
     let sink = app.clone();
     let run = run_blocking(move || {
-        let selected_folder = PathBuf::from(selected_path);
         move_run::start_move_run(&sink, &settings, &history, &selected_folder, batch)
     })
     .await?;

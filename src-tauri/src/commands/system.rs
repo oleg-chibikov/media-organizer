@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use super::{background::run_blocking, folder_dialog::pick_folder};
 use crate::{app_state::AppState, models::ProcessingConfig, system_explorer};
@@ -17,7 +17,11 @@ pub fn get_processing_config(state: State<'_, AppState>) -> ProcessingConfig {
 
 #[tauri::command]
 pub async fn choose_folder(app: AppHandle) -> Option<String> {
-    pick_folder(&app).await
+    let folder = pick_folder(&app).await?;
+    app.state::<AppState>()
+        .picked_folders
+        .remember(Path::new(&folder));
+    Some(folder)
 }
 
 #[tauri::command]

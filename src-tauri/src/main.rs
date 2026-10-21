@@ -10,6 +10,7 @@ mod models;
 mod move_run;
 mod mover;
 mod path_safety;
+mod picked_folders;
 mod planner;
 mod safe_fs;
 mod scanner;
