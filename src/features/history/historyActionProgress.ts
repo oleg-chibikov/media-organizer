@@ -1,4 +1,4 @@
-import type { HistoryRedoProgressEvent, HistoryUndoProgressEvent } from "../../lib/types";
+import type { HistoryReplayProgressEvent } from "../../lib/types";
 
 export type HistoryActionKind = "undo" | "redo";
 
@@ -16,7 +16,7 @@ export interface HistoryActionProgress {
 export function advanceHistoryAction(
   active: ActiveHistoryAction | null,
   action: HistoryActionKind,
-  payload: HistoryUndoProgressEvent | HistoryRedoProgressEvent
+  payload: HistoryReplayProgressEvent
 ): HistoryActionProgress {
   if (!active || active.action !== action || active.runId !== payload.run_id) {
     return { active, failureMessage: null };

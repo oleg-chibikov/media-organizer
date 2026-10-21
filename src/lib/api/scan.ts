@@ -1,14 +1,6 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent } from "../types";
-import { ensureTauriRuntime, invokeCommand } from "./tauriRuntime";
-
-export const SCAN_EVENTS = {
-  started: "scan:started",
-  file: "scan:file",
-  skipped: "scan:skipped",
-  error: "scan:error",
-  finished: "scan:finished"
-} as const;
+import { listenAll } from "./listenAll";
+import { invokeCommand } from "./tauriRuntime";
 
 export const chooseFolder = () => invokeCommand<string | null>("choose_folder");
 export const startScan = (selectedPath: string) =>
@@ -23,16 +15,12 @@ export interface ScanListeners {
   onFinished: (payload: ScanFinishedEvent) => void;
 }
 
-export async function attachScanListeners(handlers: ScanListeners): Promise<UnlistenFn[]> {
-  ensureTauriRuntime();
+const SCAN_EVENTS = {
+  onStarted: "scan:started",
+  onFile: "scan:file",
+  onSkipped: "scan:skipped",
+  onError: "scan:error",
+  onFinished: "scan:finished"
+} as const;
 
-  const listeners = await Promise.all([
-    listen<ScanStartedEvent>(SCAN_EVENTS.started, (event) => handlers.onStarted(event.payload)),
-    listen<ScanFileEvent>(SCAN_EVENTS.file, (event) => handlers.onFile(event.payload)),
-    listen<ScanFileEvent>(SCAN_EVENTS.skipped, (event) => handlers.onSkipped(event.payload)),
-    listen<ScanErrorEvent>(SCAN_EVENTS.error, (event) => handlers.onError(event.payload)),
-    listen<ScanFinishedEvent>(SCAN_EVENTS.finished, (event) => handlers.onFinished(event.payload))
-  ]);
-
-  return listeners;
-}
+export const attachScanListeners = (handlers: ScanListeners) => listenAll(SCAN_EVENTS, handlers);

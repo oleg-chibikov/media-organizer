@@ -1,4 +1,3 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FileRecord,
   MetadataResult,
@@ -8,13 +7,8 @@ import type {
   PlanFileEvent,
   PlanFinishedEvent
 } from "../types";
-import { ensureTauriRuntime, invokeCommand } from "./tauriRuntime";
-
-export const PLAN_EVENTS = {
-  file: "plan:file",
-  error: "plan:error",
-  finished: "plan:finished"
-} as const;
+import { listenAll } from "./listenAll";
+import { invokeCommand } from "./tauriRuntime";
 
 export const createMovePlan = (
   selectedPath: string,
@@ -44,14 +38,10 @@ export interface PlanListeners {
   onFinished: (payload: PlanFinishedEvent) => void;
 }
 
-export async function attachPlanListeners(handlers: PlanListeners): Promise<UnlistenFn[]> {
-  ensureTauriRuntime();
+const PLAN_EVENTS = {
+  onFile: "plan:file",
+  onError: "plan:error",
+  onFinished: "plan:finished"
+} as const;
 
-  const listeners = await Promise.all([
-    listen<PlanFileEvent>(PLAN_EVENTS.file, (event) => handlers.onFile(event.payload)),
-    listen<PlanErrorEvent>(PLAN_EVENTS.error, (event) => handlers.onError(event.payload)),
-    listen<PlanFinishedEvent>(PLAN_EVENTS.finished, (event) => handlers.onFinished(event.payload))
-  ]);
-
-  return listeners;
-}
+export const attachPlanListeners = (handlers: PlanListeners) => listenAll(PLAN_EVENTS, handlers);

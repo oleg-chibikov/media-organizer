@@ -4,14 +4,8 @@ export interface HistoryIndexUpdatedEvent {
   run_id: string | null;
 }
 
-export interface HistoryUndoProgressEvent {
-  run_id: string;
-  total_operations: number;
-  completed_operations: number;
-  operation: HistoryOperation;
-}
-
-export interface HistoryRedoProgressEvent {
+// Payload of both `history:undo-progress` and `history:redo-progress`.
+export interface HistoryReplayProgressEvent {
   run_id: string;
   total_operations: number;
   completed_operations: number;

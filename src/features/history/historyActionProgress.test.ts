@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { HistoryOperation, HistoryUndoProgressEvent } from "../../lib/types";
+import type { HistoryOperation, HistoryReplayProgressEvent } from "../../lib/types";
 import { advanceHistoryAction, type ActiveHistoryAction } from "./historyActionProgress";
 
-function progress(completed: number, status: HistoryOperation["status"]): HistoryUndoProgressEvent {
+function progress(
+  completed: number,
+  status: HistoryOperation["status"]
+): HistoryReplayProgressEvent {
   return {
     run_id: "run-1",
     total_operations: 2,

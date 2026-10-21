@@ -1,4 +1,3 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   FileRecord,
   MetadataResult,
@@ -7,13 +6,8 @@ import type {
   MovePlan,
   MoveProgressEvent
 } from "../types";
-import { ensureTauriRuntime, invokeCommand } from "./tauriRuntime";
-
-export const MOVE_EVENTS = {
-  file: "move:file",
-  progress: "move:progress",
-  finished: "move:finished"
-} as const;
+import { listenAll } from "./listenAll";
+import { invokeCommand } from "./tauriRuntime";
 
 export const executeMovePlan = (
   selectedPath: string,
@@ -34,14 +28,10 @@ export interface MoveListeners {
   onFinished: (payload: MoveFinishedEvent) => void;
 }
 
-export async function attachMoveListeners(handlers: MoveListeners): Promise<UnlistenFn[]> {
-  ensureTauriRuntime();
+const MOVE_EVENTS = {
+  onProgress: "move:progress",
+  onFile: "move:file",
+  onFinished: "move:finished"
+} as const;
 
-  const listeners = await Promise.all([
-    listen<MoveProgressEvent>(MOVE_EVENTS.progress, (event) => handlers.onProgress(event.payload)),
-    listen<MoveFileEvent>(MOVE_EVENTS.file, (event) => handlers.onFile(event.payload)),
-    listen<MoveFinishedEvent>(MOVE_EVENTS.finished, (event) => handlers.onFinished(event.payload))
-  ]);
-
-  return listeners;
-}
+export const attachMoveListeners = (handlers: MoveListeners) => listenAll(MOVE_EVENTS, handlers);
