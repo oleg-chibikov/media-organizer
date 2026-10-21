@@ -1,10 +1,9 @@
 export const FILE_TABLE_COLUMNS = [
   { key: "source", label: "Source File" },
-  { key: "destination", label: "Destination" },
   { key: "status", label: "Status" },
+  { key: "destination", label: "Destination" },
+  { key: "date", label: "Date" },
   { key: "kind", label: "Kind" },
-  { key: "originalName", label: "Original Name" },
-  { key: "metadataDate", label: "Metadata Date" },
   { key: "notes", label: "Notes" }
 ] as const;
 

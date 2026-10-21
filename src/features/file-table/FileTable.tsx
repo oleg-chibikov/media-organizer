@@ -16,7 +16,7 @@ interface FileTableProps {
   movePlansByFileId: Record<string, MovePlan>;
   moveResultsByFileId: Record<string, MoveResult>;
   activeMoveFileId: string | null;
-  rootMediaFolder: string | null;
+  destinationRoot: string | null;
 }
 
 export function FileTable({
@@ -25,7 +25,7 @@ export function FileTable({
   movePlansByFileId,
   moveResultsByFileId,
   activeMoveFileId,
-  rootMediaFolder
+  destinationRoot
 }: FileTableProps) {
   const sortedRows = useMemo(() => sortFileRecords(rows), [rows]);
 
@@ -41,8 +41,8 @@ export function FileTable({
   );
 
   const tableRows = useMemo(
-    () => rowStates.map((state) => buildFileTableRow(state, activeMoveFileId, rootMediaFolder)),
-    [rowStates, activeMoveFileId, rootMediaFolder]
+    () => rowStates.map((state) => buildFileTableRow(state, activeMoveFileId, destinationRoot)),
+    [rowStates, activeMoveFileId, destinationRoot]
   );
 
   const autoSizeColumns = useCallback(() => measureAutoSizedColumns(tableRows), [tableRows]);

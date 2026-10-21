@@ -13,7 +13,7 @@ function textCell(value: string) {
 export function buildFileTableRow(
   state: FileRowState,
   activeMoveFileId: string | null,
-  rootMediaFolder: string | null
+  destinationRoot: string | null
 ): FileTableRow {
   const { record, metadata, movePlan } = state;
   const metadataDate = metadata
@@ -30,14 +30,13 @@ export function buildFileTableRow(
       className: "truncate px-3 py-2 font-mono text-xs"
     },
     destination: {
-      value: relativeDestinationPath(destination, rootMediaFolder),
+      value: relativeDestinationPath(destination, destinationRoot),
       title: destination,
       className: "truncate px-3 py-2 font-mono text-xs text-slate-300"
     },
     status: textCell(fileStatusLabel(state, activeMoveFileId)),
+    date: textCell(metadataDate),
     kind: textCell(record.kind),
-    originalName: textCell(record.original_name),
-    metadataDate: textCell(metadataDate),
     notes: textCell(fileNotesLabel(state))
   };
 }

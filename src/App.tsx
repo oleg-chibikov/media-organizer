@@ -59,7 +59,7 @@ export default function App() {
           movePlansByFileId={planning.movePlansByFileId}
           moveResultsByFileId={moves.moveResultsByFileId}
           activeMoveFileId={execution.activeFileId}
-          rootMediaFolder={destination.settings?.root_media_folder ?? null}
+          destinationRoot={effectiveDestination.rootPath}
         />
       </main>
 

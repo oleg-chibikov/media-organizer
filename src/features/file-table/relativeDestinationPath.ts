@@ -2,7 +2,7 @@ function normalizePath(pathValue: string): string {
   return pathValue.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
-// Shows a destination relative to the root media folder when it sits inside it.
+// Shows a destination relative to the destination root shown in the toolbar.
 export function relativeDestinationPath(pathValue: string, basePath: string | null): string {
   if (!basePath || pathValue === "-" || pathValue === "planning...") {
     return pathValue;

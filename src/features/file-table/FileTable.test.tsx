@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FileTable } from "./FileTable";
-import type { FileRecord } from "../../lib/types";
+import type { FileRecord, MovePlan } from "../../lib/types";
 
 vi.mock("../../lib/api", () => ({
   revealFileInExplorer: vi.fn()
@@ -61,7 +61,7 @@ describe("FileTable", () => {
         movePlansByFileId={{}}
         moveResultsByFileId={{}}
         activeMoveFileId={null}
-        rootMediaFolder={null}
+        destinationRoot={null}
       />
     );
 
@@ -71,5 +71,22 @@ describe("FileTable", () => {
       .map((row) => row.querySelectorAll("td")[0]?.textContent);
 
     expect(renderedSourceOrder).toEqual(["Alpha.jpg", "beta.jpg", "zeta.jpg"]);
+  });
+
+  it("shows the destination inside the toolbar's destination folder", () => {
+    const plan = { file_id: "a", destination_path: "D:\\Media\\2024\\5\\1\\a.jpg" } as MovePlan;
+    render(
+      <FileTable
+        rows={[createRow("a")]}
+        metadataByFileId={{}}
+        movePlansByFileId={{ a: plan }}
+        moveResultsByFileId={{}}
+        activeMoveFileId={null}
+        destinationRoot={"D:\\Media"}
+      />
+    );
+
+    expect(screen.getByText("2024/5/1/a.jpg")).toBeInTheDocument();
+    expect(screen.queryByText("Original Name")).not.toBeInTheDocument();
   });
 });
