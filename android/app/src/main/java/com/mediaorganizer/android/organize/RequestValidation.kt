@@ -12,7 +12,7 @@ sealed interface RequestCheck {
 /** Checks the typed folders. A blank destination means `<source>/Processed`, as on desktop. */
 fun checkRequest(sourceText: String, destinationText: String): RequestCheck {
     val source = Paths.get(sourceText.trim())
-    if (!source.isAbsolute) return RequestCheck.Invalid("Gallery folder must be a full path such as /storage/emulated/0/DCIM/Camera.")
+    if (!source.isAbsolute) return RequestCheck.Invalid("Gallery folder must be a full path such as ~/DCIM/Camera.")
     if (!Files.isDirectory(source)) return RequestCheck.Invalid("Gallery folder does not exist: $source")
     if (isInsideProcessed(source)) return RequestCheck.Invalid("Gallery folder must not be inside a Processed folder.")
 

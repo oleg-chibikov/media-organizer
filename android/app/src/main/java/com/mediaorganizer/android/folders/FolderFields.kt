@@ -20,13 +20,14 @@ class FolderFields(
     pickDestination: Button,
 ) {
     private val saved = SavedFolders(activity)
+    private val root = FolderPicker.primaryRoot()
 
-    val source: String get() = sourceField.text.toString()
-    val destination: String get() = destinationField.text.toString()
+    val source: String get() = fullPath(sourceField.text.toString(), root)
+    val destination: String get() = fullPath(destinationField.text.toString(), root)
 
     init {
-        sourceField.setText(saved.source)
-        destinationField.setText(saved.destination)
+        show(sourceField, saved.source)
+        show(destinationField, saved.destination)
         pickSource.setOnClickListener { pick(PICK_SOURCE, source, createMissing = false) }
         // `Processed` often doesn't exist yet. Its parent is the gallery folder, an easy wrong pick.
         pickDestination.setOnClickListener { pick(PICK_DESTINATION, destination, createMissing = true) }
@@ -44,14 +45,16 @@ class FolderFields(
             return true
         }
         if (requestCode == PICK_SOURCE) {
-            if (destination.trim() == defaultDestination(source.trim())) destinationField.setText(defaultDestination(path))
-            sourceField.setText(path)
+            if (destination == defaultDestination(source)) show(destinationField, defaultDestination(path))
+            show(sourceField, path)
         } else {
-            destinationField.setText(path)
+            show(destinationField, path)
         }
         save()
         return true
     }
+
+    private fun show(field: EditText, path: String) = field.setText(shortPath(path, root))
 
     private fun pick(requestCode: Int, currentPath: String, createMissing: Boolean) {
         if (!activity.hasAllFilesAccessOrAsk()) return

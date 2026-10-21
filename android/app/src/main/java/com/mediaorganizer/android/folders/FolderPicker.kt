@@ -28,5 +28,5 @@ object FolderPicker {
     private fun nearestFolder(path: String): String? =
         generateSequence(File(path)) { file -> file.parentFile }.firstOrNull(File::isDirectory)?.path
 
-    private fun primaryRoot(): String = Environment.getExternalStorageDirectory().path
+    fun primaryRoot(): String = Environment.getExternalStorageDirectory().path
 }
