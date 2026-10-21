@@ -13,6 +13,7 @@
 ## Change Workflow
 
 - Agents must commit every change.
+- Commit and push after each separate change. One logical change goes in one commit, then `git push` right away.
 - Check `git status --short` before editing and before committing.
 - Do not revert user changes unless explicitly requested.
 - If explicitly asked to complete a task from `specs/**/tasks.md`, mark the corresponding task complete in that file.
