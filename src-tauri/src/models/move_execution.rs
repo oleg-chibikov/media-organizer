@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum MoveStrategy {
     Rename,
     CopyKeepSource,
@@ -11,7 +10,6 @@ pub enum MoveStrategy {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum MoveResultStatus {
     Moved,
     Copied,
@@ -20,7 +18,6 @@ pub enum MoveResultStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct MoveResult {
     pub file_id: String,
     pub attempted_source_path: String,

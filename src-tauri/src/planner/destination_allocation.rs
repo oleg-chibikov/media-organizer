@@ -3,8 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::content_match::files_have_identical_contents;
-use crate::models::{ConflictStatus, PlanStatus};
+use crate::{
+    file_ops::files_have_same_bytes,
+    models::{ConflictStatus, PlanStatus},
+    path_safety::normalized_path_string,
+};
 
 /// Picks the first free `<stem>[ (n)].<ext>` path, blocking exact duplicates already on disk.
 pub(super) fn allocate_destination_path(
@@ -28,14 +31,15 @@ pub(super) fn allocate_destination_path(
             format!("{stem}.{extension}")
         };
         let destination_path = destination_dir.join(&filename);
-        let path_key = normalize_path_key(&destination_path);
+        let path_key = normalized_path_string(&destination_path);
 
         let exists_on_disk = destination_path.exists();
         let exists_in_run = reserved_paths.contains(&path_key);
 
         if exists_on_disk
             && suffix == 0
-            && files_have_identical_contents(source_path, &destination_path)?
+            && files_have_same_bytes(source_path, &destination_path)
+                .map_err(|error| format!("Failed to compare files for conflict check: {error}"))?
         {
             return Ok((
                 destination_path,
@@ -62,8 +66,4 @@ pub(super) fn allocate_destination_path(
 
         suffix += 1;
     }
-}
-
-fn normalize_path_key(path: &Path) -> String {
-    path.to_string_lossy().to_ascii_lowercase()
 }

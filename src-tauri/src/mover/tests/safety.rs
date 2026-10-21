@@ -2,10 +2,7 @@ use std::fs;
 
 use tempfile::tempdir;
 
-use crate::{
-    mover::{safety::validate_move_safety, validate_move_safety_with_roots},
-    test_support::media::photo_move_operation,
-};
+use crate::{mover::validate_move_safety_with_roots, test_support::media::photo_move_operation};
 
 #[test]
 fn safety_check_rejects_destination_outside_processed_folder() {
@@ -14,8 +11,9 @@ fn safety_check_rejects_destination_outside_processed_folder() {
     let destination = temp.path().join("outside.jpg");
     fs::write(&source, b"source").expect("write source");
 
-    let checked = validate_move_safety(
+    let checked = validate_move_safety_with_roots(
         temp.path(),
+        &temp.path().join("Processed"),
         vec![photo_move_operation(&source, &destination)],
     );
 
@@ -25,7 +23,7 @@ fn safety_check_rejects_destination_outside_processed_folder() {
         .error
         .as_deref()
         .unwrap_or_default()
-        .contains("outside the selected Processed folder"));
+        .contains("outside the effective destination root"));
     assert!(source.exists());
 }
 
@@ -41,8 +39,9 @@ fn safety_check_allows_source_inside_processed_folder() {
     fs::create_dir_all(source.parent().expect("source parent")).expect("create parent");
     fs::write(&source, b"source").expect("write source");
 
-    let checked = validate_move_safety(
+    let checked = validate_move_safety_with_roots(
         temp.path(),
+        &temp.path().join("Processed"),
         vec![photo_move_operation(&source, &destination)],
     );
 

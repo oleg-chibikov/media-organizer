@@ -1,6 +1,5 @@
 //! Destination planning: dated folders, original-name filenames and conflict suffixes.
 
-mod content_match;
 mod destination_allocation;
 mod file_plan;
 

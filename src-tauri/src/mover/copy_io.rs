@@ -1,6 +1,6 @@
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Write},
+    io,
     path::{Path, PathBuf},
 };
 
@@ -39,21 +39,4 @@ pub(super) fn reserve_temp_destination(destination: &Path) -> io::Result<(PathBu
         io::ErrorKind::AlreadyExists,
         "unable to allocate a unique temporary destination",
     ))
-}
-
-pub(super) fn copy_without_overwrite(source: &Path, destination_file: &mut File) -> io::Result<()> {
-    let mut source_file = File::open(source)?;
-    io::copy(&mut source_file, destination_file)?;
-    destination_file.flush()?;
-    destination_file.sync_all()?;
-    Ok(())
-}
-
-/// `create_new` makes publishing fail instead of overwriting a file that appeared meanwhile.
-pub(super) fn persist_verified_copy(temp_destination: &Path, destination: &Path) -> io::Result<()> {
-    let mut destination_file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(destination)?;
-    copy_without_overwrite(temp_destination, &mut destination_file)
 }

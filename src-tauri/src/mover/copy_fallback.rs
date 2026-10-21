@@ -1,12 +1,15 @@
 use std::{fs, path::Path};
 
 use super::{
-    copy_io::{copy_without_overwrite, persist_verified_copy, reserve_temp_destination},
+    copy_io::reserve_temp_destination,
     outcome::{attempted_result, skipped_operation},
     verification::verify_destination_matches_source,
     MoveOperation,
 };
-use crate::models::{MoveResult, MoveResultStatus, MoveStrategy};
+use crate::{
+    file_ops::{copy_into, copy_into_new_file},
+    models::{MoveResult, MoveResultStatus, MoveStrategy},
+};
 
 /// Copies through a reserved temp file, verifies bytes, then publishes without overwrite.
 /// The source is always kept.
@@ -36,7 +39,7 @@ pub(super) fn execute_copy_verify_keep_source(
         Err(error) => return failed(format!("Failed to reserve temporary copy path: {error}")),
     };
 
-    if let Err(error) = copy_without_overwrite(source, &mut temp_file) {
+    if let Err(error) = copy_into(source, &mut temp_file) {
         drop(temp_file);
         let _ = fs::remove_file(&temp_destination);
         return failed(format!("Copy fallback failed: {error}"));
@@ -57,7 +60,7 @@ pub(super) fn execute_copy_verify_keep_source(
         );
     }
 
-    if let Err(error) = persist_verified_copy(&temp_destination, destination) {
+    if let Err(error) = copy_into_new_file(&temp_destination, destination) {
         let _ = fs::remove_file(&temp_destination);
         return failed(format!("Failed to persist verified copy fallback: {error}"));
     }

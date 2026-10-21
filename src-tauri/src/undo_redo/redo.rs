@@ -1,7 +1,10 @@
 use std::{fs, io, path::Path};
 
 use super::outcome::{ensure_expected_size, OperationOutcome};
-use crate::models::{HistoryOperation, HistoryOperationKind, MoveStrategy};
+use crate::{
+    file_ops::copy_into_new_file,
+    models::{HistoryOperation, HistoryOperationKind, MoveStrategy},
+};
 
 pub(super) fn execute_redo_operation(operation: &HistoryOperation) -> OperationOutcome {
     let result = match operation.move_strategy {
@@ -12,7 +15,7 @@ pub(super) fn execute_redo_operation(operation: &HistoryOperation) -> OperationO
         ),
         MoveStrategy::CopyKeepSource => redo_transfer(
             operation,
-            |source, destination| fs::copy(source, destination).map(|_| ()),
+            copy_into_new_file,
             "Redo failed: could not copy file to recorded destination",
         ),
         MoveStrategy::NotAttempted => Err(OperationOutcome::blocked(

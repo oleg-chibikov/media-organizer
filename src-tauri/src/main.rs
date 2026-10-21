@@ -2,6 +2,7 @@ mod app_state;
 mod atomic_file;
 mod commands;
 mod events;
+mod file_ops;
 mod filename;
 mod history;
 mod metadata;

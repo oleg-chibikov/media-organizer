@@ -4,7 +4,6 @@ use super::{DestinationRootMode, HistoryOperation};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum HistoryRunStatus {
     Running,
     Completed,
@@ -17,7 +16,6 @@ pub enum HistoryRunStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct HistoryRun {
     pub run_id: String,
     pub history_version: u32,
@@ -35,7 +33,6 @@ pub struct HistoryRun {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[allow(dead_code)]
 pub struct HistoryIndexEntry {
     pub run_id: String,
     pub folder_label: String,
@@ -54,7 +51,6 @@ pub struct HistoryIndexEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "record_type", rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum HistoryRecord {
     RunStarted { run: HistoryRun },
     Operation(HistoryOperation),
@@ -62,7 +58,6 @@ pub enum HistoryRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct HistoryRunCompletedRecord {
     pub run_id: String,
     pub completed_at: String,
@@ -70,7 +65,6 @@ pub struct HistoryRunCompletedRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct HistoryRunDetails {
     pub run: HistoryRun,
     pub operations: Vec<HistoryOperation>,

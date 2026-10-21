@@ -4,7 +4,6 @@ use super::MoveStrategy;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum HistoryOperationKind {
     Process,
     Undo,
@@ -13,7 +12,6 @@ pub enum HistoryOperationKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-#[allow(dead_code)]
 pub enum HistoryOperationStatus {
     Succeeded,
     Skipped,
@@ -22,7 +20,6 @@ pub enum HistoryOperationStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub struct HistoryOperation {
     pub operation_id: String,
     pub run_id: String,
