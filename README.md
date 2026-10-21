@@ -28,6 +28,40 @@ curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/
 - **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
 - **Update** by running the same command again.
 
+## How The Parts Fit
+
+```mermaid
+flowchart TB
+  person(["Person"])
+  subgraph desktop["Desktop app, Windows and macOS"]
+    direction LR
+    fe["React frontend<br/>src/"]
+    be["Rust backend<br/>src-tauri/src/"]
+    exif[["ExifTool sidecar<br/>reads capture dates"]]
+    fe -->|"commands: scan, plan, move, undo"| be
+    be -.->|"events: progress per file"| fe
+    be --> exif
+  end
+  subgraph phone["Android app, android/"]
+    kt["Kotlin app<br/>organize/ holds the same rules"]
+  end
+  person -->|"on a computer"| fe
+  person -->|"on the phone"| kt
+  todo[("TODO folder,<br/>for example on a NAS")] --> be
+  be --> dated[("Dated folders<br/>root/year/month/day")]
+  gallery[("Phone gallery")] --> kt
+  kt --> phoneDated[("Move to folder<br/>same year/month/day layout")]
+  be -. "planner, filename and date rules,<br/>copied by hand" .-> kt
+  release["release.yml<br/>one GitHub release"] -.->|installers| desktop
+  release -.->|APK| phone
+```
+
+- **Desktop** the frontend only shows and asks. The backend scans, plans and moves files.
+- **Android** runs alone on the phone and shares no code. A rule change in the backend needs the same change in `android/`.
+- **Release** each push to `main` builds the Windows installer, the macOS DMGs and the APK into one release.
+
+Each part has its own flow and code diagrams. The links are under Docs at the end of this page.
+
 ## Android
 
 `android/` holds an Android app that sorts the phone gallery with the same rules. Get `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
@@ -107,11 +141,11 @@ mise x -- pnpm build
 
 ## Docs
 
-- Architecture: `docs/architecture.md`
+- Architecture, and the commands and events between frontend and backend: `docs/architecture.md`
 - Frontend overview, flows and diagrams: `src/README.md`
 - Backend overview, flows and diagrams: `src-tauri/README.md`
 - ExifTool sidecar setup: `docs/exiftool-sidecar.md`
-- Android app: `android/README.md`
+- Android app, flows and diagrams: `android/README.md`
 - Agent conventions: `docs/agent/README.md`
 - Feature specs: `specs/`
 - Agent rules: `AGENTS.md`

@@ -65,6 +65,51 @@ sequenceDiagram
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
+## How Frontend And Backend Talk
+
+Each frontend feature calls its own commands through `lib/api/`. The backend answers with events, or with the command result for metadata and settings.
+
+```mermaid
+flowchart LR
+  subgraph fe["Frontend features (src/features/)"]
+    direction TB
+    scanF["scan"] -->|rows| metaF["metadata"]
+    metaF -->|dates| planF["planning"]
+    planF -->|plans| movesF["moves"]
+    histF["history"]
+    destF["destination-settings"]
+    tableF["file-table"]
+  end
+  subgraph be["Backend modules (src-tauri/src/)"]
+    direction TB
+    scanner["scanner/"]
+    metaQ["metadata_queue/<br/>metadata/"]
+    planner["planner/"]
+    mover["mover/<br/>move_run/"]
+    hist["history/<br/>undo_redo/"]
+    settings["settings/"]
+    explorer["system_explorer/"]
+  end
+  scanF -->|"choose_folder, start_scan, cancel_scan"| scanner
+  scanner -.->|"scan:* events"| scanF
+  metaF -->|read_metadata_for_files| metaQ
+  metaQ -.->|"capture dates, as the result"| metaF
+  planF -->|create_move_plan| planner
+  planner -.->|"plan:* events"| planF
+  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan"| mover
+  mover -.->|"move:* events"| movesF
+  histF -->|"list, get, delete,<br/>undo, redo history run"| hist
+  hist -.->|"history:* events"| histF
+  destF -->|"destination settings commands"| settings
+  settings -.->|"effective destination root"| destF
+  tableF -->|reveal_file_in_explorer| explorer
+```
+
+- **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.
+- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`.
+- **Arrows inside the frontend** pass data between features through `app/useAppSession.ts`.
+- **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_processing_config`.
+
 ## Layering
 
 Each layer may depend only on the layers below it.
