@@ -13,6 +13,4 @@ export interface DestinationSettings {
   root_media_folder: string | null;
   force_processed_folder: boolean;
   updated_at: string;
-  warning?: string | null;
-  effective_root?: EffectiveDestinationRoot | null;
 }

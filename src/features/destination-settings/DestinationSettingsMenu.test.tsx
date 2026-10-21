@@ -7,14 +7,7 @@ const SETTINGS: DestinationSettings = {
   version: 1,
   root_media_folder: "C:\\Media",
   force_processed_folder: false,
-  updated_at: "2026-05-24T00:00:00Z",
-  effective_root: {
-    mode: "custom_root",
-    root_path: "C:\\Media",
-    custom_root_configured: true,
-    force_processed_folder: false,
-    warning: null
-  }
+  updated_at: "2026-05-24T00:00:00Z"
 };
 
 describe("DestinationSettingsMenu", () => {
@@ -38,8 +31,7 @@ describe("DestinationSettingsMenu", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
-    expect(screen.getByText("Destination Settings")).toBeInTheDocument();
-    expect(screen.getByText("Custom root active")).toBeInTheDocument();
+    expect(screen.getByText("Where files go")).toBeInTheDocument();
     expect(screen.getByText("C:\\Media")).toBeInTheDocument();
   });
 
@@ -62,9 +54,11 @@ describe("DestinationSettingsMenu", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getByRole("button", { name: "Choose Root" }));
-    fireEvent.click(screen.getByRole("button", { name: "Clear Root" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Force Processed folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose Library Folder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Use a Processed folder inside the scanned folder" })
+    );
 
     expect(onChooseRoot).toHaveBeenCalledTimes(1);
     expect(onClearRoot).toHaveBeenCalledTimes(1);
@@ -88,12 +82,12 @@ describe("DestinationSettingsMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
     expect(
-      screen.getByText(
-        "Settings are locked once moves are confirmed. Choose a folder again to change them."
-      )
+      screen.getByText("Locked after you start moving files. Choose a folder again to change it.")
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose Root" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Clear Root" })).toBeDisabled();
-    expect(screen.getByRole("checkbox", { name: "Force Processed folder" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Choose Library Folder" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Use a Processed folder inside the scanned folder" })
+    ).toBeDisabled();
   });
 });

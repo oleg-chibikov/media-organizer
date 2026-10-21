@@ -7,14 +7,16 @@ import { Toolbar } from "./features/toolbar";
 
 export default function App() {
   const session = useAppSession();
-  const { scan, planning, moves, history, destination, destinationActions } = session;
+  const { scan, planning, moves, history, destination, destinationActions, effectiveDestination } =
+    session;
   const { execution } = moves;
-  const rootMediaFolder = destination.settings?.root_media_folder ?? null;
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       <Toolbar
         selectedFolder={scan.selectedFolder}
+        destinationRoot={effectiveDestination.rootPath}
+        destinationError={effectiveDestination.error}
         folderError={session.folderError}
         isScanning={scan.isScanning}
         movesRunning={execution.executing}
@@ -33,7 +35,6 @@ export default function App() {
             onOpenLog={history.openLog}
           />
         }
-        rootMediaFolder={rootMediaFolder}
         settingsMenu={
           <DestinationSettingsMenu
             settings={destination.settings}
@@ -48,6 +49,7 @@ export default function App() {
         }
         onChooseFolder={() => void scan.chooseFolderAndScan()}
         onCancelScan={() => void scan.stopScan()}
+        onDismissError={session.dismissError}
       />
 
       <main className="min-h-0 flex-1">
@@ -57,7 +59,7 @@ export default function App() {
           movePlansByFileId={planning.movePlansByFileId}
           moveResultsByFileId={moves.moveResultsByFileId}
           activeMoveFileId={execution.activeFileId}
-          rootMediaFolder={rootMediaFolder}
+          rootMediaFolder={destination.settings?.root_media_folder ?? null}
         />
       </main>
 

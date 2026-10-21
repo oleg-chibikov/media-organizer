@@ -1,12 +1,31 @@
+use std::path::PathBuf;
+
 use tauri::AppHandle;
 
 use super::{app_dirs::settings_store, background::run_blocking, folder_dialog::pick_folder};
-use crate::{models::DestinationSettings, settings};
+use crate::{
+    models::{DestinationSettings, EffectiveDestinationRoot},
+    path_safety, settings,
+};
 
 #[tauri::command]
 pub async fn get_destination_settings(app: AppHandle) -> Result<DestinationSettings, String> {
     let store = settings_store(&app)?;
     run_blocking(move || store.load()).await
+}
+
+#[tauri::command]
+pub async fn get_effective_destination_root(
+    selected_path: String,
+    app: AppHandle,
+) -> Result<EffectiveDestinationRoot, String> {
+    let store = settings_store(&app)?;
+    run_blocking(move || {
+        let selected_folder = PathBuf::from(selected_path);
+        path_safety::validate_selected_folder(&selected_folder)?;
+        store.effective_destination_root(&selected_folder)
+    })
+    .await
 }
 
 #[tauri::command]

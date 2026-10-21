@@ -22,7 +22,7 @@ The backend streams progress as events instead of returning one big result.
 
 The hooks keep these rules:
 
-- **Backend decides** the frontend shows plans and results as the backend sends them. It doesn't guess a destination or an outcome.
+- **Backend decides** the frontend shows plans and results as the backend sends them. It doesn't guess a destination or an outcome. The destination folder in the toolbar comes from `get_effective_destination_root`.
 - **Ask first** every action that moves files or drops their history waits for `window.confirm`. The move prompt shows the backend's own count from `get_move_confirmation_summary`.
 - **Old events** plan events carry no request id, so planning keeps only plans for files it asked for. A metadata batch from an earlier scan is dropped.
 - **Locks** the destination root locks once moves are confirmed. Choose Folder is disabled while a batch runs.

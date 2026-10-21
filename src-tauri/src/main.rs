@@ -40,6 +40,7 @@ pub fn run() {
             system::get_processing_config,
             system::choose_folder,
             destination::get_destination_settings,
+            destination::get_effective_destination_root,
             destination::choose_root_media_folder,
             destination::clear_root_media_folder,
             destination::set_force_processed_folder,

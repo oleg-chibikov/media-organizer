@@ -1,7 +1,6 @@
 import { Button } from "../../components/design-system/Button";
 import { Pane } from "../../components/design-system/Pane";
 import type { DestinationSettings } from "../../lib/types";
-import { effectiveDestinationMode } from "./effectiveDestinationMode";
 import { RootFolderStatus } from "./RootFolderStatus";
 import { SettingsIcon } from "./SettingsIcon";
 
@@ -28,8 +27,6 @@ export function DestinationSettingsMenu({
 }: DestinationSettingsMenuProps) {
   const controlsDisabled = loading || pending || locked;
   const rootPath = settings?.root_media_folder ?? null;
-  const warning = settings?.effective_root?.warning ?? settings?.warning ?? null;
-  const effectiveMode = effectiveDestinationMode(settings);
 
   return (
     <Pane
@@ -48,10 +45,11 @@ export function DestinationSettingsMenu({
       )}
     >
       <section>
-        <h2 className="text-sm font-semibold text-slate-100">Destination Settings</h2>
-        <p className="mt-1 text-xs text-slate-400">{effectiveMode}</p>
+        <h2 className="text-sm font-semibold text-slate-100">Where files go</h2>
+        <p className="mt-1 text-xs text-slate-400">
+          Files are sorted into folders by year, month and day.
+        </p>
         <RootFolderStatus rootPath={rootPath} />
-        {warning ? <p className="mt-2 text-xs text-amber-300">{warning}</p> : null}
         {error ? (
           <p role="alert" className="mt-2 text-xs text-rose-400">
             {error}
@@ -59,7 +57,7 @@ export function DestinationSettingsMenu({
         ) : null}
         {locked ? (
           <p className="mt-2 text-xs text-slate-400">
-            Settings are locked once moves are confirmed. Choose a folder again to change them.
+            Locked after you start moving files. Choose a folder again to change it.
           </p>
         ) : null}
 
@@ -70,7 +68,7 @@ export function DestinationSettingsMenu({
             disabled={controlsDisabled}
             onClick={onChooseRoot}
           >
-            Choose Root
+            Choose Library Folder
           </Button>
           <Button
             variant="secondary"
@@ -78,19 +76,24 @@ export function DestinationSettingsMenu({
             disabled={controlsDisabled || !rootPath}
             onClick={onClearRoot}
           >
-            Clear Root
+            Clear
           </Button>
         </div>
 
-        <label className="mt-3 flex items-center gap-2 text-xs text-slate-200">
+        <label className="mt-3 flex items-start gap-2 text-xs text-slate-200">
           <input
+            aria-describedby="force-processed-hint"
             checked={settings?.force_processed_folder ?? false}
+            className="mt-0.5"
             disabled={controlsDisabled}
             onChange={(event) => onSetForceProcessed(event.target.checked)}
             type="checkbox"
           />
-          Force Processed folder
+          Use a Processed folder inside the scanned folder
         </label>
+        <p id="force-processed-hint" className="ml-5 mt-0.5 text-xs text-slate-400">
+          The library folder is kept but not used while this is on.
+        </p>
       </section>
     </Pane>
   );

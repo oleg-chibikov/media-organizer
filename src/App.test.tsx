@@ -24,6 +24,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     force_processed_folder: false,
     updated_at: "2026-05-24T00:00:00Z"
   })),
+  getEffectiveDestinationRoot: vi.fn(async () => ({ root_path: "C:\\in\\Processed" })),
   listHistoryRuns: vi.fn(async () => []),
   chooseFolder: vi.fn(async () => "C:\\in"),
   startScan: vi.fn(async () => undefined),
