@@ -1,7 +1,7 @@
 import { useCallback, type RefObject } from "react";
 import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
-import { buildMoveConfirmationPrompt } from "./moveConfirmationPrompt";
 import { IDLE_MOVE_EXECUTION, type MoveExecutionState } from "./moveExecutionState";
+import { useMoveConfirmation } from "./useMoveConfirmation";
 import { useMoveConfirmationSummary } from "./useMoveConfirmationSummary";
 import { useMoveDispatch } from "./useMoveDispatch";
 import { useMoveEvents } from "./useMoveEvents";
@@ -16,14 +16,9 @@ interface MoveExecutionOptions {
   reportError: (message: string) => void;
 }
 
-export function useMoveExecution({
-  selectedFolder,
-  rows,
-  rowByIdRef,
-  metadataByFileId,
-  movePlansByFileId,
-  reportError
-}: MoveExecutionOptions) {
+export function useMoveExecution(options: MoveExecutionOptions) {
+  const { selectedFolder, rows, rowByIdRef, metadataByFileId, movePlansByFileId, reportError } =
+    options;
   const status = useMoveStatus();
   const { execution, moveResultsByFileId, updateExecution, clearStatus } = status;
   const { queueRef, pumpRef, resetDispatch, startDispatch, togglePaused } = useMoveDispatch({
@@ -59,11 +54,8 @@ export function useMoveExecution({
     [clearMoves]
   );
 
-  const confirmExecution = () => {
+  const startExecution = () => {
     if (pendingExecutableCount === 0 || execution.confirmed) {
-      return;
-    }
-    if (!window.confirm(buildMoveConfirmationPrompt(confirmationSummary))) {
       return;
     }
     if (!selectedFolder) {
@@ -75,6 +67,7 @@ export function useMoveExecution({
     startDispatch();
     pumpRef.current();
   };
+  const confirmExecution = useMoveConfirmation({ ...options, onConfirmed: startExecution });
 
   const togglePause = () => {
     if (!execution.confirmed || execution.completed) {
@@ -93,7 +86,7 @@ export function useMoveExecution({
     moveCounts: status.moveCounts,
     confirmationSummary,
     hasPendingExecutableItems: pendingExecutableCount > 0,
-    runExecutionAction: execution.confirmed ? togglePause : confirmExecution,
+    runExecutionAction: execution.confirmed ? togglePause : () => void confirmExecution(),
     resetMoves,
     resetMovesForReplan
   };
