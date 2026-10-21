@@ -16,6 +16,7 @@ function state(overrides: Partial<FileRowState> = {}): FileRowState {
     metadata: READY,
     movePlan: undefined,
     moveResult: undefined,
+    planError: undefined,
     ...overrides
   };
 }

@@ -44,4 +44,26 @@ describe("useMetadataQueue", () => {
     expect(result.current.metadataByFileId).toEqual({});
     expect(onMetadataRead).not.toHaveBeenCalled();
   });
+
+  it("keeps a file's read error in its row", async () => {
+    const reportError = vi.fn();
+    const rowByIdRef = { current: new Map([[RECORD.id, RECORD]]) };
+    const { result } = renderHook(() =>
+      useMetadataQueue({
+        rows: [RECORD],
+        rowByIdRef,
+        concurrency: 1,
+        queueCapacity: 10,
+        reportError,
+        onMetadataRead: vi.fn()
+      })
+    );
+    await waitFor(() => expect(result.current.activeMetadataRequests).toBe(1));
+
+    const failed = { ...METADATA, metadata_status: "error" as const, error: "Timed out" };
+    await act(async () => pending.resolve?.([failed]));
+
+    expect(result.current.metadataByFileId[RECORD.id]).toEqual(failed);
+    expect(reportError).not.toHaveBeenCalled();
+  });
 });

@@ -83,7 +83,8 @@ export function useAppSession() {
     metadataByFileId: metadata.metadataByFileId,
     planning: {
       movePlansByFileId: planning.movePlansByFileId,
-      planErrors: planning.planErrors,
+      planErrorsByFileId: planning.planErrorsByFileId,
+      planErrors: Object.keys(planning.planErrorsByFileId).length,
       isPlanning: activePlanRequests > 0,
       planCompleted:
         completed && !cancelled && activeMetadataRequests === 0 && activePlanRequests === 0

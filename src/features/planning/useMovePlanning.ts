@@ -4,6 +4,17 @@ import type { FileRecord, MetadataResult } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
 import { usePlanBatches } from "./usePlanBatches";
 
+function withoutFiles(errors: Record<string, string>, files: FileRecord[]) {
+  if (!files.some((file) => file.id in errors)) {
+    return errors;
+  }
+  const next = { ...errors };
+  for (const file of files) {
+    delete next[file.id];
+  }
+  return next;
+}
+
 interface MovePlanningOptions {
   selectedFolder: string | null;
   reportError: (message: string) => void;
@@ -12,7 +23,7 @@ interface MovePlanningOptions {
 export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOptions) {
   const { movePlansByFileId, addPlan, flushPlans, dropPlans } = usePlanBatches();
   const [activePlanRequests, setActivePlanRequests] = useState(0);
-  const [planErrors, setPlanErrors] = useState(0);
+  const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   const signaturesRef = useRef<Map<string, string>>(new Map());
   const activeRequestsRef = useRef(0);
 
@@ -30,6 +41,8 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
       if (candidates.files.length === 0) {
         return;
       }
+      // A file planned again gets a fresh answer, so its old error goes.
+      setPlanErrorsByFileId((previous) => withoutFiles(previous, candidates.files));
       changeActiveRequests(1);
       void createMovePlan(selectedFolder, candidates.files, candidates.metadata).catch(
         (error: unknown) => {
@@ -55,8 +68,7 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
       },
       onError: ({ file_id, error }) => {
         if (isRequested(file_id)) {
-          setPlanErrors((count) => count + 1);
-          reportError(`Plan error: ${error}`);
+          setPlanErrorsByFileId((previous) => ({ ...previous, [file_id]: error }));
         }
       },
       onFinished: () => {
@@ -71,19 +83,19 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
   const clearPlans = useCallback(() => {
     signaturesRef.current = new Map();
     dropPlans();
+    setPlanErrorsByFileId({});
   }, [dropPlans]);
 
   const resetPlanning = useCallback(() => {
     clearPlans();
     activeRequestsRef.current = 0;
     setActivePlanRequests(0);
-    setPlanErrors(0);
   }, [clearPlans]);
 
   return {
     movePlansByFileId,
     activePlanRequests,
-    planErrors,
+    planErrorsByFileId,
     requestPlans,
     clearPlans,
     resetPlanning

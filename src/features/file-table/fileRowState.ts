@@ -5,4 +5,5 @@ export interface FileRowState {
   metadata: MetadataResult | undefined;
   movePlan: MovePlan | undefined;
   moveResult: MoveResult | undefined;
+  planError: string | undefined;
 }

@@ -52,18 +52,26 @@ function createRow(id: string): FileRecord {
   };
 }
 
+type FileTableProps = Parameters<typeof FileTable>[0];
+
+function renderTable(props: Partial<FileTableProps>) {
+  return render(
+    <FileTable
+      rows={[]}
+      metadataByFileId={{}}
+      movePlansByFileId={{}}
+      planErrorsByFileId={{}}
+      moveResultsByFileId={{}}
+      activeMoveFileId={null}
+      destinationRoot={null}
+      {...props}
+    />
+  );
+}
+
 describe("FileTable", () => {
   it("sorts displayed rows by name", () => {
-    render(
-      <FileTable
-        rows={[createRow("zeta"), createRow("Alpha"), createRow("beta")]}
-        metadataByFileId={{}}
-        movePlansByFileId={{}}
-        moveResultsByFileId={{}}
-        activeMoveFileId={null}
-        destinationRoot={null}
-      />
-    );
+    renderTable({ rows: [createRow("zeta"), createRow("Alpha"), createRow("beta")] });
 
     const renderedSourceOrder = screen
       .getAllByRole("row")
@@ -75,16 +83,11 @@ describe("FileTable", () => {
 
   it("shows the destination inside the toolbar's destination folder", () => {
     const plan = { file_id: "a", destination_path: "D:\\Media\\2024\\5\\1\\a.jpg" } as MovePlan;
-    render(
-      <FileTable
-        rows={[createRow("a")]}
-        metadataByFileId={{}}
-        movePlansByFileId={{ a: plan }}
-        moveResultsByFileId={{}}
-        activeMoveFileId={null}
-        destinationRoot={"D:\\Media"}
-      />
-    );
+    renderTable({
+      rows: [createRow("a")],
+      movePlansByFileId: { a: plan },
+      destinationRoot: "D:\\Media"
+    });
 
     expect(screen.getByText("2024/5/1/a.jpg")).toBeInTheDocument();
     expect(screen.queryByText("Original Name")).not.toBeInTheDocument();

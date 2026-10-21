@@ -48,12 +48,8 @@ export function useMetadataQueue({
             return;
           }
           const byFileId = Object.fromEntries(results.map((result) => [result.file_id, result]));
+          // A file's own read error shows in its row, not as an app error.
           setMetadataByFileId((prev) => ({ ...prev, ...byFileId }));
-          for (const result of results) {
-            if (result.metadata_status === "error" && result.error) {
-              reportError(result.error);
-            }
-          }
           onMetadataRead(batchRows, results);
         })
         .catch((error: unknown) => {

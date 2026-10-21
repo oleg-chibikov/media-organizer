@@ -10,7 +10,12 @@ const DATE_SOURCE_LABELS: Record<string, string> = {
   FileModifyDate: "File modified time (fallback)"
 };
 
-export function fileNotesLabel({ metadata, movePlan, moveResult }: FileRowState): string {
+export function fileNotesLabel({
+  metadata,
+  movePlan,
+  moveResult,
+  planError
+}: FileRowState): string {
   if (moveResult?.error) {
     return moveResult.error;
   }
@@ -19,6 +24,9 @@ export function fileNotesLabel({ metadata, movePlan, moveResult }: FileRowState)
   }
   if (metadata?.metadata_status === "error") {
     return metadata.error ?? "Metadata error";
+  }
+  if (planError && !movePlan) {
+    return planError;
   }
   if (metadata?.date_kind === "fallback") {
     return "Using FileModifyDate fallback";

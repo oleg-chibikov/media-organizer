@@ -43,7 +43,20 @@ describe("useMovePlanning", () => {
     });
 
     expect(result.current.movePlansByFileId).toEqual({});
-    expect(result.current.planErrors).toBe(0);
+    expect(result.current.planErrorsByFileId).toEqual({});
     expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("keeps a plan error on its file until the file is planned again", async () => {
+    const { result, reportError } = renderPlanning();
+    await waitFor(() => expect(listeners.plan).not.toBeNull());
+
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    act(() => listeners.plan?.onError({ file_id: RECORD.id, error: "Bad date" }));
+    expect(result.current.planErrorsByFileId).toEqual({ f1: "Bad date" });
+    expect(reportError).not.toHaveBeenCalled();
+
+    act(() => result.current.requestPlans([RECORD], [{ ...METADATA, chosen_date: "2026-05-25" }]));
+    expect(result.current.planErrorsByFileId).toEqual({});
   });
 });

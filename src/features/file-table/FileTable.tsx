@@ -14,6 +14,7 @@ interface FileTableProps {
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   movePlansByFileId: Record<string, MovePlan>;
+  planErrorsByFileId: Record<string, string>;
   moveResultsByFileId: Record<string, MoveResult>;
   activeMoveFileId: string | null;
   destinationRoot: string | null;
@@ -23,6 +24,7 @@ export function FileTable({
   rows,
   metadataByFileId,
   movePlansByFileId,
+  planErrorsByFileId,
   moveResultsByFileId,
   activeMoveFileId,
   destinationRoot
@@ -35,9 +37,10 @@ export function FileTable({
         record,
         metadata: metadataByFileId[record.id],
         movePlan: movePlansByFileId[record.id],
-        moveResult: moveResultsByFileId[record.id]
+        moveResult: moveResultsByFileId[record.id],
+        planError: planErrorsByFileId[record.id]
       })),
-    [sortedRows, metadataByFileId, movePlansByFileId, moveResultsByFileId]
+    [sortedRows, metadataByFileId, movePlansByFileId, moveResultsByFileId, planErrorsByFileId]
   );
 
   const tableRows = useMemo(

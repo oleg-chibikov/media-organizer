@@ -57,6 +57,7 @@ export default function App() {
           rows={scan.rows}
           metadataByFileId={session.metadataByFileId}
           movePlansByFileId={planning.movePlansByFileId}
+          planErrorsByFileId={planning.planErrorsByFileId}
           moveResultsByFileId={moves.moveResultsByFileId}
           activeMoveFileId={execution.activeFileId}
           destinationRoot={effectiveDestination.rootPath}

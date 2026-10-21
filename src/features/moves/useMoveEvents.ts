@@ -23,13 +23,11 @@ export function useMoveEvents({
   reportError
 }: MoveEventsOptions) {
   const { recordResults, updateExecution } = status;
+  // A failed file shows its error in its row and in the failed count.
   const applyMoveResults = (results: MoveResult[]) => {
     recordResults(results);
     for (const result of results) {
-      const isFirstResult = recordMoveResult(queueRef.current, result.file_id);
-      if (isFirstResult && result.result_status === "failed" && result.error) {
-        reportError(`Move error: ${result.error}`);
-      }
+      recordMoveResult(queueRef.current, result.file_id);
     }
   };
 

@@ -23,7 +23,7 @@ const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
 };
 
 export function fileStatusLabel(
-  { record, metadata, movePlan, moveResult }: FileRowState,
+  { record, metadata, movePlan, moveResult, planError }: FileRowState,
   activeMoveFileId: string | null
 ): string {
   if (moveResult) {
@@ -37,6 +37,9 @@ export function fileStatusLabel(
   }
   if (metadata?.metadata_status === "error") {
     return "Metadata Error";
+  }
+  if (planError && !movePlan) {
+    return "Plan Error";
   }
   if (metadata?.date_kind === "fallback") {
     return "Warning Fallback";
