@@ -12,8 +12,9 @@
 
 ## Change Workflow
 
-- Agents must commit every change.
-- Commit and push after each separate change. One logical change goes in one commit, then `git push` right away.
+- **Commit and push in one command.** Run `git commit -m "..." && git push`. A commit that is not pushed counts as not done.
+- One logical change goes in one commit. Commit every change.
+- Before you finish, check `git status -sb`. It must not show `ahead`.
 - Check `git status --short` before editing and before committing.
 - Do not revert user changes unless explicitly requested.
 - If explicitly asked to complete a task from `specs/**/tasks.md`, mark the corresponding task complete in that file.

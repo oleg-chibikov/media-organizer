@@ -22,7 +22,7 @@ Run the smallest meaningful check for the change, then broader checks before com
 
 ## Commit Policy
 
-Every change should be committed. Before committing:
+Every change should be committed and pushed in one step: `git commit -m "..." && git push`. Before committing:
 
 ```powershell
 git status --short
