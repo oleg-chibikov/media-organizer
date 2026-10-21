@@ -3,7 +3,7 @@ import type { FileRowState } from "./fileRowState";
 
 const SCAN_STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
   discovered: "Found",
-  skipped_processed: "Already sorted",
+  skipped_processed: "Already organized",
   skipped_unsupported: "Not a photo or video",
   scan_error: "Can't read file"
 };

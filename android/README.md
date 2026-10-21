@@ -1,6 +1,6 @@
 # Media Organizer for Android
 
-Sorts the phone gallery into dated folders on the phone, with the same rules as the desktop app.
+Moves photos and videos from the phone gallery into folders by year, month and day, with the same rules as the desktop app.
 
 ## Install
 
@@ -50,18 +50,18 @@ flowchart LR
   run --> done["Sees Done"]
   folders --> auto["Turns on automatic moves"]
   auto --> camera["Takes a photo with the app closed"]
-  camera --> sorted["Finds it in the dated folder a few seconds later"]
+  camera --> moved["Finds it in the dated folder a few seconds later"]
 ```
 
 ## Move new photos automatically
 
-Turn on "Move new photos and videos automatically". The app then sorts each new photo or video a few seconds after the camera saves it, with the app closed.
+Turn on "Move new photos and videos automatically". The app then moves each new photo or video into its dated folder a few seconds after the camera saves it, with the app closed.
 
-- **Folders** are the last ones on screen. Change a field and the next sort uses it.
-- **No app runs in between.** Android starts the app when the gallery changes, and the app exits after the sort. Once a day it also sorts the whole gallery folder, for files the trigger missed.
+- **Folders** are the last ones on screen. Change a field and the next run uses it.
+- **No app runs in between.** Android starts the app when the gallery changes, and the app exits after the run. Once a day it also goes through the whole gallery folder, for files the trigger missed.
 - **Battery** Android asks once to let the app run in the background. Allow it, or Android may hold new photos back for hours. Phones such as Xiaomi also need "Autostart" on for the app.
 - **Reboot** keeps the setting. Force stop in the system settings turns it off until the next app launch.
-- **Start** waits while a background sort runs. Press it again a few seconds later.
+- **Start** waits while a background run moves files. Press it again a few seconds later.
 
 ## What matches the desktop app
 

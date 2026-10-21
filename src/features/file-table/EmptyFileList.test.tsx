@@ -21,7 +21,7 @@ describe("EmptyFileList", () => {
     expect(screen.getByText(/You can undo a run in History/)).toBeInTheDocument();
   });
 
-  it("says when a scanned folder has nothing to sort", () => {
+  it("says when a scanned folder has nothing to organize", () => {
     render(
       <EmptyFileList
         selectedFolder={"C:\\in"}

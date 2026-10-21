@@ -158,7 +158,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 ## Android App
 
-`android/` is a separate Kotlin app that sorts the phone gallery on the device. It shares no code with the desktop app. Its user flow and code diagrams are in `android/README.md`.
+`android/` is a separate Kotlin app that moves the phone gallery into dated folders on the device. It shares no code with the desktop app. Its user flow and code diagrams are in `android/README.md`.
 
 - **`organize/`** copies the scanner, planner, filename and date rules with no Android imports, so JVM tests cover it.
 - **`folders/`** lets the person pick the gallery and Move to folders, and keeps both between launches.

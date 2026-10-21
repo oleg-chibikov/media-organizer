@@ -1,6 +1,6 @@
 # Media Organizer
 
-Windows and macOS desktop app for organizing photo and video TODO folders into date-based destinations using metadata from a bundled ExifTool sidecar.
+Windows and macOS desktop app that moves photos and videos into folders by year, month and day. It reads when each file was taken with a bundled ExifTool sidecar.
 
 ## Install
 
@@ -72,7 +72,7 @@ Each part has its own flow and code diagrams. The links are under Docs at the en
 
 ## Android
 
-`android/` holds an Android app that sorts the phone gallery with the same rules. Get `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
+`android/` holds an Android app that moves the phone gallery into dated folders with the same rules. Get `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
 
 - **macOS or Linux** `./android/build-apk.sh`
 - **Windows** `powershell -ExecutionPolicy Bypass -File android\build-apk.ps1`

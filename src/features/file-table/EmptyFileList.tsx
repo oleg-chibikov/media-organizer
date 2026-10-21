@@ -20,11 +20,13 @@ export function EmptyFileList({
   return (
     <section className="mx-auto mt-16 max-w-md px-6 text-center">
       <h2 className="text-lg font-semibold text-slate-100">
-        {selectedFolder ? "No photos or videos here" : "Sort photos and videos by date"}
+        {selectedFolder
+          ? "No photos or videos here"
+          : "Organize photos and videos into folders by date"}
       </h2>
       <p className="mt-2 text-sm text-slate-400">
         {selectedFolder
-          ? "This folder has no photos or videos to sort. Try another folder."
+          ? "This folder has no photos or videos to organize. Try another folder."
           : "Choose a folder. The app reads when each file was taken and shows where it will go."}
       </p>
       {selectedFolder ? null : (

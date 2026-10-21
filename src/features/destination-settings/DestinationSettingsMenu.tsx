@@ -47,7 +47,7 @@ export function DestinationSettingsMenu({
       <section>
         <h2 className="text-sm font-semibold text-slate-100">Where files go</h2>
         <p className="mt-1 text-xs text-slate-400">
-          Files are sorted into folders by year, month and day.
+          Files go into a folder for each year, month and day.
         </p>
         <RootFolderStatus rootPath={rootPath} />
         {error ? (
