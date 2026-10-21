@@ -28,9 +28,18 @@ curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/
 - **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
 - **Update** by running the same command again.
 
+## Android
+
+`android/` holds an Android app that sorts the phone gallery with the same rules. Get `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
+
+- **macOS or Linux** `./android/build-apk.sh`
+- **Windows** `powershell -ExecutionPolicy Bypass -File android\build-apk.ps1`
+
+The APK lands in `android/dist/media-organizer.apk`. Details are in `android/README.md`.
+
 ## Release
 
-Push a version tag, for example `git tag v0.2.0 && git push origin v0.2.0`. The `Release` workflow builds the Windows installer and the macOS apps, then publishes them as the latest GitHub release.
+Push a version tag, for example `git tag v0.2.0 && git push origin v0.2.0`. The `Release` workflow builds the Windows installer, the macOS apps and the Android APK, then publishes them as the latest GitHub release.
 
 ## What It Does
 
@@ -76,6 +85,7 @@ mise x -- pnpm build
 - Frontend overview, flows and diagrams: `src/README.md`
 - Backend overview, flows and diagrams: `src-tauri/README.md`
 - ExifTool sidecar setup: `docs/exiftool-sidecar.md`
+- Android app: `android/README.md`
 - Agent conventions and upstream references: `docs/agent/README.md`
 - Feature specs: `specs/`
 - Agent rules: `AGENTS.md`

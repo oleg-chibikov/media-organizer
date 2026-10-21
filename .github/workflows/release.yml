@@ -60,8 +60,29 @@ jobs:
 
       - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
 
+  android:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the signed APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          export ANDROID_VERSION_NAME="${GITHUB_REF_NAME#v}"
+          # v1.2.3 becomes 10203. Android refuses an update with a lower code.
+          export ANDROID_VERSION_CODE=$(echo "$ANDROID_VERSION_NAME" | awk -F. '{ print $1 * 10000 + $2 * 100 + $3 }')
+          ./android/build-apk.sh
+          cp android/dist/media-organizer.apk MediaOrganizer-android.apk
+
+      - run: gh release upload "$GITHUB_REF_NAME" MediaOrganizer-android.apk --repo "$GITHUB_REPOSITORY" --clobber
+
   publish:
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release
