@@ -31,7 +31,11 @@ describe("moveDispatchQueue", () => {
     const queue = createMoveDispatchQueue();
     enqueueReadyPlans(queue, PLANS, {});
     const batch = takeMoveBatch(queue, ROWS, METADATA, PLANS);
-    releaseFailedBatch(queue, batch.fileIds);
+    const failure = releaseFailedBatch(queue, batch.fileIds, "offline");
+    expect(failure).toMatchObject({
+      statusMessage: "Move dispatch failed: offline",
+      completed: true
+    });
     expect(queue.activeRequests).toBe(0);
     expect(queue.inflightIds.size).toBe(0);
     expect(recordMoveResult(queue, "a")).toBe(true);

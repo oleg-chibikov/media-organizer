@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { executeMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { isDispatchDrained, releaseFailedBatch } from "./moveDispatchCompletion";
+import { releaseFailedBatch } from "./moveDispatchCompletion";
 import {
   createMoveDispatchQueue,
   enqueueReadyPlans,
@@ -50,13 +50,8 @@ export function useMoveDispatch({
       updateExecution({ executing: true, completed: false });
       void executeMovePlan(selectedFolder, batch.files, batch.metadata, batch.plans).catch(
         (error: unknown) => {
-          releaseFailedBatch(queueRef.current, batch.fileIds);
           reportError(`Failed to execute move plan: ${String(error)}`);
-          updateExecution({
-            statusMessage: `Move dispatch failed: ${String(error)}`,
-            activeFileId: null,
-            ...(isDispatchDrained(queueRef.current) ? { executing: false, completed: true } : {})
-          });
+          updateExecution(releaseFailedBatch(queueRef.current, batch.fileIds, error));
           queueMicrotask(() => pumpRef.current());
         }
       );
@@ -81,18 +76,16 @@ export function useMoveDispatch({
     }
   }, [executionConfirmed, movePlansByFileId, moveResultsByFileId]);
 
-  const resetDispatch = useCallback(() => {
+  const restartQueue = useCallback((confirmed: boolean) => {
     queueRef.current = createMoveDispatchQueue();
-    confirmedRef.current = false;
+    confirmedRef.current = confirmed;
     pausedRef.current = false;
   }, []);
-
+  const resetDispatch = useCallback(() => restartQueue(false), [restartQueue]);
   const startDispatch = useCallback(() => {
-    queueRef.current = createMoveDispatchQueue();
-    confirmedRef.current = true;
-    pausedRef.current = false;
+    restartQueue(true);
     enqueueReadyPlans(queueRef.current, movePlansByFileId, {});
-  }, [movePlansByFileId]);
+  }, [movePlansByFileId, restartQueue]);
 
   const togglePaused = useCallback((): boolean => {
     pausedRef.current = !pausedRef.current;
