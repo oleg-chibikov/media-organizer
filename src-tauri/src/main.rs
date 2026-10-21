@@ -3,6 +3,7 @@
 
 mod app_state;
 mod commands;
+mod console_title;
 mod events;
 mod file_ops;
 mod filename;
@@ -56,12 +57,25 @@ fn log_startup(app: &tauri::App) {
     }));
 }
 
+/// Shows the version in the window title and in the Windows console title.
+fn show_version(app: &tauri::App) {
+    let info = app.package_info();
+    let title = format!("{} {}", info.name, info.version);
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(error) = window.set_title(&title) {
+            log::warn!("Could not set the window title: {error}");
+        }
+    }
+    console_title::set(&format!("{title} backend log"));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(log_plugin())
         .setup(|app| {
             log_startup(app);
+            show_version(app);
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())

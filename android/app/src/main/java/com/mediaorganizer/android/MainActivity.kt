@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        title = "${getString(R.string.app_name)} ${BuildConfig.VERSION_NAME}"
         screen = RunScreen(this)
         folders = FolderFields(this, screen.source, screen.destination, screen.pickSource, screen.pickDestination)
         BackgroundSwitch(this, screen.background, folders::save)

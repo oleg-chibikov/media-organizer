@@ -36,6 +36,8 @@ The app writes its log to the console window on Windows and to a file.
 - **macOS** `~/Library/Logs/com.mediaorganizer.desktop`
 - **What it holds** scans, moves, undo and redo steps, errors and ExifTool warnings.
 
+The app window, the Windows console and the Android screen show the version in their title. Local builds show `0.2.0` on desktop and `dev` on Android.
+
 ## How The Parts Fit
 
 ```mermaid
