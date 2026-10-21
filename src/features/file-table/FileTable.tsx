@@ -9,6 +9,7 @@ import { FILE_TABLE_COLUMNS } from "./fileTableColumns";
 import { DEFAULT_COLUMN_SIZING, measureAutoSizedColumns } from "./measureColumnWidths";
 import { RevealOnDoubleClick } from "./RevealOnDoubleClick";
 import { sortFileRecords } from "./sortFileRecords";
+import { sortProblemsFirst } from "./sortProblemsFirst";
 
 interface FileTableProps {
   rows: FileRecord[];
@@ -33,13 +34,15 @@ export function FileTable({
 
   const rowStates = useMemo<FileRowState[]>(
     () =>
-      sortedRows.map((record) => ({
-        record,
-        metadata: metadataByFileId[record.id],
-        movePlan: movePlansByFileId[record.id],
-        moveResult: moveResultsByFileId[record.id],
-        planError: planErrorsByFileId[record.id]
-      })),
+      sortProblemsFirst(
+        sortedRows.map((record) => ({
+          record,
+          metadata: metadataByFileId[record.id],
+          movePlan: movePlansByFileId[record.id],
+          moveResult: moveResultsByFileId[record.id],
+          planError: planErrorsByFileId[record.id]
+        }))
+      ),
     [sortedRows, metadataByFileId, movePlansByFileId, moveResultsByFileId, planErrorsByFileId]
   );
 

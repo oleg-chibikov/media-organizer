@@ -12,6 +12,12 @@ Windows, in PowerShell:
 irm https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/install.ps1 | iex
 ```
 
+Windows, in Command Prompt (`cmd`), with the `curl` that Windows 10 and 11 include:
+
+```bat
+curl -fL -o "%TEMP%\MediaOrganizer-setup.exe" https://github.com/oleg-chibikov/media-organizer/releases/latest/download/MediaOrganizer-windows-x64-setup.exe && start /wait "" "%TEMP%\MediaOrganizer-setup.exe" /S && del "%TEMP%\MediaOrganizer-setup.exe"
+```
+
 macOS, in Terminal:
 
 ```sh
