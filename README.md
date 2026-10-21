@@ -43,6 +43,7 @@ mise x -- pnpm build
 ## Docs
 
 - Architecture: `docs/architecture.md`
+- Frontend overview, flows and diagrams: `src/README.md`
 - Backend overview, flows and diagrams: `src-tauri/README.md`
 - ExifTool sidecar setup: `docs/exiftool-sidecar.md`
 - Agent conventions and upstream references: `docs/agent/README.md`
