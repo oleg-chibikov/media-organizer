@@ -25,11 +25,16 @@ export function useHistoryRuns(setHistoryError: (message: string | null) => void
     [setHistoryError]
   );
 
+  const dropRun = useCallback((runId: string) => {
+    setRuns((previous) => previous.filter((run) => run.run_id !== runId));
+    setSelectedRunId((previous) => (previous === runId ? null : previous));
+  }, []);
+
   useEffect(() => {
     queueMicrotask(() => {
       void reloadRuns();
     });
   }, [reloadRuns]);
 
-  return { runs, selectedRunId, setSelectedRunId, loading, reloadRuns };
+  return { runs, selectedRunId, setSelectedRunId, loading, reloadRuns, dropRun };
 }

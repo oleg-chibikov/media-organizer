@@ -15,8 +15,8 @@ function renderActions() {
   const options = {
     activeActionRef: { current: null },
     reloadRuns: vi.fn(async () => undefined),
+    dropRun: vi.fn(),
     setDetails: vi.fn(),
-    setSelectedRunId: vi.fn(),
     setHistoryError: vi.fn(),
     reportError: vi.fn()
   };
@@ -35,6 +35,30 @@ describe("useHistoryActions", () => {
 
     await waitFor(() => expect(deleteHistoryRun).toHaveBeenCalledWith("run-1"));
     expect(undoHistoryRun).not.toHaveBeenCalled();
+  });
+
+  it("drops a deleted run before the backend answers", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(deleteHistoryRun).mockReturnValueOnce(new Promise(() => undefined));
+    const { result, options } = renderActions();
+
+    act(() => result.current.deleteRun("run-1"));
+
+    expect(options.dropRun).toHaveBeenCalledWith("run-1");
+    expect(options.setDetails).toHaveBeenCalled();
+  });
+
+  it("brings a run back when the delete fails", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(deleteHistoryRun).mockRejectedValueOnce(new Error("locked"));
+    const { result, options } = renderActions();
+
+    act(() => result.current.deleteRun("run-1"));
+
+    await waitFor(() => expect(options.reloadRuns).toHaveBeenCalled());
+    expect(options.reportError).toHaveBeenCalledWith(
+      "Failed to delete history entry: Error: locked"
+    );
   });
 
   it("reports a log that can't be opened", async () => {

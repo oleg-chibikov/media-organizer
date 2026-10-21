@@ -11,15 +11,15 @@ import { useHistoryRuns } from "./useHistoryRuns";
 
 export function useHistory(reportError: (message: string | null) => void) {
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const { runs, selectedRunId, setSelectedRunId, loading, reloadRuns } =
+  const { runs, selectedRunId, setSelectedRunId, loading, reloadRuns, dropRun } =
     useHistoryRuns(setHistoryError);
   const details = useHistoryRunDetails(selectedRunId, setHistoryError);
   const activeActionRef = useRef<ActiveHistoryAction | null>(null);
   const actions = useHistoryActions({
     activeActionRef,
     reloadRuns,
+    dropRun,
     setDetails: details.setDetails,
-    setSelectedRunId,
     setHistoryError,
     reportError
   });

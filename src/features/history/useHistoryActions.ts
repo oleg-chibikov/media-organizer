@@ -15,22 +15,16 @@ const RUN_HISTORY_ACTION = { undo: undoHistoryRun, redo: redoHistoryRun };
 interface HistoryActionsOptions {
   activeActionRef: RefObject<ActiveHistoryAction | null>;
   reloadRuns: (preferredRunId?: string | null) => Promise<void>;
+  dropRun: (runId: string) => void;
   setDetails: Dispatch<SetStateAction<HistoryRunDetails | null>>;
-  setSelectedRunId: Dispatch<SetStateAction<string | null>>;
   setHistoryError: (message: string | null) => void;
   reportError: (message: string | null) => void;
 }
 
 // Undo, redo and delete each ask first; the backend decides what happens to the files.
 export function useHistoryActions(options: HistoryActionsOptions) {
-  const {
-    activeActionRef,
-    reloadRuns,
-    setDetails,
-    setSelectedRunId,
-    setHistoryError,
-    reportError
-  } = options;
+  const { activeActionRef, reloadRuns, dropRun, setDetails, setHistoryError, reportError } =
+    options;
 
   const runAction = async (action: HistoryActionKind, runId: string) => {
     if (!confirmHistoryAction(action)) {
@@ -52,14 +46,16 @@ export function useHistoryActions(options: HistoryActionsOptions) {
     if (!confirmHistoryAction("delete")) {
       return;
     }
+    // The run leaves the list at once; a failed delete brings it back.
+    dropRun(runId);
+    setDetails((previous) => (previous?.run.run_id === runId ? null : previous));
     try {
       await deleteHistoryRun(runId);
-      setDetails((previous) => (previous?.run.run_id === runId ? null : previous));
-      setSelectedRunId((previous) => (previous === runId ? null : previous));
       reportError(null);
       await reloadRuns();
     } catch (error) {
       reportError(`Failed to delete history entry: ${String(error)}`);
+      await reloadRuns();
     }
   };
 
