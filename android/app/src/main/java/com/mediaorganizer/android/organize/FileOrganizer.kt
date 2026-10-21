@@ -2,7 +2,6 @@ package com.mediaorganizer.android.organize
 
 import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Instant
 import kotlin.io.path.extension
 import kotlin.io.path.name
 
@@ -13,14 +12,8 @@ fun interface MetadataReader {
 data class FileResult(val outcome: FileOutcome, val message: String, val movedTo: Path? = null)
 
 /** Plans one file the way the desktop planner does, then moves it without replacing anything. */
-internal fun organizeFile(
-    file: MediaFile,
-    destinationRoot: Path,
-    readMetadata: MetadataReader,
-    now: Instant = Instant.now(),
-): FileResult {
+internal fun organizeFile(file: MediaFile, destinationRoot: Path, readMetadata: MetadataReader): FileResult {
     val name = file.path.name
-    if (FileState.of(file.path).isFresh(now)) return FileResult(FileOutcome.WAITING, "Still saving, next run: $name")
     val metadata = readMetadata.read(file.path, file.kind)
     val date = when (val chosen = selectCaptureDate(file.kind, metadata)) {
         is CaptureDate.Found -> chosen.date

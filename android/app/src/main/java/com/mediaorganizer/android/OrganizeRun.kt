@@ -2,9 +2,7 @@ package com.mediaorganizer.android
 
 import android.content.Context
 import android.media.MediaScannerConnection
-import com.mediaorganizer.android.background.BackgroundSorting
 import com.mediaorganizer.android.metadata.DeviceMetadataReader
-import com.mediaorganizer.android.organize.FileOutcome
 import com.mediaorganizer.android.organize.MovedFile
 import com.mediaorganizer.android.organize.OrganizeRequest
 import com.mediaorganizer.android.organize.RunEnd
@@ -35,9 +33,6 @@ class OrganizeRun private constructor(private val context: Context, private val 
         thread(name = "organize") {
             try {
                 notifyGallery(organize(request, DeviceMetadataReader, progress, cancelled::get))
-                if (progress.snapshot().counts.getValue(FileOutcome.WAITING) > 0) {
-                    BackgroundSorting.sortAgainWhenSettled(context)
-                }
             } catch (error: Exception) {
                 progress.log("Stopped: $error")
                 progress.finish(RunEnd.FAILED)
