@@ -39,6 +39,18 @@ fn parses_device_name_from_video_fallback_tags() {
 }
 
 #[test]
+fn parses_device_name_from_android_video_tags() {
+    let android =
+        r#"[{"SourceFile": "a.mp4", "AndroidMake": "Xiaomi", "AndroidModel": "23049PCD8G"}]"#;
+    let samsung = r#"[{"SourceFile": "b.mp4", "SamsungModel": "SM-S918B"}]"#;
+
+    let android = parse_exiftool_json(android).expect("json should parse");
+    let samsung = parse_exiftool_json(samsung).expect("json should parse");
+    assert_eq!(android.device_name.as_deref(), Some("23049PCD8G"));
+    assert_eq!(samsung.device_name.as_deref(), Some("SM-S918B"));
+}
+
+#[test]
 fn rejects_empty_json_payload() {
     let result = parse_exiftool_json("[]");
     assert!(result.is_err());

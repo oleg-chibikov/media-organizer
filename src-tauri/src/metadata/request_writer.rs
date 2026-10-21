@@ -6,7 +6,7 @@ use super::{argfile_path::exiftool_path_argument, worker::WorkerError};
 /// and can't find a file with Cyrillic or accented letters in its path.
 pub(super) const READ_OPTIONS: [&str; 3] = ["-charset", "filename=utf8", "-json"];
 
-pub(super) const EXIFTOOL_TAGS: [&str; 11] = [
+pub(super) const EXIFTOOL_TAGS: [&str; 14] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -16,6 +16,9 @@ pub(super) const EXIFTOOL_TAGS: [&str; 11] = [
     "-FileModifyDate",
     "-Make",
     "-Model",
+    "-AndroidMake",
+    "-AndroidModel",
+    "-SamsungModel",
     "-DeviceModelName",
     "-CameraModelName",
 ];

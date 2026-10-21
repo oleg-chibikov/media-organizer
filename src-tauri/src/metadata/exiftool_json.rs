@@ -2,7 +2,16 @@ use serde_json::{Map, Value};
 
 use super::RawMetadataDates;
 
-const DEVICE_NAME_TAGS: [&str; 4] = ["Model", "DeviceModelName", "CameraModelName", "Make"];
+/// Android phones write the model of a video to `AndroidModel` or Samsung's `SamsungModel`.
+const DEVICE_NAME_TAGS: [&str; 7] = [
+    "Model",
+    "AndroidModel",
+    "SamsungModel",
+    "DeviceModelName",
+    "CameraModelName",
+    "Make",
+    "AndroidMake",
+];
 
 #[cfg(test)]
 pub(super) fn parse_exiftool_json(json: &str) -> Result<RawMetadataDates, String> {
