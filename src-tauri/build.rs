@@ -1,3 +1,6 @@
+// The build script only copies bundled ExifTool files into Cargo's own target folder.
+#![allow(clippy::disallowed_methods)]
+
 use std::{
     env, fs, io,
     path::{Path, PathBuf},

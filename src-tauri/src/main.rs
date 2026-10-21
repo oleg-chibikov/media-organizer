@@ -1,3 +1,6 @@
+// Test fixtures write files directly; production code is held to clippy.toml.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
+
 mod app_state;
 mod commands;
 mod events;

@@ -1,0 +1,15 @@
+# Raw filesystem mutations live only in src/safe_fs, which refuses to overwrite and deletes
+# only files it created or proved redundant. Everything else goes through safe_fs.
+disallowed-methods = [
+  { path = "std::fs::rename", reason = "replaces existing files; use safe_fs::move_file_no_replace" },
+  { path = "std::fs::copy", reason = "overwrites; use safe_fs::copy_verified_no_replace" },
+  { path = "std::fs::hard_link", reason = "use safe_fs::move_file_no_replace" },
+  { path = "std::fs::remove_file", reason = "use a safe_fs removal that verifies what it deletes" },
+  { path = "std::fs::remove_dir", reason = "use safe_fs::remove_empty_dir_within" },
+  { path = "std::fs::remove_dir_all", reason = "recursive deletion is not allowed" },
+  { path = "std::fs::write", reason = "truncates; use safe_fs::replace_app_file" },
+  { path = "std::fs::File::create", reason = "truncates; create files with create_new through safe_fs" },
+  { path = "std::fs::File::set_len", reason = "truncation is not allowed" },
+  { path = "std::fs::OpenOptions::truncate", reason = "truncation is not allowed" },
+  { path = "std::fs::OpenOptions::create", reason = "may open an existing file; use create_new" },
+]
