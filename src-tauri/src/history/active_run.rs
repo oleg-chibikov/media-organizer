@@ -10,6 +10,7 @@ use super::{
     index_updates::{index_entry_from_run, upsert_history_index_entry},
     log_file::RunLogWriter,
     paths::{history_runs_dir, run_log_filename},
+    run_lease::RunLease,
     run_record::new_history_run,
 };
 use crate::models::{
@@ -23,6 +24,7 @@ pub(crate) struct ActiveHistoryRun {
     pub run: HistoryRun,
     history_root: PathBuf,
     log: RunLogWriter,
+    _lease: RunLease,
 }
 
 pub(super) fn start_history_run(
@@ -40,6 +42,7 @@ pub(super) fn start_history_run(
 
     let started_at = Utc::now();
     let run_id = generate_run_id(started_at);
+    let lease = RunLease::acquire(&run_id)?;
     let log_path = runs_dir.join(run_log_filename(started_at, &run_id));
     let mut log = RunLogWriter::create(&log_path)?;
     let run = new_history_run(
@@ -57,6 +60,7 @@ pub(super) fn start_history_run(
         run,
         history_root: history_root.to_path_buf(),
         log,
+        _lease: lease,
     })
 }
 

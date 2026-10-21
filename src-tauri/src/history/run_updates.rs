@@ -6,6 +6,7 @@ use super::{
     index::{load_history_index, with_index_lock, write_history_index},
     log_file::RunLogWriter,
     paths::{checked_run_log_path, history_runs_dir},
+    run_lease::RunLease,
 };
 use crate::{
     models::{HistoryRecord, HistoryRunCompletedRecord, HistoryRunStatus},
@@ -49,6 +50,7 @@ pub(super) fn update_history_run_status(
 }
 
 pub(super) fn delete_history_run(history_root: &Path, run_id: &str) -> Result<(), String> {
+    let _lease = RunLease::acquire(run_id)?;
     let log_path = with_index_lock(|| {
         let mut index = load_history_index(history_root)?;
         let recorded = &index.find(run_id)?.history_file_path;

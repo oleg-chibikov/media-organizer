@@ -1,7 +1,7 @@
 use super::{direction::ReplayDirection, outcome::ReplaySummary, recorded_roots::RecordedRoots};
 use crate::{
     events::{self, EventSink},
-    history::{HistoryStore, RunLogWriter},
+    history::{HistoryStore, RunLease, RunLogWriter},
     models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRunStatus},
 };
 
@@ -14,14 +14,17 @@ pub(crate) struct ReplayJob {
     operations: Vec<HistoryOperation>,
     log: RunLogWriter,
     history: HistoryStore,
+    lease: RunLease,
 }
 
-/// Fails before any file is touched when the run is unknown, ineligible or its log cannot open.
+/// Fails before any file is touched when the run is unknown, busy, ineligible or its log
+/// cannot open.
 pub(crate) fn prepare_replay(
     history: &HistoryStore,
     run_id: &str,
     direction: ReplayDirection,
 ) -> Result<ReplayJob, String> {
+    let lease = RunLease::acquire(run_id)?;
     let details = history.require_run(run_id)?;
     let operations = direction.eligible_operations(&details)?;
     let log = history.open_run_log(run_id)?;
@@ -33,6 +36,7 @@ pub(crate) fn prepare_replay(
         operations,
         log,
         history: history.clone(),
+        lease,
     })
 }
 
@@ -73,6 +77,7 @@ impl ReplayJob {
         if final_status != self.initial_status {
             let _ = self.history.update_run_status(&self.run_id, final_status);
         }
+        drop(self.lease);
         events::history_index_updated(sink, &self.run_id);
     }
 }

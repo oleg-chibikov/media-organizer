@@ -63,7 +63,7 @@ fn refuses_to_append_to_or_delete_a_log_outside_the_runs_folder() {
 }
 
 #[test]
-fn deletes_a_real_run_log_and_its_index_entry() {
+fn deletes_a_run_log_and_its_index_entry_once_the_run_is_done() {
     let temp = tempdir().expect("temp dir");
     let store = HistoryStore::in_app_data(temp.path());
     let root = EffectiveDestinationRoot {
@@ -75,8 +75,12 @@ fn deletes_a_real_run_log_and_its_index_entry() {
     };
     let run = store.start_run(temp.path(), &root).expect("start run");
     let log_path = Path::new(&run.run.history_file_path).to_path_buf();
+    let run_id = run.run.run_id.clone();
 
-    store.delete_run(&run.run.run_id).expect("delete run");
+    assert!(store.delete_run(&run_id).is_err());
+    assert!(log_path.exists());
+    drop(run);
+    store.delete_run(&run_id).expect("delete run");
 
     assert!(!log_path.exists());
     assert!(store.list_runs().expect("list runs").is_empty());

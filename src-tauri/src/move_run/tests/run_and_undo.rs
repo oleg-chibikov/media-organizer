@@ -62,6 +62,48 @@ fn moves_a_batch_records_history_and_undoes_it() {
 }
 
 #[test]
+fn runs_one_replay_of_a_run_at_a_time() {
+    let temp = tempdir().expect("temp dir");
+    let app_data = temp.path().join("app-data");
+    let selected = temp.path().join("todo");
+    let source = selected.join("IMG_1.jpg");
+    let destination = selected.join("Processed").join("IMG_1.jpg");
+    fs::create_dir_all(&selected).expect("create selected folder");
+    fs::write(&source, b"image-bytes").expect("write source");
+    let batch = MoveBatch {
+        files: vec![FileRecord {
+            source_path: source.to_string_lossy().to_string(),
+            ..file_record("photo-1", "jpg", FileKind::Photo)
+        }],
+        metadata_results: vec![ready_metadata("photo-1", DateKind::TimezoneAware)],
+        plans: vec![ready_plan("photo-1", &destination.to_string_lossy())],
+    };
+    let (sink, history) = (
+        RecordingSink::default(),
+        HistoryStore::in_app_data(&app_data),
+    );
+    start_move_run(
+        &sink,
+        &SettingsStore::in_app_data(&app_data),
+        &history,
+        &selected,
+        batch,
+    )
+    .expect("move run should start")
+    .execute(&sink);
+    let run_id = history.list_runs().expect("list runs")[0].run_id.clone();
+
+    let undo = prepare_replay(&history, &run_id, ReplayDirection::Undo).expect("first undo");
+    assert!(prepare_replay(&history, &run_id, ReplayDirection::Undo).is_err());
+    assert!(history.delete_run(&run_id).is_err());
+    assert!(destination.exists() && !source.exists());
+
+    undo.run(&sink);
+    assert!(source.exists() && !destination.exists());
+    assert!(prepare_replay(&history, &run_id, ReplayDirection::Redo).is_ok());
+}
+
+#[test]
 fn refuses_to_start_when_selected_folder_is_missing() {
     let temp = tempdir().expect("temp dir");
     let sink = RecordingSink::default();

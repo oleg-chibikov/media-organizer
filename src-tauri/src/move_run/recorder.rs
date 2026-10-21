@@ -90,7 +90,10 @@ impl<'a, S: EventSink> MoveRunRecorder<'a, S> {
             history_run_status_for_completion(self.finished.failed, self.history_log_had_error);
         // A failed completion record leaves the run incomplete, which recovery reports as partial.
         let _ = self.history_run.complete(run_status);
-        events::history_index_updated(self.sink, &self.history_run.run.run_id);
+        let run_id = self.history_run.run.run_id.clone();
+        // Frees the run before the frontend hears it finished, so undo can start right away.
+        drop(self.history_run);
+        events::history_index_updated(self.sink, &run_id);
         events::move_finished(self.sink, self.finished);
     }
 }
