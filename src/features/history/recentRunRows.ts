@@ -14,7 +14,7 @@ export const RECENT_RUN_COLUMNS = [
   { key: "destination", label: "To" }
 ] as const;
 
-export type RecentRunColumnKey = (typeof RECENT_RUN_COLUMNS)[number]["key"];
+type RecentRunColumnKey = (typeof RECENT_RUN_COLUMNS)[number]["key"];
 export type RecentRunTableRow = { id: string; run: HistoryIndexEntry } & Record<
   RecentRunColumnKey,
   string

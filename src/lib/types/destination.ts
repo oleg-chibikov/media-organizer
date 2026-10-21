@@ -1,4 +1,4 @@
-export type DestinationRootMode = "custom_root" | "processed_folder" | "in_place";
+type DestinationRootMode = "custom_root" | "processed_folder" | "in_place";
 
 export interface EffectiveDestinationRoot {
   mode: DestinationRootMode;

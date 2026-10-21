@@ -1,6 +1,6 @@
 import type { FileRecord, MetadataReadRequest, MetadataResult } from "../../lib/types";
 
-export const METADATA_BATCH_SIZE = 8;
+const METADATA_BATCH_SIZE = 8;
 
 export interface MetadataQueue {
   pending: string[];

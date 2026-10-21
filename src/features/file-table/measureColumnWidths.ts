@@ -1,7 +1,7 @@
 import type { ColumnSizingState } from "@tanstack/react-table";
 import { FILE_TABLE_COLUMNS, type FileColumnKey, type FileTableRow } from "./fileTableColumns";
 
-export const COLUMN_HORIZONTAL_PADDING = 28;
+const COLUMN_HORIZONTAL_PADDING = 28;
 const MIN_COLUMN_WIDTH = 50;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =

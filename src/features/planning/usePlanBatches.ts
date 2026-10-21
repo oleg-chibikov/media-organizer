@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MovePlan } from "../../lib/types";
 
 // Long enough to batch a burst of plan events, short enough to feel live.
-export const PLAN_FLUSH_MS = 50;
+const PLAN_FLUSH_MS = 50;
 
 // Collects streamed plans and applies them in batches, one render per batch instead of per file.
 export function usePlanBatches() {

@@ -1,4 +1,4 @@
-export type ConflictStatus = "none" | "suffix_applied" | "blocked";
+type ConflictStatus = "none" | "suffix_applied" | "blocked";
 export type PlanStatus =
   | "ready"
   | "blocked_no_date"

@@ -10,7 +10,7 @@ export type HistoryRunStatus =
   | "partial"
   | "corrupt";
 
-export type HistoryOperationKind = "process" | "undo" | "redo";
+type HistoryOperationKind = "process" | "undo" | "redo";
 export type HistoryOperationStatus = "succeeded" | "skipped" | "blocked" | "failed";
 
 export interface HistoryIndexEntry {
@@ -27,7 +27,7 @@ export interface HistoryIndexEntry {
   history_file_path: string;
 }
 
-export interface HistoryRun {
+interface HistoryRun {
   run_id: string;
   history_version: number;
   app_version: string;

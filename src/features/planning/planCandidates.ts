@@ -7,7 +7,7 @@ export interface PlanCandidates {
 }
 
 // A file is planned again only when the metadata that drives its destination changes.
-export function metadataPlanningSignature(metadata: MetadataResult): string {
+function metadataPlanningSignature(metadata: MetadataResult): string {
   return `${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
 }
 

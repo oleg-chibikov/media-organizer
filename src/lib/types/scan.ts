@@ -1,5 +1,5 @@
 export type FileKind = "photo" | "video" | "unsupported" | "unknown";
-export type ScanStatus = "discovered" | "skipped_processed" | "skipped_unsupported" | "scan_error";
+type ScanStatus = "discovered" | "skipped_processed" | "skipped_unsupported" | "scan_error";
 
 export interface FileRecord {
   id: string;

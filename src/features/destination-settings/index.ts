@@ -4,7 +4,4 @@ export {
   useDestinationSettings,
   type DestinationSettingsOperation
 } from "./useDestinationSettings";
-export {
-  useEffectiveDestinationRoot,
-  type EffectiveDestination
-} from "./useEffectiveDestinationRoot";
+export { useEffectiveDestinationRoot } from "./useEffectiveDestinationRoot";

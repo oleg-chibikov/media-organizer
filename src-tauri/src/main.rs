@@ -92,7 +92,6 @@ pub fn run() {
             destination::set_rename_in_place,
             scan::start_scan,
             scan::cancel_scan,
-            metadata_commands::read_metadata_for_file,
             metadata_commands::read_metadata_for_files,
             plan::create_move_plan,
             plan::get_move_confirmation_summary,

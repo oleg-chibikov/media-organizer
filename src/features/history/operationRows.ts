@@ -9,7 +9,7 @@ export const OPERATION_COLUMNS = [
   { key: "status", label: "Status" }
 ] as const;
 
-export type OperationColumnKey = (typeof OPERATION_COLUMNS)[number]["key"];
+type OperationColumnKey = (typeof OPERATION_COLUMNS)[number]["key"];
 export type OperationTableRow = { id: string; error: string } & Record<OperationColumnKey, string>;
 
 export const OPERATION_DEFAULT_SIZING: ColumnSizingState = {

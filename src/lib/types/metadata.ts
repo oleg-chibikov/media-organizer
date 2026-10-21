@@ -1,7 +1,7 @@
 import type { FileKind } from "./scan";
 
-export type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
-export type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
+type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
+type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
 
 export interface MetadataResult {
   file_id: string;

@@ -14,7 +14,7 @@ export interface MoveFileEvent {
   result: MoveResult;
 }
 
-export type MoveProgressPhase = "starting" | "preparing" | "moving" | "finalizing";
+type MoveProgressPhase = "starting" | "preparing" | "moving" | "finalizing";
 
 export interface MoveProgressEvent {
   phase: MoveProgressPhase;
