@@ -28,9 +28,16 @@ fi
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
-url="https://github.com/$repo/releases/latest/download/MediaOrganizer-macos-$arch.app.tar.gz"
+url="https://github.com/$repo/releases/latest/download/MediaOrganizer-macos-$arch.dmg"
 echo "Downloading $url"
-curl -fsSL "$url" | tar -xz -C "$work_dir"
+curl -fsSL -o "$work_dir/MediaOrganizer.dmg" "$url"
+
+mount_dir="$work_dir/mount"
+mkdir "$mount_dir"
+hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mount_dir" "$work_dir/MediaOrganizer.dmg"
+trap 'hdiutil detach -quiet "$mount_dir" 2>/dev/null; rm -rf "$work_dir"' EXIT
+ditto "$mount_dir/$app_name" "$work_dir/$app_name"
+hdiutil detach -quiet "$mount_dir"
 
 rm -rf "${install_dir:?}/$app_name"
 mv "$work_dir/$app_name" "$install_dir/"

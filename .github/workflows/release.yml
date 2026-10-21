@@ -33,12 +33,12 @@ jobs:
             asset: MediaOrganizer-windows-x64-setup.exe
           - os: macos-latest
             target: aarch64-apple-darwin
-            bundle: app
-            asset: MediaOrganizer-macos-aarch64.app.tar.gz
+            bundle: dmg
+            asset: MediaOrganizer-macos-aarch64.dmg
           - os: macos-latest
             target: x86_64-apple-darwin
-            bundle: app
-            asset: MediaOrganizer-macos-x86_64.app.tar.gz
+            bundle: dmg
+            asset: MediaOrganizer-macos-x86_64.dmg
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -54,9 +54,9 @@ jobs:
         if: runner.os == 'Windows'
         run: cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "${{ matrix.asset }}"
 
-      - name: Package the macOS app
+      - name: Package the macOS disk image
         if: runner.os == 'macOS'
-        run: tar -czf "${{ matrix.asset }}" -C "src-tauri/target/${{ matrix.target }}/release/bundle/macos" "Media Organizer.app"
+        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "${{ matrix.asset }}"
 
       - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
 
