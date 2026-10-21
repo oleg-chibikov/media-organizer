@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FileTable } from "./FileTable";
-import type { FileRecord, MovePlan } from "../../lib/types";
+import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
 
 vi.mock("../../lib/api", () => ({
   revealFileInExplorer: vi.fn()
@@ -91,5 +91,32 @@ describe("FileTable", () => {
 
     expect(screen.getByText("2024/5/1/a.jpg")).toBeInTheDocument();
     expect(screen.queryByText("Original Name")).not.toBeInTheDocument();
+  });
+
+  it("filters to files that need review or failed", () => {
+    const ready = { metadata_status: "ready" } as MetadataResult;
+    renderTable({
+      rows: [createRow("ok"), createRow("nodate"), createRow("broken")],
+      metadataByFileId: {
+        ok: ready,
+        nodate: { metadata_status: "no_date" } as MetadataResult,
+        broken: { metadata_status: "error" } as MetadataResult
+      }
+    });
+    const sourceCells = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelectorAll("td")[0]?.textContent);
+
+    expect(sourceCells()).toEqual(["broken.jpg", "nodate.jpg", "ok.jpg"]);
+    fireEvent.click(screen.getByRole("button", { name: "Needs review 1" }));
+    expect(sourceCells()).toEqual(["nodate.jpg"]);
+    fireEvent.click(screen.getByRole("button", { name: "Errors 1" }));
+    expect(sourceCells()).toEqual(["broken.jpg"]);
+    expect(screen.getByRole("button", { name: "Errors 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
   });
 });

@@ -10,8 +10,6 @@ interface StatusCountsProps {
 }
 
 export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCountsProps) {
-  const needsReview = summary.total_plans > 0 ? summary.total_plans - summary.ready_operations : 0;
-
   return (
     <>
       <span>Files: {scan.discovered}</span>
@@ -21,10 +19,6 @@ export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCo
       {summary.total_plans > 0 ? (
         <>
           <span>Ready: {summary.ready_operations}</span>
-          {needsReview > 0 ? <span>Needs review: {needsReview}</span> : null}
-          {summary.fallback_warnings > 0 ? (
-            <span>File dates: {summary.fallback_warnings}</span>
-          ) : null}
           {summary.suffix_applied > 0 ? <span>Renamed: {summary.suffix_applied}</span> : null}
         </>
       ) : null}

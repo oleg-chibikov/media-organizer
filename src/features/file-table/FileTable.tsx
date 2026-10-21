@@ -1,10 +1,11 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ResizableVirtualTable } from "../../components/design-system/ResizableVirtualTable";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { buildFileTableRow } from "./buildFileTableRow";
+import { FileFilterBar } from "./FileFilterBar";
+import { fileFilterRange, type FileFilter } from "./fileFilter";
 import { FILE_COLUMN_DEFS } from "./fileColumnDefs";
 import { fileRowClassName } from "./fileRowClassName";
-import type { FileRowState } from "./fileRowState";
 import { FILE_TABLE_COLUMNS } from "./fileTableColumns";
 import { DEFAULT_COLUMN_SIZING, measureAutoSizedColumns } from "./measureColumnWidths";
 import { RevealOnDoubleClick } from "./RevealOnDoubleClick";
@@ -21,6 +22,12 @@ interface FileTableProps {
   destinationRoot: string | null;
 }
 
+const EMPTY_FILTER_MESSAGES: Record<FileFilter, string> = {
+  all: "No files yet.",
+  review: "No files need review.",
+  error: "No errors."
+};
+
 export function FileTable({
   rows,
   metadataByFileId,
@@ -30,9 +37,10 @@ export function FileTable({
   activeMoveFileId,
   destinationRoot
 }: FileTableProps) {
+  const [filter, setFilter] = useState<FileFilter>("all");
   const sortedRows = useMemo(() => sortFileRecords(rows), [rows]);
 
-  const rowStates = useMemo<FileRowState[]>(
+  const sorted = useMemo(
     () =>
       sortProblemsFirst(
         sortedRows.map((record) => ({
@@ -47,27 +55,51 @@ export function FileTable({
   );
 
   const tableRows = useMemo(
-    () => rowStates.map((state) => buildFileTableRow(state, activeMoveFileId, destinationRoot)),
-    [rowStates, activeMoveFileId, destinationRoot]
+    () => sorted.states.map((state) => buildFileTableRow(state, activeMoveFileId, destinationRoot)),
+    [sorted, activeMoveFileId, destinationRoot]
   );
 
+  // Columns fit every row, so switching the filter doesn't change their widths.
   const autoSizeColumns = useCallback(() => measureAutoSizedColumns(tableRows), [tableRows]);
 
+  const [start, end] = fileFilterRange(filter, sorted);
+  const visibleStates = sorted.states.slice(start, end);
+  const visibleRows = useMemo(() => tableRows.slice(start, end), [tableRows, start, end]);
+
   return (
-    <ResizableVirtualTable
-      rows={tableRows}
-      label="Files"
-      columns={FILE_TABLE_COLUMNS}
-      columnDefs={FILE_COLUMN_DEFS}
-      defaultColumnSizing={DEFAULT_COLUMN_SIZING}
-      onAutoSizeColumns={autoSizeColumns}
-      getRowClassName={(_, rowIndex) => fileRowClassName(rowStates[rowIndex], activeMoveFileId)}
-      getRowTooltip={(row) => row.source.value}
-      renderCellWrapper={(_, rowIndex, columnId, cell) => (
-        <RevealOnDoubleClick state={rowStates[rowIndex]} columnId={columnId}>
-          {cell}
-        </RevealOnDoubleClick>
-      )}
-    />
+    <div className="flex h-full flex-col">
+      {rows.length > 0 ? (
+        <FileFilterBar
+          value={filter}
+          total={rows.length}
+          reviewCount={sorted.reviewCount}
+          errorCount={sorted.errorCount}
+          onChange={setFilter}
+        />
+      ) : null}
+      <div className="min-h-0 flex-1">
+        {visibleRows.length === 0 && rows.length > 0 ? (
+          <p className="px-3 py-4 text-sm text-slate-400">{EMPTY_FILTER_MESSAGES[filter]}</p>
+        ) : (
+          <ResizableVirtualTable
+            rows={visibleRows}
+            label="Files"
+            columns={FILE_TABLE_COLUMNS}
+            columnDefs={FILE_COLUMN_DEFS}
+            defaultColumnSizing={DEFAULT_COLUMN_SIZING}
+            onAutoSizeColumns={autoSizeColumns}
+            getRowClassName={(_, rowIndex) =>
+              fileRowClassName(visibleStates[rowIndex], activeMoveFileId)
+            }
+            getRowTooltip={(row) => row.source.value}
+            renderCellWrapper={(_, rowIndex, columnId, cell) => (
+              <RevealOnDoubleClick state={visibleStates[rowIndex]} columnId={columnId}>
+                {cell}
+              </RevealOnDoubleClick>
+            )}
+          />
+        )}
+      </div>
+    </div>
   );
 }

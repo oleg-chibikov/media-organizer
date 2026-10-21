@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
+import { fileFilterRange } from "./fileFilter";
 import type { FileRowState } from "./fileRowState";
 import { sortProblemsFirst } from "./sortProblemsFirst";
 
@@ -13,21 +14,34 @@ function state(id: string, planStatus: MovePlan["plan_status"], metadataStatus =
   } as FileRowState;
 }
 
+const ROWS = [
+  state("a", "ready"),
+  state("b", "blocked_no_date"),
+  state("c", "ready"),
+  state("d", "ready", "error"),
+  state("e", "blocked_no_date")
+];
+
 describe("sortProblemsFirst", () => {
   it("puts errors, then files to review, before the rest in their own order", () => {
-    const rows = [
-      state("a", "ready"),
-      state("b", "blocked_no_date"),
-      state("c", "ready"),
-      state("d", "ready", "error"),
-      state("e", "blocked_no_date")
-    ];
+    const sorted = sortProblemsFirst(ROWS);
 
-    expect(sortProblemsFirst(rows).map((row) => row.record.id)).toEqual(["d", "b", "e", "a", "c"]);
+    expect(sorted.states.map((row) => row.record.id)).toEqual(["d", "b", "e", "a", "c"]);
+    expect(sorted).toMatchObject({ errorCount: 1, reviewCount: 2 });
   });
 
   it("returns the same list when nothing needs attention", () => {
     const rows = [state("a", "ready")];
-    expect(sortProblemsFirst(rows)).toBe(rows);
+    expect(sortProblemsFirst(rows).states).toBe(rows);
+  });
+});
+
+describe("fileFilterRange", () => {
+  it("picks each group out of the sorted rows", () => {
+    const sorted = sortProblemsFirst(ROWS);
+
+    expect(fileFilterRange("error", sorted)).toEqual([0, 1]);
+    expect(fileFilterRange("review", sorted)).toEqual([1, 3]);
+    expect(fileFilterRange("all", sorted)).toEqual([0, 5]);
   });
 });
