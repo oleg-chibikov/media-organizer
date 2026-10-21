@@ -62,7 +62,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
       reportError("No selected folder for move execution.");
       return;
     }
-    const statusMessage = "Dispatching move execution.";
+    const statusMessage = "Starting...";
     clearMoves(() => ({ ...IDLE_MOVE_EXECUTION, confirmed: true, executing: true, statusMessage }));
     startDispatch();
     pumpRef.current();
@@ -76,7 +76,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     const paused = togglePaused();
     updateExecution({
       paused,
-      statusMessage: paused ? "Move dispatch paused by user." : "Move dispatch resumed."
+      statusMessage: paused ? "Paused." : "Resumed."
     });
   };
 

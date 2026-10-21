@@ -15,30 +15,26 @@ export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCo
   return (
     <>
       <span>Files: {scan.discovered}</span>
-      {scan.skipped > 0 ? <span>Scan skipped: {scan.skipped}</span> : null}
-      {scan.errors > 0 ? <span className="text-amber-300">Scan errors: {scan.errors}</span> : null}
-      {planErrors > 0 ? <span className="text-amber-300">Plan errors: {planErrors}</span> : null}
+      {scan.skipped > 0 ? <span>Skipped: {scan.skipped}</span> : null}
+      {scan.errors > 0 ? <span className="text-amber-300">Unreadable: {scan.errors}</span> : null}
+      {planErrors > 0 ? <span className="text-amber-300">Can't plan: {planErrors}</span> : null}
       {summary.total_plans > 0 ? (
         <>
           <span>Ready: {summary.ready_operations}</span>
           {needsReview > 0 ? <span>Needs review: {needsReview}</span> : null}
           {summary.fallback_warnings > 0 ? (
-            <span>Fallback dates: {summary.fallback_warnings}</span>
+            <span>File dates: {summary.fallback_warnings}</span>
           ) : null}
-          {summary.suffix_applied > 0 ? (
-            <span>Renamed conflicts: {summary.suffix_applied}</span>
-          ) : null}
+          {summary.suffix_applied > 0 ? <span>Renamed: {summary.suffix_applied}</span> : null}
         </>
-      ) : (
-        <span className="text-slate-400">No move summary yet</span>
-      )}
+      ) : null}
       {hasMoveResults(moveCounts) ? (
         <>
           {moveCounts.moved > 0 ? <span>Moved: {moveCounts.moved}</span> : null}
           {moveCounts.copied > 0 ? <span>Copied: {moveCounts.copied}</span> : null}
-          {moveCounts.skipped > 0 ? <span>Move skipped: {moveCounts.skipped}</span> : null}
+          {moveCounts.skipped > 0 ? <span>Not moved: {moveCounts.skipped}</span> : null}
           {moveCounts.failed > 0 ? (
-            <span className="text-amber-300">Move failed: {moveCounts.failed}</span>
+            <span className="text-amber-300">Failed: {moveCounts.failed}</span>
           ) : null}
         </>
       ) : null}

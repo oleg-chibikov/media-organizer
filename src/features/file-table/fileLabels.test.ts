@@ -23,13 +23,13 @@ function state(overrides: Partial<FileRowState> = {}): FileRowState {
 
 describe("fileStatusLabel", () => {
   it("follows the file from planning to the move result", () => {
-    expect(fileStatusLabel(state({ metadata: undefined }), null)).toBe("Pending Metadata");
+    expect(fileStatusLabel(state({ metadata: undefined }), null)).toBe("Reading date");
     expect(fileStatusLabel(state(), null)).toBe("Planning");
     expect(fileStatusLabel(state(), "f1")).toBe("Moving");
     const suffixed = { plan_status: "ready", conflict_status: "suffix_applied" } as MovePlan;
-    expect(fileStatusLabel(state({ movePlan: suffixed }), null)).toBe("Ready (Suffix)");
+    expect(fileStatusLabel(state({ movePlan: suffixed }), null)).toBe("Ready (renamed)");
     const copied = { result_status: "copied" } as MoveResult;
-    expect(fileStatusLabel(state({ moveResult: copied }), null)).toBe("Copied (source kept)");
+    expect(fileStatusLabel(state({ moveResult: copied }), null)).toBe("Copied, original kept");
   });
 });
 

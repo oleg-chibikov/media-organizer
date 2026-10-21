@@ -10,20 +10,23 @@ describe("pipelineStatusLabel", () => {
   it("moves from planning to ready to executing", () => {
     expect(pipelineStatusLabel(EMPTY_SCAN_PROGRESS, PLANNED, IDLE_MOVE_EXECUTION)).toBe("No files");
     const planning = { ...PLANNED, planCompleted: false };
-    expect(pipelineStatusLabel(SCANNED, planning, IDLE_MOVE_EXECUTION)).toBe(
-      "Planning destinations"
-    );
-    expect(pipelineStatusLabel(SCANNED, PLANNED, IDLE_MOVE_EXECUTION)).toBe("Destinations ready");
+    expect(pipelineStatusLabel(SCANNED, planning, IDLE_MOVE_EXECUTION)).toBe("Checking files");
+    expect(pipelineStatusLabel(SCANNED, PLANNED, IDLE_MOVE_EXECUTION)).toBe("Ready to move");
     const executing = { ...IDLE_MOVE_EXECUTION, executing: true };
-    expect(pipelineStatusLabel(SCANNED, PLANNED, executing)).toBe("Executing moves");
+    expect(pipelineStatusLabel(SCANNED, PLANNED, executing)).toBe("Moving files");
+  });
+
+  it("says the folder is still scanning before the scan finishes", () => {
+    const scanning = { ...SCANNED, completed: false };
+    expect(pipelineStatusLabel(scanning, PLANNED, IDLE_MOVE_EXECUTION)).toBe("Scanning");
   });
 });
 
 describe("executionActionLabel", () => {
   it("offers confirm, then pause and resume", () => {
-    expect(executionActionLabel(IDLE_MOVE_EXECUTION)).toBe("Confirm & Execute");
+    expect(executionActionLabel(IDLE_MOVE_EXECUTION)).toBe("Move Files...");
     const running = { ...IDLE_MOVE_EXECUTION, confirmed: true };
-    expect(executionActionLabel(running)).toBe("Pause Dispatch");
-    expect(executionActionLabel({ ...running, paused: true })).toBe("Resume Dispatch");
+    expect(executionActionLabel(running)).toBe("Pause");
+    expect(executionActionLabel({ ...running, paused: true })).toBe("Resume");
   });
 });

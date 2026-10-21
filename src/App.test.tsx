@@ -46,7 +46,7 @@ describe("App", () => {
   it("scans, plans and executes moves through the backend events", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<App />);
-    await screen.findByText("Backend: ok");
+    await waitFor(() => expect(api.healthCheck).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole("button", { name: "Choose Folder" }));
     await waitFor(() => expect(api.startScan).toHaveBeenCalledWith("C:\\in"));
@@ -64,10 +64,10 @@ describe("App", () => {
       listeners.plan?.onFile({ plan: PLAN });
       listeners.plan?.onFinished({ planned: 1, errors: 0 });
     });
-    expect(screen.getByText("Destinations ready")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Ready to move");
     expect(screen.getByText("Ready: 1")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirm & Execute" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
     await waitFor(() =>
       expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA], [PLAN])
     );
@@ -84,8 +84,8 @@ describe("App", () => {
       listeners.move?.onFile({ result });
       listeners.move?.onFinished({ moved: 1, copied: 0, skipped: 0, failed: 0, results: [result] });
     });
-    expect(screen.getByText("Move completed")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Done");
     expect(screen.getByText("Moved: 1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Complete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeDisabled();
   });
 });

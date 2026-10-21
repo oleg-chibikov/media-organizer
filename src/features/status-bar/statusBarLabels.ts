@@ -16,29 +16,29 @@ export function pipelineStatusLabel(
     return "No files";
   }
   if (scan.cancelled) {
-    return "Scan cancelled";
+    return "Scan stopped";
   }
   if (execution.paused) {
-    return "Dispatch paused";
+    return "Paused";
   }
   if (execution.executing) {
-    return "Executing moves";
+    return "Moving files";
   }
   if (execution.completed) {
-    return "Move completed";
+    return "Done";
   }
   if ((scan.completed && !planning.planCompleted) || planning.isPlanning) {
-    return "Planning destinations";
+    return "Checking files";
   }
-  return scan.completed ? "Destinations ready" : "Idle";
+  return scan.completed ? "Ready to move" : "Scanning";
 }
 
 export function executionActionLabel(execution: MoveExecutionState): string {
   if (execution.completed) {
-    return "Complete";
+    return "Done";
   }
   if (!execution.confirmed) {
-    return "Confirm & Execute";
+    return "Move Files...";
   }
-  return execution.paused ? "Resume Dispatch" : "Pause Dispatch";
+  return execution.paused ? "Resume" : "Pause";
 }

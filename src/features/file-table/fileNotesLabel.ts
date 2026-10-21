@@ -1,13 +1,13 @@
 import type { FileRowState } from "./fileRowState";
 
 const DATE_SOURCE_LABELS: Record<string, string> = {
-  SubSecDateTimeOriginal: "Original photo capture time",
+  SubSecDateTimeOriginal: "Photo capture time",
   DateTimeOriginal: "Photo capture time",
-  MediaCreateDate: "Video creation time",
-  TrackCreateDate: "Video track creation time",
-  CreateDate: "Embedded media creation time",
-  ModifyDate: "Embedded media modified time",
-  FileModifyDate: "File modified time (fallback)"
+  MediaCreateDate: "Video recording time",
+  TrackCreateDate: "Video recording time",
+  CreateDate: "Creation time saved in the file",
+  ModifyDate: "Edit time saved in the file",
+  FileModifyDate: "Date the file last changed"
 };
 
 export function fileNotesLabel({
@@ -20,25 +20,25 @@ export function fileNotesLabel({
     return moveResult.error;
   }
   if (moveResult?.result_status === "copied") {
-    return "Copied to destination; original source file was kept.";
+    return "Copied. The original file stays in place.";
   }
   if (metadata?.metadata_status === "error") {
-    return metadata.error ?? "Metadata error";
+    return metadata.error ?? "Can't read the date from this file";
   }
   if (planError && !movePlan) {
     return planError;
   }
   if (metadata?.date_kind === "fallback") {
-    return "Using FileModifyDate fallback";
+    return "No capture date in the file. Using the date the file last changed.";
   }
   if (!metadata) {
     return "-";
   }
   if (movePlan?.plan_status === "blocked_no_date") {
-    return "No usable metadata date";
+    return "No capture date found. This file stays in place.";
   }
   if (movePlan?.conflict_status === "suffix_applied") {
-    return "Suffix applied for conflict";
+    return "A file with this name is already there. A number is added.";
   }
   const source = metadata.chosen_date_source;
   return source ? (DATE_SOURCE_LABELS[source] ?? source) : "-";

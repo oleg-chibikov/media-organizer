@@ -2,24 +2,24 @@ import type { FileRecord, MoveResultStatus, PlanStatus } from "../../lib/types";
 import type { FileRowState } from "./fileRowState";
 
 const SCAN_STATUS_LABELS: Record<FileRecord["scan_status"], string> = {
-  discovered: "Discovered",
-  skipped_processed: "Skipped Processed",
-  skipped_unsupported: "Skipped Unsupported",
-  scan_error: "Scan Error"
+  discovered: "Found",
+  skipped_processed: "Already sorted",
+  skipped_unsupported: "Not a photo or video",
+  scan_error: "Can't read file"
 };
 
 const MOVE_RESULT_LABELS: Record<MoveResultStatus, string> = {
   moved: "Moved",
-  copied: "Copied (source kept)",
+  copied: "Copied, original kept",
   skipped: "Skipped",
   failed: "Failed"
 };
 
 const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   ready: "Ready",
-  blocked_no_date: "Blocked No Date",
-  blocked_conflict: "Blocked Conflict",
-  error: "Plan Error"
+  blocked_no_date: "No date",
+  blocked_conflict: "Name taken",
+  error: "Can't plan"
 };
 
 export function fileStatusLabel(
@@ -36,19 +36,19 @@ export function fileStatusLabel(
     return "Moving";
   }
   if (metadata?.metadata_status === "error") {
-    return "Metadata Error";
+    return "Can't read date";
   }
   if (planError && !movePlan) {
-    return "Plan Error";
+    return "Can't plan";
   }
   if (metadata?.date_kind === "fallback") {
-    return "Warning Fallback";
+    return "Ready (file date)";
   }
   if (!movePlan) {
-    return metadata?.metadata_status === "ready" ? "Planning" : "Pending Metadata";
+    return metadata?.metadata_status === "ready" ? "Planning" : "Reading date";
   }
   if (movePlan.plan_status === "ready" && movePlan.conflict_status === "suffix_applied") {
-    return "Ready (Suffix)";
+    return "Ready (renamed)";
   }
   return PLAN_STATUS_LABELS[movePlan.plan_status] ?? "Pending Plan";
 }

@@ -38,7 +38,9 @@ export function StatusBar({
           summary={summary}
           moveCounts={moveCounts}
         />
-        <span className="text-slate-400">Backend: {health}</span>
+        {health === "ok" || health === "checking" ? null : (
+          <span className="text-rose-300">Backend: {health}</span>
+        )}
         <Button
           variant="primary"
           className="ml-auto px-3 py-1.5 text-xs"
@@ -51,8 +53,8 @@ export function StatusBar({
       {execution.confirmed && !execution.completed ? (
         <p className={`mt-1 ${execution.paused ? "text-amber-400" : "text-emerald-400"}`}>
           {execution.paused
-            ? "Move dispatch paused. In-flight jobs may still complete."
-            : (execution.statusMessage ?? "Execution started. Waiting for backend progress.")}
+            ? "Paused. Files already moving will finish."
+            : (execution.statusMessage ?? "Starting...")}
         </p>
       ) : null}
     </footer>
