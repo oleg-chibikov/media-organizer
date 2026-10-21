@@ -5,6 +5,7 @@ import android.media.MediaScannerConnection
 import com.mediaorganizer.android.metadata.DeviceMetadataReader
 import com.mediaorganizer.android.organize.MovedFile
 import com.mediaorganizer.android.organize.OrganizeRequest
+import com.mediaorganizer.android.organize.RunEnd
 import com.mediaorganizer.android.organize.RunProgress
 import com.mediaorganizer.android.organize.organize
 import java.util.concurrent.atomic.AtomicBoolean
@@ -32,7 +33,7 @@ class OrganizeRun(private val context: Context, private val request: OrganizeReq
                 notifyGallery(organize(request, DeviceMetadataReader, progress, cancelled::get))
             } catch (error: Exception) {
                 progress.log("Stopped: $error")
-                progress.finish()
+                progress.finish(RunEnd.FAILED)
             }
         }
     }

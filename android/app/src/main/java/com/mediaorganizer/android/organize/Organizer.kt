@@ -20,9 +20,10 @@ fun organize(
     progress.log("Found ${scan.media.size} photos and videos, moving to ${request.destinationRoot}")
 
     val moved = mutableListOf<MovedFile>()
+    var end = RunEnd.DONE
     for (file in scan.media) {
         if (isCancelled()) {
-            progress.log("Stopped")
+            end = RunEnd.STOPPED
             break
         }
         val result = try {
@@ -35,7 +36,7 @@ fun organize(
     }
 
     removeEmptySourceFolders(request.sourceRoot, moved.mapNotNull { it.from.parent }.toSet())
-    progress.log("Done")
-    progress.finish()
+    progress.log(if (end == RunEnd.DONE) "Done" else "Stopped")
+    progress.finish(end)
     return moved
 }

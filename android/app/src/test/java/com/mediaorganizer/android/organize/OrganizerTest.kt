@@ -40,7 +40,7 @@ class OrganizerTest {
         assertEquals(1, snapshot.total)
         assertEquals(1, snapshot.counts[FileOutcome.MOVED])
         assertEquals(2, snapshot.skipped)
-        assertTrue(snapshot.finished)
+        assertEquals(RunEnd.DONE, snapshot.end)
     }
 
     @Test fun keepsDuplicateInPlace() {
@@ -65,6 +65,8 @@ class OrganizerTest {
 
         assertTrue(moved.isEmpty())
         assertTrue(source.resolve("IMG_1.jpg").exists())
+        assertEquals(RunEnd.STOPPED, progress.snapshot().end)
+        assertEquals("Stopped", progress.snapshot().log.last())
     }
 
     private fun write(path: Path, text: String) {

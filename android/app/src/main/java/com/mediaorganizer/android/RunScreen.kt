@@ -1,6 +1,7 @@
 package com.mediaorganizer.android
 
 import android.app.Activity
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
@@ -16,6 +17,7 @@ class RunScreen(activity: Activity) {
     val pickSource: Button = activity.findViewById(R.id.pick_source)
     val pickDestination: Button = activity.findViewById(R.id.pick_destination)
     val start: Button = activity.findViewById(R.id.start)
+    private val status: TextView = activity.findViewById(R.id.status)
     private val progressBar: ProgressBar = activity.findViewById(R.id.progress)
     private val counts: TextView = activity.findViewById(R.id.counts)
     private val logScroll: ScrollView = activity.findViewById(R.id.log_scroll)
@@ -31,6 +33,9 @@ class RunScreen(activity: Activity) {
     }
 
     fun show(snapshot: RunProgress.Snapshot) {
+        val statusLine = statusText(status.resources, snapshot)
+        if (status.text.toString() != statusLine) status.text = statusLine
+        status.visibility = View.VISIBLE
         progressBar.max = snapshot.total
         progressBar.progress = snapshot.done
         counts.text = counts.context.getString(

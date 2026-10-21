@@ -9,6 +9,13 @@
     <string name="pick_phone_folder">Choose a folder on the phone storage or memory card.</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
+    <string name="status_running">Sorting. Keep the app on screen.</string>
+    <plurals name="status_done">
+        <item quantity="one">✓ Done. Moved %d file.</item>
+        <item quantity="other">✓ Done. Moved %d files.</item>
+    </plurals>
+    <string name="status_stopped">Stopped. The other files stay where they were.</string>
+    <string name="status_failed">Stopped by an error. The log shows why.</string>
     <string name="progress_label">Sorting progress</string>
     <string name="log_label">Log</string>
     <string name="allow_all_files">Allow access to all files, then press Start again.</string>
