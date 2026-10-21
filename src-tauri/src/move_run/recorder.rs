@@ -54,12 +54,17 @@ impl<'a, S: EventSink> MoveRunRecorder<'a, S> {
         }
     }
 
-    pub(super) fn record(&mut self, result: MoveResult) {
+    /// Reads the source size while the file is still at the source.
+    pub(super) fn remember_source_size(&mut self, file_id: &str) {
         ensure_expected_source_size(
-            &result,
+            file_id,
             &self.lookups.files_by_id,
             &mut self.expected_source_sizes,
         );
+    }
+
+    pub(super) fn record(&mut self, result: MoveResult) {
+        self.remember_source_size(&result.file_id);
         let operation = build_history_operation_for_result(
             &self.history_run.run.run_id,
             &result,

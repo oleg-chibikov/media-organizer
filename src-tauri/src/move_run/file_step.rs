@@ -32,6 +32,7 @@ pub(super) fn move_file(
     let source_parent = Path::new(&operation.source_path)
         .parent()
         .map(Path::to_path_buf);
+    recorder.remember_source_size(&operation.file_id);
     let result = mover::execute_move_with_rename(operation);
     let moved = matches!(result.result_status, MoveResultStatus::Moved);
     recorder.record(result);

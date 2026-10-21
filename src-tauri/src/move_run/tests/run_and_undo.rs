@@ -45,6 +45,10 @@ fn moves_a_batch_records_history_and_undoes_it() {
     let runs = history.list_runs().expect("list runs");
     assert_eq!(runs[0].run_status, HistoryRunStatus::Completed);
     assert!(runs[0].undo_available);
+    let details = history.require_run(&runs[0].run_id).expect("run details");
+    let image_size = Some(b"image-bytes".len() as u64);
+    assert_eq!(details.operations[0].expected_source_size, image_size);
+    assert_eq!(details.operations[0].expected_destination_size, image_size);
 
     prepare_replay(&history, &runs[0].run_id, ReplayDirection::Undo)
         .expect("run should be undoable")

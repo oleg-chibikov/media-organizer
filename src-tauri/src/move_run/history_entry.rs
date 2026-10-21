@@ -8,13 +8,13 @@ use crate::{
     models::{FileRecord, HistoryOperation, HistoryOperationKind, MoveResult, MoveResultStatus},
 };
 
-/// Captures the source size once per file, before any move can change it.
+/// Captures the source size once per file. The first call must come before the move.
 pub(super) fn ensure_expected_source_size<'a>(
-    result: &MoveResult,
+    file_id: &str,
     files_by_id: &HashMap<&'a str, &'a FileRecord>,
     expected_source_sizes: &mut HashMap<&'a str, Option<u64>>,
 ) {
-    let Some(file) = files_by_id.get(result.file_id.as_str()) else {
+    let Some(file) = files_by_id.get(file_id) else {
         return;
     };
 
