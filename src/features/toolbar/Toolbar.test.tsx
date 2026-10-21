@@ -12,6 +12,7 @@ describe("Toolbar", () => {
         selectedFolder={null}
         folderError="Selected folder is inside a Processed path."
         isScanning={true}
+        movesRunning={false}
         rootMediaFolder={"D:\\Media"}
         historyMenu={<button type="button">History</button>}
         onChooseFolder={vi.fn()}
@@ -25,5 +26,21 @@ describe("Toolbar", () => {
     expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Stop Scan" }));
     expect(onCancelScan).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a new folder while moves are running", () => {
+    render(
+      <Toolbar
+        selectedFolder={"C:\\in"}
+        folderError={null}
+        isScanning={false}
+        movesRunning={true}
+        rootMediaFolder={null}
+        onChooseFolder={vi.fn()}
+        onCancelScan={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Choose Folder" })).toBeDisabled();
   });
 });

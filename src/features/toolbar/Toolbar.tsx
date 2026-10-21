@@ -5,6 +5,7 @@ interface ToolbarProps {
   selectedFolder: string | null;
   folderError: string | null;
   isScanning: boolean;
+  movesRunning: boolean;
   rootMediaFolder: string | null;
   historyMenu?: ReactNode;
   settingsMenu?: ReactNode;
@@ -16,6 +17,7 @@ export function Toolbar({
   selectedFolder,
   folderError,
   isScanning,
+  movesRunning,
   rootMediaFolder,
   historyMenu,
   settingsMenu,
@@ -24,7 +26,13 @@ export function Toolbar({
 }: ToolbarProps) {
   return (
     <header className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2">
-      <Button variant="primary" className="px-3 py-1.5 text-sm" onClick={onChooseFolder}>
+      {/* A new scan resets the move state while the backend is still moving files. */}
+      <Button
+        variant="primary"
+        className="px-3 py-1.5 text-sm"
+        disabled={movesRunning}
+        onClick={onChooseFolder}
+      >
         Choose Folder
       </Button>
       {isScanning ? (

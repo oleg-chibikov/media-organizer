@@ -17,6 +17,7 @@ export default function App() {
         selectedFolder={scan.selectedFolder}
         folderError={session.folderError}
         isScanning={scan.isScanning}
+        movesRunning={execution.executing}
         historyMenu={
           <HistoryMenu
             runs={history.runs}
