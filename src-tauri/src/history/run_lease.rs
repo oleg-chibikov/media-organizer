@@ -28,6 +28,11 @@ impl RunLease {
     }
 }
 
+/// True while a job in this app holds the run.
+pub(super) fn is_busy(run_id: &str) -> bool {
+    busy_runs().contains(run_id)
+}
+
 impl Drop for RunLease {
     fn drop(&mut self) {
         busy_runs().remove(&self.run_id);

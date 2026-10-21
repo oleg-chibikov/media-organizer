@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::{
     candidates::{collect_redoable_operations, collect_undoable_operations},
     log_parser::parse_run_log_records,
-    HISTORY_VERSION,
+    run_lease, HISTORY_VERSION,
 };
 use crate::models::{HistoryIndexEntry, HistoryOperation, HistoryRun, HistoryRunStatus};
 
@@ -49,6 +49,10 @@ pub(super) fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> Recov
     let mut unsafe_for_undo_redo = false;
     if parse_result.corrupt {
         run.run_status = HistoryRunStatus::Corrupt;
+        unsafe_for_undo_redo = true;
+    } else if parse_result.incomplete && !parse_result.partial && run_lease::is_busy(&run.run_id) {
+        // Still moving files in this app: the log is fine, it just isn't finished yet.
+        run.run_status = HistoryRunStatus::Running;
         unsafe_for_undo_redo = true;
     } else if parse_result.partial || parse_result.incomplete {
         run.run_status = HistoryRunStatus::Partial;

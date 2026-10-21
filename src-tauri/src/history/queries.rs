@@ -17,10 +17,10 @@ pub(super) fn list_history_runs(history_root: &Path) -> Result<Vec<HistoryIndexE
         let mut recovered_entries: Vec<HistoryIndexEntry> = index
             .runs
             .iter()
-            .map(|entry| summary_cache::cached_entry(entry, refreshed_index_entry))
+            .map(|entry| summary_cache::cached_entry(history_root, entry, refreshed_index_entry))
             .collect();
         keep_newest_runs(&mut recovered_entries);
-        summary_cache::keep_only(&recovered_entries);
+        summary_cache::keep_only(history_root, &recovered_entries);
 
         if recovered_entries != index.runs {
             index.runs = recovered_entries.clone();
