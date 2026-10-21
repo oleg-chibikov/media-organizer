@@ -16,6 +16,7 @@ mod run_lease;
 mod run_record;
 mod run_updates;
 mod store;
+mod summary_cache;
 
 #[cfg(test)]
 mod tests;

@@ -4,6 +4,7 @@ use super::{
     index::{load_history_index, with_index_lock, write_history_index},
     index_updates::keep_newest_runs,
     recovery::{recover_history_run_from_entry, RecoveredHistoryRun},
+    summary_cache,
 };
 use crate::models::{
     HistoryIndexEntry, HistoryOperationKind, HistoryOperationStatus, HistoryRunDetails,
@@ -13,9 +14,13 @@ use crate::models::{
 pub(super) fn list_history_runs(history_root: &Path) -> Result<Vec<HistoryIndexEntry>, String> {
     with_index_lock(|| {
         let mut index = load_history_index(history_root)?;
-        let mut recovered_entries: Vec<HistoryIndexEntry> =
-            index.runs.iter().map(refreshed_index_entry).collect();
+        let mut recovered_entries: Vec<HistoryIndexEntry> = index
+            .runs
+            .iter()
+            .map(|entry| summary_cache::cached_entry(entry, refreshed_index_entry))
+            .collect();
         keep_newest_runs(&mut recovered_entries);
+        summary_cache::keep_only(&recovered_entries);
 
         if recovered_entries != index.runs {
             index.runs = recovered_entries.clone();
