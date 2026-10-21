@@ -83,7 +83,9 @@ export default function App() {
         execution={execution}
         moveCounts={moves.moveCounts}
         hasPendingExecutableItems={moves.hasPendingExecutableItems}
+        destinationRoot={effectiveDestination.rootPath}
         onExecutionAction={moves.runExecutionAction}
+        onOpenDestination={session.openDestination}
       />
 
       {moves.confirmation.summary ? (

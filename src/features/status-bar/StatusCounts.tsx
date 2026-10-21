@@ -6,10 +6,17 @@ interface StatusCountsProps {
   scan: ScanProgress;
   planErrors: number;
   summary: MoveConfirmationSummary;
+  showReady: boolean;
   moveCounts: MoveCounts;
 }
 
-export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCountsProps) {
+export function StatusCounts({
+  scan,
+  planErrors,
+  summary,
+  showReady,
+  moveCounts
+}: StatusCountsProps) {
   return (
     <>
       <span>Files: {scan.discovered}</span>
@@ -18,7 +25,7 @@ export function StatusCounts({ scan, planErrors, summary, moveCounts }: StatusCo
       {planErrors > 0 ? <span className="text-amber-300">Can't plan: {planErrors}</span> : null}
       {summary.total_plans > 0 ? (
         <>
-          <span>Ready: {summary.ready_operations}</span>
+          {showReady ? <span>Ready: {summary.ready_operations}</span> : null}
           {summary.suffix_applied > 0 ? <span>Renamed: {summary.suffix_applied}</span> : null}
         </>
       ) : null}

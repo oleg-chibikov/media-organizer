@@ -34,9 +34,6 @@ export function pipelineStatusLabel(
 }
 
 export function executionActionLabel(execution: MoveExecutionState): string {
-  if (execution.completed) {
-    return "Done";
-  }
   if (!execution.confirmed) {
     return "Move Files...";
   }

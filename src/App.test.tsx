@@ -37,6 +37,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     suffix_applied: 0
   })),
   executeMovePlan: vi.fn(async () => undefined),
+  revealFileInExplorer: vi.fn(async () => undefined),
   attachScanListeners: vi.fn(async (handlers: ScanListeners) => ((listeners.scan = handlers), [])),
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), [])),
   attachMoveListeners: vi.fn(async (handlers: MoveListeners) => ((listeners.move = handlers), [])),
@@ -92,6 +93,8 @@ describe("App", () => {
     });
     expect(screen.getByRole("status")).toHaveTextContent("Done");
     expect(screen.getByText("Moved: 1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Done" })).toBeDisabled();
+    expect(screen.getByText(/Moved 1 file\./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Destination" }));
+    expect(api.revealFileInExplorer).toHaveBeenCalledWith("C:\\in\\Processed");
   });
 });

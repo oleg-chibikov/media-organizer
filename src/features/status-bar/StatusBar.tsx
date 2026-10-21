@@ -2,6 +2,7 @@ import { Button } from "../../components/design-system/Button";
 import type { MoveConfirmationSummary } from "../../lib/types";
 import type { MoveCounts, MoveExecutionState } from "../moves";
 import type { ScanProgress } from "../scan";
+import { finishSummary } from "./finishSummary";
 import { executionActionLabel, pipelineStatusLabel, type PlanningStatus } from "./statusBarLabels";
 import { StatusCounts } from "./StatusCounts";
 
@@ -13,7 +14,9 @@ interface StatusBarProps {
   execution: MoveExecutionState;
   moveCounts: MoveCounts;
   hasPendingExecutableItems: boolean;
+  destinationRoot: string | null;
   onExecutionAction: () => void;
+  onOpenDestination: () => void;
 }
 
 export function StatusBar({
@@ -24,7 +27,9 @@ export function StatusBar({
   execution,
   moveCounts,
   hasPendingExecutableItems,
-  onExecutionAction
+  destinationRoot,
+  onExecutionAction,
+  onOpenDestination
 }: StatusBarProps) {
   return (
     <footer className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
@@ -36,20 +41,35 @@ export function StatusBar({
           scan={scan}
           planErrors={planning.planErrors}
           summary={summary}
+          showReady={!execution.completed}
           moveCounts={moveCounts}
         />
         {health === "ok" || health === "checking" ? null : (
           <span className="text-rose-300">Backend: {health}</span>
         )}
-        <Button
-          variant="primary"
-          className="ml-auto px-3 py-1.5 text-xs"
-          disabled={execution.completed || !hasPendingExecutableItems}
-          onClick={onExecutionAction}
-        >
-          {executionActionLabel(execution)}
-        </Button>
+        {execution.completed ? (
+          <Button
+            variant="primary"
+            className="ml-auto px-3 py-1.5 text-xs"
+            disabled={!destinationRoot}
+            onClick={onOpenDestination}
+          >
+            Open Destination
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            className="ml-auto px-3 py-1.5 text-xs"
+            disabled={!hasPendingExecutableItems}
+            onClick={onExecutionAction}
+          >
+            {executionActionLabel(execution)}
+          </Button>
+        )}
       </div>
+      {execution.completed ? (
+        <p className="mt-1 text-emerald-300">{finishSummary(moveCounts)}</p>
+      ) : null}
       {execution.confirmed && !execution.completed ? (
         <p className={`mt-1 ${execution.paused ? "text-amber-400" : "text-emerald-400"}`}>
           {execution.paused

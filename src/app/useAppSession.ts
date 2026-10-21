@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { attachScanListeners, useBackendEvents } from "../lib/api";
+import { attachScanListeners, revealFileInExplorer, useBackendEvents } from "../lib/api";
 import {
   useDestinationSettings,
   useEffectiveDestinationRoot
@@ -78,6 +78,13 @@ export function useAppSession() {
   return {
     folderError,
     dismissError: () => setFolderError(null),
+    openDestination: () => {
+      if (effectiveDestination.rootPath) {
+        revealFileInExplorer(effectiveDestination.rootPath).catch((error: unknown) =>
+          setFolderError(`Failed to open the destination: ${String(error)}`)
+        );
+      }
+    },
     health: backend.health,
     scan,
     metadataByFileId: metadata.metadataByFileId,
