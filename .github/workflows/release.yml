@@ -81,10 +81,12 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise x -- rustup target add ${{ matrix.target }}
       # Reuses compiled dependencies from the last run, so only the app crate builds again.
+      # The runner image brings its own Rust, so the key follows the version pinned in mise.toml instead.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ${{ matrix.target }}
+          key: ${{ matrix.target }}-${{ hashFiles('mise.toml') }}
+          add-rust-environment-hash-key: false
       - run: mise x -- pnpm install --frozen-lockfile
       - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config "{\"version\":\"${TAG#v}\"}"
 
