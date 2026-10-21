@@ -31,7 +31,12 @@ impl MetadataQueue {
             return Ok(queue_full_results(requests, self.capacity));
         }
 
-        let (mut results, pending) = split_missing_sources(requests);
+        // Existence checks can stall on network shares, so they run on the blocking pool.
+        let split = tauri::async_runtime::spawn_blocking(move || split_missing_sources(requests));
+        let Ok((mut results, pending)) = split.await else {
+            self.waiting.fetch_sub(request_count, Ordering::SeqCst);
+            return Err("Metadata existence check failed.".to_string());
+        };
         if pending.is_empty() {
             self.waiting.fetch_sub(request_count, Ordering::SeqCst);
             return Ok(unwrap_metadata_results(results));
