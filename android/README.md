@@ -81,7 +81,7 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 ## What differs
 
 - **Metadata** comes from Android's `ExifInterface` and `MediaMetadataRetriever` instead of ExifTool.
-- **Video device name** is missing. Android doesn't expose the camera model of a video.
+- **Device name** of a file without a camera model is the phone's own model. Android doesn't expose the camera model of a video, so every video gets it.
 - **Hidden files** such as `.trashed-*` and `.pending-*` stay put. They belong to the Android gallery.
 - **History and undo** don't exist. The log on screen shows the last 300 moves.
 
