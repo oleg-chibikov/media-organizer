@@ -39,7 +39,7 @@ Each layer may depend only on the layers below it.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
 - `move_run/`: one confirmed batch from start to finish: history run, per-file progress, results and source folder cleanup.
-- `history/`: `HistoryStore` over run logs and the bounded index, crash recovery and undo/redo candidates.
+- `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
