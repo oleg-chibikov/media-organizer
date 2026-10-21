@@ -1,6 +1,6 @@
 import type { MoveConfirmationSummary } from "../../lib/types";
-import { hasMoveResults, type MoveCounts } from "../moves/moveCounts";
-import type { ScanProgress } from "../scan/scanProgress";
+import { hasMoveResults, type MoveCounts } from "../moves";
+import type { ScanProgress } from "../scan";
 
 interface StatusCountsProps {
   scan: ScanProgress;

@@ -1,11 +1,12 @@
-import type { MetadataResult } from "../lib/types";
 import type {
   DestinationSettingsOperation,
   useDestinationSettings
-} from "../features/destination-settings/useDestinationSettings";
-import type { useMoveExecution } from "../features/moves/useMoveExecution";
-import type { useMovePlanning } from "../features/planning/useMovePlanning";
-import type { useScanSession } from "../features/scan/useScanSession";
+} from "../features/destination-settings";
+import type { useMoveExecution } from "../features/moves";
+import type { useMovePlanning } from "../features/planning";
+import type { useScanSession } from "../features/scan";
+import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "../lib/api";
+import type { MetadataResult } from "../lib/types";
 
 interface DestinationChangeOptions {
   destination: ReturnType<typeof useDestinationSettings>;
@@ -38,9 +39,15 @@ export function useDestinationChange({
     planning.requestPlans(scan.rows, metadataResults);
   };
 
-  return (operation: DestinationSettingsOperation) =>
+  const change = (operation: DestinationSettingsOperation) =>
     void destination.applyChange(operation, {
       locked: moves.execution.executing,
       onChanged: replanForDestinationChange
     });
+
+  return {
+    chooseRoot: () => change(chooseRootMediaFolder),
+    clearRoot: () => change(clearRootMediaFolder),
+    setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue))
+  };
 }

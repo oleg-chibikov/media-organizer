@@ -1,8 +1,7 @@
 import { Button } from "../../components/design-system/Button";
 import type { MoveConfirmationSummary } from "../../lib/types";
-import type { MoveCounts } from "../moves/moveCounts";
-import type { MoveExecutionState } from "../moves/moveExecutionState";
-import type { ScanProgress } from "../scan/scanProgress";
+import type { MoveCounts, MoveExecutionState } from "../moves";
+import type { ScanProgress } from "../scan";
 import { executionActionLabel, pipelineStatusLabel, type PlanningStatus } from "./statusBarLabels";
 import { StatusCounts } from "./StatusCounts";
 

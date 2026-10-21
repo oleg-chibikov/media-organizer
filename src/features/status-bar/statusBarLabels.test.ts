@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { IDLE_MOVE_EXECUTION } from "../moves/moveExecutionState";
-import { EMPTY_SCAN_PROGRESS } from "../scan/scanProgress";
+import { IDLE_MOVE_EXECUTION } from "../moves";
+import { EMPTY_SCAN_PROGRESS } from "../scan";
 import { executionActionLabel, pipelineStatusLabel } from "./statusBarLabels";
 
 const SCANNED = { ...EMPTY_SCAN_PROGRESS, discovered: 2, completed: true };

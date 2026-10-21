@@ -1,14 +1,13 @@
 import { useAppSession } from "./app/useAppSession";
-import { DestinationSettingsMenu } from "./features/destination-settings/DestinationSettingsMenu";
-import { FileTable } from "./features/file-table/FileTable";
-import { HistoryMenu } from "./features/history/HistoryMenu";
-import { StatusBar } from "./features/status-bar/StatusBar";
-import { Toolbar } from "./features/toolbar/Toolbar";
-import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "./lib/api";
+import { DestinationSettingsMenu } from "./features/destination-settings";
+import { FileTable } from "./features/file-table";
+import { HistoryMenu } from "./features/history";
+import { StatusBar } from "./features/status-bar";
+import { Toolbar } from "./features/toolbar";
 
 export default function App() {
   const session = useAppSession();
-  const { scan, planning, moves, history, destination, changeDestinationSettings } = session;
+  const { scan, planning, moves, history, destination, destinationActions } = session;
   const { execution } = moves;
   const rootMediaFolder = destination.settings?.root_media_folder ?? null;
 
@@ -40,11 +39,9 @@ export default function App() {
             pending={destination.pending}
             locked={execution.executing}
             error={destination.error}
-            onChooseRoot={() => changeDestinationSettings(chooseRootMediaFolder)}
-            onClearRoot={() => changeDestinationSettings(clearRootMediaFolder)}
-            onSetForceProcessed={(nextValue) =>
-              changeDestinationSettings(() => setForceProcessedFolder(nextValue))
-            }
+            onChooseRoot={destinationActions.chooseRoot}
+            onClearRoot={destinationActions.clearRoot}
+            onSetForceProcessed={destinationActions.setForceProcessed}
           />
         }
         onChooseFolder={() => void scan.chooseFolderAndScan()}

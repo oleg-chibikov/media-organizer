@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { attachScanListeners, useBackendEvents } from "../lib/api";
-import { useDestinationSettings } from "../features/destination-settings/useDestinationSettings";
-import { useHistory } from "../features/history/useHistory";
-import { useMetadataQueue } from "../features/metadata/useMetadataQueue";
-import { useMoveExecution } from "../features/moves/useMoveExecution";
-import { useMovePlanning } from "../features/planning/useMovePlanning";
-import { useScanSession } from "../features/scan/useScanSession";
+import { useDestinationSettings } from "../features/destination-settings";
+import { useHistory } from "../features/history";
+import { useMetadataQueue } from "../features/metadata";
+import { useMoveExecution } from "../features/moves";
+import { useMovePlanning } from "../features/planning";
+import { useScanSession } from "../features/scan";
 import { useBackendBootstrap } from "./useBackendBootstrap";
 import { useDestinationChange } from "./useDestinationChange";
 
@@ -54,7 +54,7 @@ export function useAppSession() {
     (error) => setFolderError(`Failed to attach scan listeners: ${String(error)}`)
   );
 
-  const changeDestinationSettings = useDestinationChange({
+  const destinationActions = useDestinationChange({
     destination,
     scan,
     metadataByFileId: metadata.metadataByFileId,
@@ -81,6 +81,6 @@ export function useAppSession() {
     moves,
     history,
     destination,
-    changeDestinationSettings
+    destinationActions
   };
 }

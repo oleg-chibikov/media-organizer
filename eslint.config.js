@@ -26,5 +26,57 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }]
     }
   },
+  {
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^\\.\\./(?!\\.\\.)[^/]+/.+",
+              message: "Import another feature through its index, for example `../moves`."
+            },
+            {
+              regex: "(^|/)app(/|$)",
+              message: "Features must not depend on app-level orchestration."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    files: ["src/app/**/*.{ts,tsx}", "src/App.tsx", "src/App.test.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "(^|/)features/[^/]+/.+",
+              message: "Import a feature through its index, for example `./features/moves`."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    files: ["src/lib/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "(^|/)(features|app)(/|$)",
+              message: "Shared lib and design-system code must not depend on features or app."
+            }
+          ]
+        }
+      ]
+    }
+  },
   eslintConfigPrettier
 );

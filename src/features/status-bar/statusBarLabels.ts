@@ -1,5 +1,5 @@
-import type { MoveExecutionState } from "../moves/moveExecutionState";
-import type { ScanProgress } from "../scan/scanProgress";
+import type { MoveExecutionState } from "../moves";
+import type { ScanProgress } from "../scan";
 
 export interface PlanningStatus {
   isPlanning: boolean;
