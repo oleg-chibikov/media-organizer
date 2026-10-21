@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::metadata::request_writer::{write_request, EXIFTOOL_TAGS};
+use crate::metadata::request_writer::{write_request, EXIFTOOL_TAGS, READ_OPTIONS};
 
 #[test]
 fn writes_only_read_options_and_the_requested_path() {
@@ -10,8 +10,10 @@ fn writes_only_read_options_and_the_requested_path() {
     write_request(&mut written, std::slice::from_ref(&photo), 7).expect("write request");
 
     let text = String::from_utf8(written).expect("utf-8 request");
-    let mut allowed: Vec<&str> = vec!["-json", "-execute7", photo.to_str().expect("utf-8")];
+    let mut allowed: Vec<&str> = vec!["-execute7", photo.to_str().expect("utf-8")];
+    allowed.extend(READ_OPTIONS);
     allowed.extend(EXIFTOOL_TAGS);
+    assert!(text.starts_with("-charset\nfilename=utf8\n-json\n"));
     for line in text.lines() {
         assert!(
             allowed.contains(&line),

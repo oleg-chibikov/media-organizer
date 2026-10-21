@@ -2,6 +2,10 @@ use std::{io::Write, path::PathBuf};
 
 use super::{argfile_path::exiftool_path_argument, worker::WorkerError};
 
+/// Paths go out as UTF-8. Without this, ExifTool on Windows reads them in the ANSI code page
+/// and can't find a file with Cyrillic or accented letters in its path.
+pub(super) const READ_OPTIONS: [&str; 3] = ["-charset", "filename=utf8", "-json"];
+
 pub(super) const EXIFTOOL_TAGS: [&str; 11] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
@@ -29,15 +33,11 @@ pub(super) fn write_request(
         .collect::<Result<Vec<_>, _>>()
         .map_err(WorkerError::Protocol)?;
 
-    stdin.write_all(b"-json\n").map_err(|error| {
-        WorkerError::Crashed(format!("Failed to write ExifTool request: {error}"))
-    })?;
-
-    for tag in EXIFTOOL_TAGS {
+    for argument in READ_OPTIONS.iter().chain(&EXIFTOOL_TAGS) {
         stdin
-            .write_all(format!("{tag}\n").as_bytes())
+            .write_all(format!("{argument}\n").as_bytes())
             .map_err(|error| {
-                WorkerError::Crashed(format!("Failed to write ExifTool tag request: {error}"))
+                WorkerError::Crashed(format!("Failed to write ExifTool request: {error}"))
             })?;
     }
 
