@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { HistoryMenu } from "./HistoryMenu";
-import type { HistoryIndexEntry } from "../lib/types";
+import type { HistoryIndexEntry } from "../../lib/types";
 
 const RUNS: HistoryIndexEntry[] = [
   {

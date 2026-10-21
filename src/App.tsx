@@ -1,8 +1,9 @@
 import { useAppSession } from "./app/useAppSession";
 import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
 import { FileTable } from "./features/file-table/FileTable";
+import { HistoryMenu } from "./features/history/HistoryMenu";
+import { Toolbar } from "./features/toolbar/Toolbar";
 import { StatusBar } from "./components/StatusBar";
-import { Toolbar } from "./components/Toolbar";
 import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "./lib/api";
 
 export default function App() {
@@ -17,12 +18,20 @@ export default function App() {
         selectedFolder={scan.selectedFolder}
         folderError={session.folderError}
         isScanning={scan.isScanning}
-        historyRuns={history.runs}
-        selectedHistoryRunId={history.selectedRunId}
-        historyLoading={history.loading}
-        details={history.details}
-        detailsLoading={history.detailsLoading}
-        detailsError={history.error}
+        historyMenu={
+          <HistoryMenu
+            runs={history.runs}
+            selectedRunId={history.selectedRunId}
+            loading={history.loading}
+            details={history.details}
+            detailsLoading={history.detailsLoading}
+            detailsError={history.error}
+            onSelectRun={history.selectRun}
+            onUndoRun={history.undoRun}
+            onRedoRun={history.redoRun}
+            onDeleteRun={history.deleteRun}
+          />
+        }
         rootMediaFolder={rootMediaFolder}
         settingsMenu={
           <DestinationSettingsMenu
@@ -40,10 +49,6 @@ export default function App() {
         }
         onChooseFolder={() => void scan.chooseFolderAndScan()}
         onCancelScan={() => void scan.stopScan()}
-        onSelectHistoryRun={history.selectRun}
-        onUndoProcessing={history.undoRun}
-        onRedoProcessing={history.redoRun}
-        onDeleteProcessing={history.deleteRun}
       />
 
       <main className="min-h-0 flex-1">

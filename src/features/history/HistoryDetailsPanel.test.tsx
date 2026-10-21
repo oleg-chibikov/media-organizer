@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HistoryDetailsPanel } from "./HistoryDetailsPanel";
-import type { HistoryRunDetails } from "../lib/types";
+import type { HistoryRunDetails } from "../../lib/types";
 
 const DETAILS: HistoryRunDetails = {
   run: {
