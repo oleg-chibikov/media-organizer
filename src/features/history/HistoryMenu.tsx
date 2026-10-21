@@ -27,7 +27,7 @@ export function HistoryMenu({
 
   return (
     <Pane
-      panelClassName="w-[48rem] p-2"
+      panelClassName="w-[56rem] max-w-[calc(100vw-10rem)] p-2"
       renderTrigger={({ open, toggle }) => (
         <Button
           variant="secondary"
