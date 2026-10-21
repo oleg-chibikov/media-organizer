@@ -52,3 +52,17 @@ pub(crate) fn photo_move_operation(source: &Path, destination: &Path) -> MoveOpe
         destination_path: destination.to_string_lossy().to_string(),
     }
 }
+
+/// Ready metadata for a planner-format date captured on an iPhone 15 Pro.
+pub(crate) fn dated_metadata(file_id: &str, chosen_date: &str) -> MetadataResult {
+    MetadataResult {
+        file_id: file_id.to_string(),
+        chosen_date: Some(chosen_date.to_string()),
+        chosen_date_source: Some("DateTimeOriginal".to_string()),
+        date_kind: None,
+        raw_metadata_date: Some(chosen_date.to_string()),
+        device_name: Some("iPhone 15 Pro".to_string()),
+        metadata_status: MetadataStatus::Ready,
+        error: None,
+    }
+}
