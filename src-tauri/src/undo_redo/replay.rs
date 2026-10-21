@@ -1,4 +1,4 @@
-use super::{direction::ReplayDirection, outcome::ReplaySummary};
+use super::{direction::ReplayDirection, outcome::ReplaySummary, recorded_roots::RecordedRoots};
 use crate::{
     events::{self, EventSink},
     history::{HistoryStore, RunLogWriter},
@@ -10,6 +10,7 @@ pub(crate) struct ReplayJob {
     direction: ReplayDirection,
     run_id: String,
     initial_status: HistoryRunStatus,
+    roots: RecordedRoots,
     operations: Vec<HistoryOperation>,
     log: RunLogWriter,
     history: HistoryStore,
@@ -27,6 +28,7 @@ pub(crate) fn prepare_replay(
     Ok(ReplayJob {
         direction,
         run_id: run_id.to_string(),
+        roots: RecordedRoots::of(&details.run),
         initial_status: details.run.run_status,
         operations,
         log,
@@ -41,7 +43,10 @@ impl ReplayJob {
         let mut summary = ReplaySummary::new(total_operations);
 
         for (index, operation) in self.operations.iter().enumerate() {
-            let outcome = self.direction.execute(operation);
+            let outcome = match self.roots.check(operation) {
+                Ok(()) => self.direction.execute(operation),
+                Err(blocked) => blocked,
+            };
             let record = self.direction.record(&self.run_id, operation, &outcome);
             let logged = self.log.append_operation(record.clone());
             summary.count(&record.status);

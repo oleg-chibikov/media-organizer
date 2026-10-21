@@ -1,3 +1,4 @@
+mod recorded_roots;
 mod redo;
 mod undo;
 

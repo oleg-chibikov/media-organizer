@@ -3,6 +3,7 @@
 mod direction;
 mod eligibility;
 mod outcome;
+mod recorded_roots;
 mod records;
 mod redo;
 mod replay;
