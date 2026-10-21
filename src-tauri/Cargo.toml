@@ -1,6 +1,6 @@
 [package]
 name = "media-organizer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Organize NAS media TODO folder"
 authors = ["you"]
 edition = "2021"
