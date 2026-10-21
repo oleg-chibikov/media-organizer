@@ -1,10 +1,8 @@
 import type { RefObject } from "react";
 import { attachMoveListeners, useBackendEvents } from "../../lib/api";
 import type { FileRecord, MoveResult } from "../../lib/types";
-import { countMoveResult } from "./moveCounts";
 import { isDispatchDrained, recordMoveResult } from "./moveDispatchCompletion";
 import type { MoveDispatchQueue } from "./moveDispatchQueue";
-import { patchMoveExecution } from "./moveExecutionState";
 import { formatMoveProgress } from "./formatMoveProgress";
 import type { MoveStatus } from "./useMoveStatus";
 
@@ -12,7 +10,7 @@ interface MoveEventsOptions {
   queueRef: RefObject<MoveDispatchQueue>;
   pumpRef: RefObject<() => void>;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
-  status: MoveStatus;
+  status: Pick<MoveStatus, "recordResults" | "updateExecution">;
   reportError: (message: string) => void;
 }
 
@@ -24,21 +22,14 @@ export function useMoveEvents({
   status,
   reportError
 }: MoveEventsOptions) {
-  const { setExecution, setMoveResultsByFileId, setMoveCounts, updateExecution } = status;
-  const applyMoveResult = (result: MoveResult) => {
-    const isFirstResult = recordMoveResult(queueRef.current, result.file_id);
-    setMoveResultsByFileId((previous) => ({ ...previous, [result.file_id]: result }));
-    setExecution((previous) =>
-      previous.activeFileId === result.file_id
-        ? patchMoveExecution(previous, { activeFileId: null })
-        : previous
-    );
-    if (!isFirstResult) {
-      return;
-    }
-    setMoveCounts((previous) => countMoveResult(previous, result.result_status));
-    if (result.result_status === "failed" && result.error) {
-      reportError(`Move error: ${result.error}`);
+  const { recordResults, updateExecution } = status;
+  const applyMoveResults = (results: MoveResult[]) => {
+    recordResults(results);
+    for (const result of results) {
+      const isFirstResult = recordMoveResult(queueRef.current, result.file_id);
+      if (isFirstResult && result.result_status === "failed" && result.error) {
+        reportError(`Move error: ${result.error}`);
+      }
     }
   };
 
@@ -54,9 +45,9 @@ export function useMoveEvents({
           activeFileId: payload.file_id
         });
       },
-      onFile: ({ result }) => applyMoveResult(result),
+      onFile: ({ result }) => applyMoveResults([result]),
       onFinished: ({ results }) => {
-        results.forEach(applyMoveResult);
+        applyMoveResults(results);
         const queue = queueRef.current;
         queue.activeRequests = Math.max(0, queue.activeRequests - 1);
         if (isDispatchDrained(queue)) {

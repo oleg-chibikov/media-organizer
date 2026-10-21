@@ -1,8 +1,8 @@
-import { useCallback, useMemo, type RefObject } from "react";
+import { useCallback, type RefObject } from "react";
 import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
-import { buildMoveConfirmationPrompt, countPendingExecutableMoves } from "./moveConfirmationPrompt";
+import { buildMoveConfirmationPrompt } from "./moveConfirmationPrompt";
 import { IDLE_MOVE_EXECUTION, type MoveExecutionState } from "./moveExecutionState";
-import { summarizeMoveConfirmation } from "./summarizeMoveConfirmation";
+import { useMoveConfirmationSummary } from "./useMoveConfirmationSummary";
 import { useMoveDispatch } from "./useMoveDispatch";
 import { useMoveEvents } from "./useMoveEvents";
 import { useMoveStatus } from "./useMoveStatus";
@@ -16,23 +16,31 @@ interface MoveExecutionOptions {
   reportError: (message: string) => void;
 }
 
-export function useMoveExecution(options: MoveExecutionOptions) {
-  const { selectedFolder, rows, metadataByFileId, movePlansByFileId, reportError } = options;
+export function useMoveExecution({
+  selectedFolder,
+  rows,
+  rowByIdRef,
+  metadataByFileId,
+  movePlansByFileId,
+  reportError
+}: MoveExecutionOptions) {
   const status = useMoveStatus();
   const { execution, moveResultsByFileId, updateExecution, clearStatus } = status;
-  const dispatch = useMoveDispatch({
-    ...options,
-    ...status,
-    executionConfirmed: execution.confirmed
+  const { queueRef, pumpRef, resetDispatch, startDispatch, togglePaused } = useMoveDispatch({
+    selectedFolder,
+    rowByIdRef,
+    metadataByFileId,
+    movePlansByFileId,
+    moveResultsByFileId,
+    executionConfirmed: execution.confirmed,
+    updateExecution,
+    reportError
   });
-  const { resetDispatch, startDispatch, togglePaused, pumpRef } = dispatch;
-  useMoveEvents({ ...options, ...dispatch, status });
+  useMoveEvents({ queueRef, pumpRef, rowByIdRef, status, reportError });
 
-  const confirmationSummary = useMemo(
-    () => summarizeMoveConfirmation(rows, metadataByFileId, movePlansByFileId),
-    [metadataByFileId, movePlansByFileId, rows]
-  );
-  const pendingExecutableCount = countPendingExecutableMoves(
+  const { confirmationSummary, pendingExecutableCount } = useMoveConfirmationSummary(
+    rows,
+    metadataByFileId,
     movePlansByFileId,
     moveResultsByFileId
   );
