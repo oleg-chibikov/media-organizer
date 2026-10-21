@@ -33,18 +33,21 @@
 
 - Frontend: React + TypeScript + Vite in `src/`.
 - Backend: Tauri 2 + Rust in `src-tauri/src/`.
-- Runtime bridge: Tauri commands/events are wrapped by `src/lib/api.ts`.
+- Runtime bridge: Tauri commands and events are wrapped by `src/lib/api/`.
 - Source of truth for app behavior is the Rust backend; frontend state should mirror command results and emitted events.
 - Architecture notes live in `docs/architecture.md`.
 
 ## File Organization
 
 - Put reusable low-level UI primitives in `src/components/design-system/`.
-- Put app-level orchestration in `src/App.tsx` only when the state truly crosses feature boundaries.
-- For new multi-file frontend features, prefer `src/features/<feature>/` with focused components, hooks, helpers, and tests.
-- Keep Tauri command wrappers and event subscriptions centralized in `src/lib/api.ts`.
-- Keep shared frontend payload types in `src/lib/types.ts` aligned with Rust models.
+- Keep `src/App.tsx` to layout. Put state that crosses features in `src/app/`.
+- Put frontend features in `src/features/<feature>/` and expose them only through its `index.ts`.
+- Keep Tauri command wrappers and event subscriptions in `src/lib/api/`.
+- Keep shared frontend payload types in `src/lib/types/` aligned with `src-tauri/src/models/`.
+- Keep Tauri types in `main.rs`, `commands/` and `events.rs`. Domain modules take paths, stores and an `EventSink`.
+- Keep command handlers thin and async; put validation and orchestration in the domain module.
 - Put backend behavior in focused Rust modules; create a folder module when one backend feature needs multiple files.
+- Keep files under about 100 lines, tests under about 150.
 
 ## Agent Context Files
 

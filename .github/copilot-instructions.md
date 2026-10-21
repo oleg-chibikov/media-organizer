@@ -12,5 +12,6 @@ Key project conventions:
 
 - Use `mise x -- <command>` for project tooling.
 - Keep filesystem logic in Rust (`src-tauri/src`), not React.
-- Keep Tauri command payloads aligned between Rust models and `src/lib/types.ts`.
+- Keep Tauri command payloads aligned between `src-tauri/src/models/` and `src/lib/types/`.
+- Follow the layering in `docs/architecture.md`: Tauri types stay in `commands/` and `events.rs`, features import each other through `index.ts`.
 - Favor targeted validation before broader checks.

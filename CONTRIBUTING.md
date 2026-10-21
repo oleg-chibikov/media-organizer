@@ -9,10 +9,11 @@
 
 ## Code Guidelines
 
-- Put UI state orchestration in `src/App.tsx` or focused React components.
-- Put Tauri command wrappers and event subscriptions in `src/lib/api.ts`.
-- Keep shared frontend payload types in `src/lib/types.ts` aligned with Rust `src-tauri/src/models.rs`.
-- Put filesystem behavior in Rust modules, not the frontend.
+- Follow the module map and layering rules in `docs/architecture.md`.
+- Put cross-feature UI wiring in `src/app/` and feature state in `src/features/<feature>/`.
+- Put Tauri command wrappers and event subscriptions in `src/lib/api/`.
+- Keep shared frontend payload types in `src/lib/types/` aligned with Rust `src-tauri/src/models/`.
+- Put filesystem behavior in Rust domain modules, not the frontend or the command handlers.
 - Add or update tests around path safety, conflict handling, history, metadata date selection, and queue behavior when changing those areas.
 
 ## Validation
