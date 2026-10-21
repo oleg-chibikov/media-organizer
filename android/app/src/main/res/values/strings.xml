@@ -6,7 +6,9 @@
     <string name="choose">Choose</string>
     <string name="choose_source">Choose gallery folder</string>
     <string name="choose_destination">Choose Move to folder</string>
-    <string name="pick_phone_folder">Choose a folder on the phone storage or memory card.</string>
+    <string name="use_folder">Use this folder</string>
+    <string name="up">↑ Up</string>
+    <string name="storages">Storage</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="status_running">Sorting. Keep the app on screen.</string>

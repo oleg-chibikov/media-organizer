@@ -36,6 +36,8 @@ A locally built APK and a release APK have different keys. To switch between the
 3. Press Start. The first time, Android asks for access to all files. Allow it and press Start again. Choose asks the same way.
 4. Keep the app on screen until the line under Start says Done. Android pauses a backgrounded app.
 
+Choose opens a folder list inside the app. Tap a folder to open it, and "↑ Up" to go one level up. "Use this folder" picks the open folder. Back closes the list.
+
 Choose next to "Move to" creates the folder first when it doesn't exist yet, so the picker opens inside it.
 
 ## What matches the desktop app
