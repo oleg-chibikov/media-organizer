@@ -13,6 +13,8 @@ import com.mediaorganizer.android.organize.RunProgress
 class RunScreen(activity: Activity) {
     val source: EditText = activity.findViewById(R.id.source_path)
     val destination: EditText = activity.findViewById(R.id.destination_path)
+    val pickSource: Button = activity.findViewById(R.id.pick_source)
+    val pickDestination: Button = activity.findViewById(R.id.pick_destination)
     val start: Button = activity.findViewById(R.id.start)
     private val progressBar: ProgressBar = activity.findViewById(R.id.progress)
     private val counts: TextView = activity.findViewById(R.id.counts)
@@ -24,6 +26,8 @@ class RunScreen(activity: Activity) {
         start.setText(if (running) R.string.stop else R.string.start)
         source.isEnabled = !running
         destination.isEnabled = !running
+        pickSource.isEnabled = !running
+        pickDestination.isEnabled = !running
     }
 
     fun show(snapshot: RunProgress.Snapshot) {

@@ -17,12 +17,26 @@
             android:labelFor="@id/source_path"
             android:text="@string/source_label" />
 
-        <EditText
-            android:id="@+id/source_path"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:importantForAutofill="no"
-            android:inputType="textUri" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/source_path"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:importantForAutofill="no"
+                android:inputType="textUri" />
+
+            <Button
+                android:id="@+id/pick_source"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/choose_source"
+                android:text="@string/choose" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
@@ -31,13 +45,26 @@
             android:labelFor="@id/destination_path"
             android:text="@string/destination_label" />
 
-        <EditText
-            android:id="@+id/destination_path"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/destination_hint"
-            android:importantForAutofill="no"
-            android:inputType="textUri" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/destination_path"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:importantForAutofill="no"
+                android:inputType="textUri" />
+
+            <Button
+                android:id="@+id/pick_destination"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/choose_destination"
+                android:text="@string/choose" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/start"

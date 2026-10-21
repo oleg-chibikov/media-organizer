@@ -31,8 +31,8 @@ A locally built APK and a release APK have different keys. To switch between the
 
 ## Use it
 
-1. Open the app. The gallery folder starts as `/storage/emulated/0/DCIM/Camera`.
-2. Leave "Move to" empty to sort into `<gallery folder>/Processed`, or type another full path.
+1. Open the app. The gallery folder starts as `/storage/emulated/0/DCIM/Camera`, and "Move to" as `<gallery folder>/Processed`.
+2. Press Choose next to a field to pick another folder, or type a full path. The app keeps both folders after it closes.
 3. Press Start. The first time, Android asks for access to all files. Allow it and press Start again.
 4. Keep the app on screen until it says Done. Android pauses a backgrounded app.
 

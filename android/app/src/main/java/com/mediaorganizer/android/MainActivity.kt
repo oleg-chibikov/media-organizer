@@ -10,6 +10,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
+import com.mediaorganizer.android.folders.FolderFields
 import com.mediaorganizer.android.organize.RequestCheck
 import com.mediaorganizer.android.organize.checkRequest
 
@@ -17,7 +18,7 @@ private const val REFRESH_MILLIS = 200L
 
 class MainActivity : Activity() {
     private lateinit var screen: RunScreen
-    private lateinit var folders: SavedFolders
+    private lateinit var folders: FolderFields
     private val handler = Handler(Looper.getMainLooper())
     private val refresh = object : Runnable {
         override fun run() {
@@ -31,9 +32,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         screen = RunScreen(this)
-        folders = SavedFolders(this)
-        screen.source.setText(folders.source)
-        screen.destination.setText(folders.destination)
+        folders = FolderFields(this, screen.source, screen.destination, screen.pickSource, screen.pickDestination)
         screen.start.setOnClickListener { onStartPressed() }
     }
 
@@ -47,7 +46,11 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(refresh)
-        folders.save(screen.source.text.toString(), screen.destination.text.toString())
+        folders.save()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (!folders.onPicked(requestCode, resultCode, data)) super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun onStartPressed() {
@@ -61,7 +64,8 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
-        when (val check = checkRequest(screen.source.text.toString(), screen.destination.text.toString())) {
+        folders.save()
+        when (val check = checkRequest(folders.source, folders.destination)) {
             is RequestCheck.Invalid -> Toast.makeText(this, check.message, Toast.LENGTH_LONG).show()
             is RequestCheck.Valid -> {
                 ActiveRun.start(this, check.request)

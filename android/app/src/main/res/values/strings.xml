@@ -3,7 +3,10 @@
     <string name="app_name">Media Organizer</string>
     <string name="source_label">Gallery folder</string>
     <string name="destination_label">Move to</string>
-    <string name="destination_hint">Empty: gallery folder/Processed</string>
+    <string name="choose">Choose</string>
+    <string name="choose_source">Choose gallery folder</string>
+    <string name="choose_destination">Choose Move to folder</string>
+    <string name="pick_phone_folder">Choose a folder on the phone storage or memory card.</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="progress_label">Sorting progress</string>

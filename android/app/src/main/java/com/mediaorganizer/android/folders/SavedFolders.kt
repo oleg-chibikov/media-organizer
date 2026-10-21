@@ -1,10 +1,10 @@
-package com.mediaorganizer.android
+package com.mediaorganizer.android.folders
 
 import android.content.Context
 import android.os.Environment
 import java.io.File
 
-/** The typed folders, kept between launches. The gallery folder starts as `DCIM/Camera`. */
+/** The chosen folders, kept between launches. The gallery folder starts as `DCIM/Camera`. */
 class SavedFolders(context: Context) {
     private val preferences = context.getSharedPreferences("folders", Context.MODE_PRIVATE)
 
@@ -12,7 +12,7 @@ class SavedFolders(context: Context) {
         get() = preferences.getString(SOURCE_KEY, null) ?: defaultGalleryFolder()
 
     val destination: String
-        get() = preferences.getString(DESTINATION_KEY, null).orEmpty()
+        get() = preferences.getString(DESTINATION_KEY, null)?.takeIf(String::isNotBlank) ?: defaultDestination(source)
 
     fun save(source: String, destination: String) {
         preferences.edit().putString(SOURCE_KEY, source).putString(DESTINATION_KEY, destination).apply()
@@ -26,3 +26,6 @@ class SavedFolders(context: Context) {
         const val DESTINATION_KEY = "destination"
     }
 }
+
+/** Same default as desktop: sorted files go to `Processed` inside the gallery folder. */
+fun defaultDestination(source: String): String = File(source, "Processed").path
