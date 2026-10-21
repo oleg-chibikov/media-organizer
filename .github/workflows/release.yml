@@ -1,13 +1,27 @@
 name: Release
 
-# Pushing a tag like v0.2.0 builds the installers and publishes them as the latest release.
+# Each push to main publishes the next patch version as the latest release.
+# Run the workflow by hand to bump the minor or major version instead.
 # install.sh and install.ps1 download these assets by name, so keep the names stable.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", "specs/**"]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version part to raise
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   contents: write
+
+# Releases run one at a time, so each one sees the tag of the one before.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 env:
   GH_TOKEN: ${{ github.token }}
@@ -15,14 +29,31 @@ env:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
-      - name: Create a draft release
-        run: >
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
-          --draft --generate-notes --title "Media Organizer $GITHUB_REF_NAME"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick the next version
+        id: version
+        run: echo "tag=v$(.github/scripts/next-version.sh "${{ inputs.bump || 'patch' }}")" >> "$GITHUB_OUTPUT"
+
+      # A tag pushed with the workflow token starts no other workflow.
+      - name: Tag the commit and create a draft release
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --draft --generate-notes --title "Media Organizer $TAG"
 
   build:
     needs: create-release
+    env:
+      TAG: ${{ needs.create-release.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +79,7 @@ jobs:
       - uses: jdx/mise-action@v2
       - run: mise x -- rustup target add ${{ matrix.target }}
       - run: mise x -- pnpm install --frozen-lockfile
-      - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+      - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config "{\"version\":\"${TAG#v}\"}"
 
       - name: Package the Windows installer
         if: runner.os == 'Windows'
@@ -58,10 +89,12 @@ jobs:
         if: runner.os == 'macOS'
         run: cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "${{ matrix.asset }}"
 
-      - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
+      - run: gh release upload "$TAG" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
 
   android:
     needs: create-release
+    env:
+      TAG: ${{ needs.create-release.outputs.tag }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,17 +106,20 @@ jobs:
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
-          export ANDROID_VERSION_NAME="${GITHUB_REF_NAME#v}"
-          # v1.2.3 becomes 10203. Android refuses an update with a lower code.
-          export ANDROID_VERSION_CODE=$(echo "$ANDROID_VERSION_NAME" | awk -F. '{ print $1 * 10000 + $2 * 100 + $3 }')
+          export ANDROID_VERSION_NAME="${TAG#v}"
+          # v1.2.3 becomes 1002003. Android refuses an update with a lower code.
+          ANDROID_VERSION_CODE=$(echo "$ANDROID_VERSION_NAME" | awk -F. '{ print $1 * 1000000 + $2 * 1000 + $3 }')
+          export ANDROID_VERSION_CODE
           ./android/build-apk.sh
           cp android/dist/media-organizer.apk MediaOrganizer-android.apk
 
-      - run: gh release upload "$GITHUB_REF_NAME" MediaOrganizer-android.apk --repo "$GITHUB_REPOSITORY" --clobber
+      - run: gh release upload "$TAG" MediaOrganizer-android.apk --repo "$GITHUB_REPOSITORY" --clobber
 
   publish:
-    needs: [build, android]
+    needs: [create-release, build, android]
+    env:
+      TAG: ${{ needs.create-release.outputs.tag }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

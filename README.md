@@ -39,7 +39,12 @@ The APK lands in `android/dist/media-organizer.apk`. Details are in `android/REA
 
 ## Release
 
-Push a version tag, for example `git tag v0.2.0 && git push origin v0.2.0`. The `Release` workflow builds the Windows installer, the macOS apps and the Android APK, then publishes them as the latest GitHub release.
+Each push to `main` publishes a new GitHub release. Pushes that change only `*.md`, `docs/` or `specs/` don't.
+
+- **Version** the `Release` workflow raises the patch of the latest `vX.Y.Z` tag, for example `v0.2.0` to `v0.2.1`, and tags the commit.
+- **Minor or major** run `gh workflow run release.yml -f bump=minor`, or `major`.
+- **Assets** the Windows installer, a macOS DMG for each chip, and the signed Android APK.
+- **Version in files** `package.json`, `Cargo.toml` and `tauri.conf.json` stay as they are. The build takes the version from the tag.
 
 ## What It Does
 
