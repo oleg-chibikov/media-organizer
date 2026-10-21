@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type {
   DestinationSettingsOperation,
   useDestinationSettings
@@ -17,15 +18,20 @@ interface DestinationChangeOptions {
 }
 
 // A new destination root changes every planned path, so plans are rebuilt before execution starts.
-export function useDestinationChange({
-  destination,
-  scan,
-  metadataByFileId,
-  planning,
-  moves
-}: DestinationChangeOptions) {
+export function useDestinationChange(options: DestinationChangeOptions) {
+  const { destination, moves } = options;
+  // Files keep moving after confirmation as they become ready, so the root they go to stays fixed.
+  const locked = moves.execution.confirmed || moves.execution.executing;
+  // The change awaits a picker; the replan must see the session as it is when the change lands.
+  const latestRef = useRef(options);
+  useEffect(() => {
+    latestRef.current = options;
+  });
+
   const replanForDestinationChange = () => {
-    if (!scan.selectedFolder || moves.execution.executing || moves.execution.confirmed) {
+    const { scan, metadataByFileId, planning, moves: latestMoves } = latestRef.current;
+    const { executing, confirmed } = latestMoves.execution;
+    if (!scan.selectedFolder || executing || confirmed) {
       return;
     }
     const metadataResults = scan.rows
@@ -35,17 +41,15 @@ export function useDestinationChange({
       return;
     }
     planning.clearPlans();
-    moves.resetMovesForReplan();
+    latestMoves.resetMovesForReplan();
     planning.requestPlans(scan.rows, metadataResults);
   };
 
   const change = (operation: DestinationSettingsOperation) =>
-    void destination.applyChange(operation, {
-      locked: moves.execution.executing,
-      onChanged: replanForDestinationChange
-    });
+    void destination.applyChange(operation, { locked, onChanged: replanForDestinationChange });
 
   return {
+    locked,
     chooseRoot: () => change(chooseRootMediaFolder),
     clearRoot: () => change(clearRootMediaFolder),
     setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue))

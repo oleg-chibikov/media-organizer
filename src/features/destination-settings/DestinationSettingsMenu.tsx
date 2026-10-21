@@ -55,7 +55,7 @@ export function DestinationSettingsMenu({
         {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
         {locked ? (
           <p className="mt-2 text-xs text-slate-400">
-            Settings are locked while move execution is active.
+            Settings are locked once moves are confirmed. Choose a folder again to change them.
           </p>
         ) : null}
 

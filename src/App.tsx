@@ -37,7 +37,7 @@ export default function App() {
             settings={destination.settings}
             loading={destination.loading}
             pending={destination.pending}
-            locked={execution.executing}
+            locked={destinationActions.locked}
             error={destination.error}
             onChooseRoot={destinationActions.chooseRoot}
             onClearRoot={destinationActions.clearRoot}

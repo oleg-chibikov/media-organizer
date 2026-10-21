@@ -88,7 +88,9 @@ describe("DestinationSettingsMenu", () => {
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
     expect(
-      screen.getByText("Settings are locked while move execution is active.")
+      screen.getByText(
+        "Settings are locked once moves are confirmed. Choose a folder again to change them."
+      )
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose Root" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Clear Root" })).toBeDisabled();
