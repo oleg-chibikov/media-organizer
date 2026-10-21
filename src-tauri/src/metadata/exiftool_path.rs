@@ -1,0 +1,41 @@
+use std::path::PathBuf;
+
+use tauri::Manager;
+
+const SIDECAR_FILE_NAME: &str = "exiftool-x86_64-pc-windows-msvc.exe";
+
+/// Finds the bundled ExifTool sidecar in resource, executable and dev source locations.
+pub(super) fn resolve_exiftool_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        candidates.push(resource_dir.join(SIDECAR_FILE_NAME));
+        candidates.push(resource_dir.join("exiftool.exe"));
+        candidates.push(resource_dir.join("binaries").join(SIDECAR_FILE_NAME));
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join(SIDECAR_FILE_NAME));
+            candidates.push(exe_dir.join("exiftool.exe"));
+        }
+    }
+
+    let current_dir = std::env::current_dir()
+        .map_err(|error| format!("Failed to resolve current directory: {error}"))?;
+    candidates.push(
+        current_dir
+            .join("src-tauri")
+            .join("binaries")
+            .join(SIDECAR_FILE_NAME),
+    );
+
+    if let Some(found) = candidates.into_iter().find(|path| path.exists()) {
+        return Ok(found);
+    }
+
+    Err(
+        "Missing ExifTool sidecar binary. Expected `src-tauri/binaries/exiftool-x86_64-pc-windows-msvc.exe`."
+            .to_string(),
+    )
+}
