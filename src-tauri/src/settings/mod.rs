@@ -5,6 +5,13 @@ use chrono::Utc;
 
 use crate::models::{DestinationRootMode, DestinationSettings, EffectiveDestinationRoot};
 
+mod app_store;
+
+pub(crate) use app_store::{
+    load_destination_settings_for_app, resolve_effective_destination_root_for_app,
+    save_destination_settings_for_app,
+};
+
 pub const DESTINATION_SETTINGS_VERSION: u32 = 1;
 
 const SETTINGS_DIR_NAME: &str = "settings";

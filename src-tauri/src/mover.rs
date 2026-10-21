@@ -2,7 +2,11 @@ use std::{
     collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{self, Read, Write},
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
+};
+
+use crate::path_safety::{
+    has_parent_dir_component, path_is_within_case_insensitive, paths_equal_case_insensitive,
 };
 
 use crate::models::{
@@ -294,29 +298,6 @@ pub fn recheck_destination_conflicts(operations: Vec<MoveOperation>) -> Rechecke
     }
 
     RecheckedMoves { ready, skipped }
-}
-
-fn has_parent_dir_component(path: &Path) -> bool {
-    path.components()
-        .any(|component| matches!(component, Component::ParentDir))
-}
-
-fn path_is_within_case_insensitive(candidate: &Path, parent: &Path) -> bool {
-    let candidate = normalized_path_string(candidate);
-    let parent = normalized_path_string(parent);
-
-    candidate == parent || candidate.starts_with(&format!("{parent}/"))
-}
-
-fn paths_equal_case_insensitive(left: &Path, right: &Path) -> bool {
-    normalized_path_string(left) == normalized_path_string(right)
-}
-
-fn normalized_path_string(path: &Path) -> String {
-    path.to_string_lossy()
-        .replace('\\', "/")
-        .trim_end_matches('/')
-        .to_ascii_lowercase()
 }
 
 pub fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
