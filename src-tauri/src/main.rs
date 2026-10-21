@@ -12,6 +12,7 @@ mod move_run;
 mod mover;
 mod path_safety;
 mod planner;
+mod safe_fs;
 mod scanner;
 mod settings;
 mod system_explorer;

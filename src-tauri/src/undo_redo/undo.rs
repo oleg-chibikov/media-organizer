@@ -1,7 +1,10 @@
-use std::{fs, path::Path};
+use std::{fs, io, path::Path};
 
 use super::outcome::{ensure_expected_size, OperationOutcome};
-use crate::models::{HistoryOperation, MoveStrategy};
+use crate::{
+    models::{HistoryOperation, MoveStrategy},
+    safe_fs,
+};
 
 pub(super) fn execute_undo_operation(operation: &HistoryOperation) -> OperationOutcome {
     let result = match operation.move_strategy {
@@ -18,12 +21,12 @@ fn undo_rename_operation(operation: &HistoryOperation) -> Result<(), OperationOu
     let undo_source = Path::new(&operation.destination_path);
     let undo_destination = Path::new(&operation.source_path);
 
-    if !undo_source.is_file() {
+    if !safe_fs::is_plain_file(undo_source) {
         return Err(OperationOutcome::blocked(
             "Undo blocked: processed destination file is missing.",
         ));
     }
-    if undo_destination.exists() {
+    if safe_fs::path_is_occupied(undo_destination) {
         return Err(OperationOutcome::blocked(
             "Undo blocked: original source path already exists.",
         ));
@@ -43,12 +46,15 @@ fn undo_rename_operation(operation: &HistoryOperation) -> Result<(), OperationOu
         })?;
     }
 
-    fs::rename(undo_source, undo_destination).map_err(|error| {
-        OperationOutcome::failed(format!(
-            "Undo failed: could not move file back to source: {error}"
-        ))
-    })?;
-    Ok(())
+    safe_fs::move_file_no_replace(undo_source, undo_destination).map_err(|error| {
+        if error.kind() == io::ErrorKind::AlreadyExists {
+            OperationOutcome::blocked("Undo blocked: original source path appeared during undo.")
+        } else {
+            OperationOutcome::failed(format!(
+                "Undo failed: could not move file back to source: {error}"
+            ))
+        }
+    })
 }
 
 fn undo_copy_keep_source_operation(operation: &HistoryOperation) -> Result<(), OperationOutcome> {

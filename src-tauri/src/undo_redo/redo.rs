@@ -2,20 +2,20 @@ use std::{fs, io, path::Path};
 
 use super::outcome::{ensure_expected_size, OperationOutcome};
 use crate::{
-    file_ops::copy_into_new_file,
     models::{HistoryOperation, HistoryOperationKind, MoveStrategy},
+    safe_fs,
 };
 
 pub(super) fn execute_redo_operation(operation: &HistoryOperation) -> OperationOutcome {
     let result = match operation.move_strategy {
         MoveStrategy::Rename => redo_transfer(
             operation,
-            |source, destination| fs::rename(source, destination),
+            safe_fs::move_file_no_replace,
             "Redo failed: could not move file back to processed destination",
         ),
         MoveStrategy::CopyKeepSource => redo_transfer(
             operation,
-            copy_into_new_file,
+            safe_fs::copy_verified_no_replace,
             "Redo failed: could not copy file to recorded destination",
         ),
         MoveStrategy::NotAttempted => Err(OperationOutcome::blocked(
@@ -32,12 +32,12 @@ fn redo_transfer(
 ) -> Result<(), OperationOutcome> {
     let (redo_source, redo_destination) = redo_paths_for_operation(operation);
 
-    if !redo_source.is_file() {
+    if !safe_fs::is_plain_file(redo_source) {
         return Err(OperationOutcome::blocked(
             "Redo blocked: source file is missing.",
         ));
     }
-    if redo_destination.exists() {
+    if safe_fs::path_is_occupied(redo_destination) {
         return Err(OperationOutcome::blocked(
             "Redo blocked: recorded destination path already exists.",
         ));
@@ -57,9 +57,13 @@ fn redo_transfer(
         })?;
     }
 
-    transfer(redo_source, redo_destination)
-        .map_err(|error| OperationOutcome::failed(format!("{failure_message}: {error}")))?;
-    Ok(())
+    transfer(redo_source, redo_destination).map_err(|error| {
+        if error.kind() == io::ErrorKind::AlreadyExists {
+            OperationOutcome::blocked("Redo blocked: recorded destination appeared during redo.")
+        } else {
+            OperationOutcome::failed(format!("{failure_message}: {error}"))
+        }
+    })
 }
 
 /// Legacy runs without undo records are redone straight from their process records.

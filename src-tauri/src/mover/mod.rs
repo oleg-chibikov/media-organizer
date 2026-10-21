@@ -3,12 +3,10 @@
 mod confirmation_summary;
 mod conflict_recheck;
 mod copy_fallback;
-mod copy_io;
 mod outcome;
 mod preparation;
 mod rename;
 mod safety;
-mod verification;
 
 #[cfg(test)]
 mod tests;

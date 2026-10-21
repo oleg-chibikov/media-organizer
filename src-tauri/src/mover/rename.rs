@@ -5,20 +5,20 @@ use super::{
     outcome::{attempted_result, skipped_operation},
     MoveOperation,
 };
-use crate::models::{MoveResult, MoveResultStatus, MoveStrategy};
-
-const EEXIST: i32 = 17;
+use crate::{
+    models::{MoveResult, MoveResultStatus, MoveStrategy},
+    safe_fs,
+};
 
 pub(crate) fn execute_move_with_rename(operation: &MoveOperation) -> MoveResult {
-    execute_move_with_rename_internal(operation, |source, destination| {
-        fs::rename(source, destination)
-    })
+    execute_move_with_rename_internal(operation, safe_fs::move_file_no_replace)
 }
 
-/// Renames without overwriting; cross-device failures fall back to a verified copy.
+/// Moves without overwriting. Volumes that can't move in place get a verified copy that
+/// keeps the source.
 pub(super) fn execute_move_with_rename_internal<F>(
     operation: &MoveOperation,
-    rename_fn: F,
+    move_fn: F,
 ) -> MoveResult
 where
     F: Fn(&Path, &Path) -> io::Result<()>,
@@ -34,14 +34,14 @@ where
         )
     };
 
-    if destination.exists() {
+    if safe_fs::path_is_occupied(destination) {
         return skipped_operation(
             operation,
             "Destination already exists. Refusing to overwrite.",
         );
     }
 
-    if !source.exists() {
+    if !safe_fs::is_plain_file(source) {
         return failed("Source file no longer exists at execution time.".to_string());
     }
 
@@ -53,20 +53,27 @@ where
         }
     }
 
-    match rename_fn(source, destination) {
+    match move_fn(source, destination) {
         Ok(()) => attempted_result(
             operation,
             MoveStrategy::Rename,
             MoveResultStatus::Moved,
             None,
         ),
-        Err(error) if should_fallback_to_copy_keep_source(&error) => {
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => skipped_operation(
+            operation,
+            "Destination appeared right before the move. Refusing to overwrite.",
+        ),
+        Err(error) if needs_copy_fallback(&error) => {
             execute_copy_verify_keep_source(operation, source, destination)
         }
-        Err(error) => failed(format!("Atomic rename failed: {error}")),
+        Err(error) => failed(format!("No-overwrite move failed: {error}")),
     }
 }
 
-fn should_fallback_to_copy_keep_source(error: &io::Error) -> bool {
-    error.kind() == io::ErrorKind::CrossesDevices || error.raw_os_error() == Some(EEXIST)
+fn needs_copy_fallback(error: &io::Error) -> bool {
+    matches!(
+        error.kind(),
+        io::ErrorKind::CrossesDevices | io::ErrorKind::Unsupported
+    )
 }
