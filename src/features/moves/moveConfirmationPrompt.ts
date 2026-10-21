@@ -44,22 +44,37 @@ export function fileCountLabel(count: number): string {
   return count === 1 ? "1 file" : `${count} files`;
 }
 
+const sentence = (count: number, one: string, many: string) =>
+  `${fileCountLabel(count)} ${count === 1 ? one : many}`;
+
 // Only the parts of the summary that change what happens to some files.
 export function moveConfirmationNotes(summary: MoveConfirmationSummary): string[] {
   const notes: string[] = [];
   if (summary.fallback_warnings > 0) {
     notes.push(
-      `${fileCountLabel(summary.fallback_warnings)} use the date the file last changed. They have no capture date.`
+      sentence(
+        summary.fallback_warnings,
+        "uses the date it last changed. It has no capture date.",
+        "use the date they last changed. They have no capture date."
+      )
     );
   }
   if (summary.suffix_applied > 0) {
     notes.push(
-      `${fileCountLabel(summary.suffix_applied)} get a number added to the name. A file with that name is already there.`
+      sentence(
+        summary.suffix_applied,
+        "gets a number added to its name. A file with that name is already there.",
+        "get a number added to their names. Files with those names are already there."
+      )
     );
   }
   if (summary.skipped_operations > 0) {
     notes.push(
-      `${fileCountLabel(summary.skipped_operations)} stay where they are. See Needs review and Errors.`
+      sentence(
+        summary.skipped_operations,
+        "stays where it is. See Needs review and Errors.",
+        "stay where they are. See Needs review and Errors."
+      )
     );
   }
   return notes;

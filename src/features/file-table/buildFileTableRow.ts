@@ -16,9 +16,12 @@ export function buildFileTableRow(
   destinationRoot: string | null
 ): FileTableRow {
   const { record, metadata, movePlan } = state;
-  const metadataDate = metadata
-    ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No metadata date")
-    : "pending";
+  const metadataDate =
+    record.scan_status !== "discovered"
+      ? "-"
+      : metadata
+        ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No date")
+        : "Reading...";
   const destination =
     movePlan?.destination_path || (metadata?.metadata_status === "ready" ? "planning..." : "-");
 

@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const SUMMARY = {
   ready_operations: 57,
-  skipped_operations: 2,
+  skipped_operations: 1,
   fallback_warnings: 5,
   suffix_applied: 0
 } as MoveConfirmationSummary;
@@ -27,8 +27,8 @@ describe("MoveConfirmationDialog", () => {
 
     expect(screen.getByRole("dialog", { name: "Move 57 files?" })).toBeInTheDocument();
     expect(screen.getByText("D:\\Media")).toBeInTheDocument();
-    expect(screen.getByText(/5 files use the date the file last changed/)).toBeInTheDocument();
-    expect(screen.getByText(/2 files stay where they are/)).toBeInTheDocument();
+    expect(screen.getByText(/5 files use the date they last changed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 file stays where it is/)).toBeInTheDocument();
     expect(screen.queryByText(/number added/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
