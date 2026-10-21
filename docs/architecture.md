@@ -62,6 +62,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 `android/` is a separate Kotlin app that sorts the phone gallery on the device. It shares no code with the desktop app.
 
 - **`organize/`** copies the scanner, planner, filename and date rules with no Android imports, so JVM tests cover it.
+- **`folders/`** lets the person pick the gallery and Move to folders, and keeps both between launches.
 - **`metadata/`** reads the same tags with `ExifInterface` and `MediaMetadataRetriever` and prints them in ExifTool's date format.
 - **Moves** plan and move one file at a time with `Files.move` without replace, after all files access is granted.
 - **No history.** A run keeps counters and the newest log lines in memory.

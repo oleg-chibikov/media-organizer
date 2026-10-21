@@ -70,12 +70,16 @@ flowchart TD
   plan["features/planning<br/>asks for plans, keeps only the ones it asked for"] -->|plans| moves
   moves["features/moves<br/>backend summary, confirm, dispatch queue"] -->|confirmed batch| api
   history["features/history<br/>confirm, then undo, redo or delete"] -->|run id| api
+  toolbar -->|opens Settings| settings["features/destination-settings<br/>media root or a Processed folder"]
+  settings -->|new destination| destChange["app/useDestinationChange<br/>saves it, replans before any move"]
+  destChange -->|settings commands| api
+  destChange -->|replans| plan
   api["lib/api<br/>typed invoke wrappers"] -->|commands| backend["Rust backend<br/>scans, reads, plans, moves, records history"]
   backend -->|"scan, plan, move and history events"| events["lib/api useBackendEvents<br/>forwards each event to the latest handlers"]
   events --> ui["features/file-table and status-bar<br/>show each file, the tallies and progress"]
 ```
 
-[Open the diagram](https://mermaid.live/view#pako:eNpVVEtv2zAM_iuEzs6yy4ChGArsiZ7X3eYdZIuuhciipkeNoOl_HynZaXaJJFr8HiSVFzWSQXUHanK0jrOOGX596z1AJnKDjr97NaHOJWI6bqFPQzzef52JEsIPcgZjBw82ZYpn0N7AI-Zs_VOCoeRMPvXqDxwO95dgx1MCDVPNuUAatX8gOglbwpQseWbTIRxLws8hPLZYpVstC4A8I-xqOuAfzDW4AHkG9rhW0Er47nD_P8O2vzUksQqfMhtv-BLrQBuTINKaAJ-RfX14D8vViMQvsGDWAizrLaicjc66Ag9UvEEDfwsWFMmacT_CZB3bCRhh1M7tuJyFDBwcW2BgWW-B5ey5sBVYJ67lRLHe4mKcEEPiMrhzdUGe8W0GvsbsfO_aBLnO4ukZU1Uvm__kS6Bp1-MJuZ-pLIuO5w5G8pONSwfGpqDzODdbO_T2mfkG-XgBHaxQzG02bkm2UKW5orJuD1wukjoZAjZn0GG-EsTiwZorLi-M6exw5F2FyufA7NY_0wlhjTxKGNObPLbhDZvfjHHyz5LyfmyDMNZq1j51e21rSSQ4UuT2beIZV1TsVRKKXrXpkbyWVh_EliCj5DPruWy7N_XAE_-lAX2vn6oYbtuqhRE117rm8LOs_XUyKhlmhnfNo2hpsCIFir2tt8zbIevBNUE87rmkw_6W00xr45B7tRGQeS4tz5BcD5GeGEVYVAdqwbhoa-RP46VX8vy4Q3e9Mjjp4nKvXtXrP0X7i68)
+[Open the diagram](https://mermaid.live/view#pako:eNpdVMFu2zAM_RXCZ2fZZcBQDAW2dUOPw7rbvINs0bUQW_QkOUbQ9N9HUrbj7pLIFPXeI_mkl6Ihi8UdFG1Pc9OZkODXQ-UBElFfm_C7Klo0aQoYj0voUx2O9187oojwnXqLoYRHFxOFCxhv4QlTcv45Qj2lRD5WxR84HO6vo2tOEQy0euYKsTH-kegkbBFjdOSZzYzjcYr4eRyfckzpZscCIHUIq5oS-AeTBgcgz8AeZwVVwneH-7cMy3pfkMQUPiYuPONLrARjbYRAcwQ8I9f14T0MWyESv8KAyQiw_O9B5duaZBS4pslbtPB3wglFsmHcj9C6nssZMUBj-n7F5VPIwGPPJTCw_O-B5dtzYxXYRO5lS0GzuBknxDFyG_qLVkGe8V0CTmN2ztuGIOksns4YVb0s3siXQNZumhPyPOM0DCZcSmjIty4MJVgXR5OaLpe1Qi_bzFfL5hXM6ISiy97YkywhpdlQWbcHbhdJnywBF2exx7QRhMmDsxvuYkfdohF93JzH3lpWe1KLkWMmsacO674qYMnO8LQpCaeBH4Ea9p42TqzK_Nmji6-FULy2A7zqx9fO-Ge8mfjhlpC3stnMWYcjZeo4oEaeEPLlueg8Fr4bojJu9A3xPLyNWyP-S1xQb0biNNbUu_rIK5WQLiNX5_yZTghzYLkY4m2OK_7iAD78c4pp_cxFNGo7NXS5mlC9I8GGAvt8mfJSzmonoaiKfM3kXD6mL8dyQO6cT6znuqxu6oG7-iUDfdMtFcPdm40womFT6hl2h16EXu5UAu6O7XONoiXDihSY3N4jcjEPydR9FsTvQpriYX30Ykdz5pA8dSwkvsCO5ynpY6BnRsksRQnFgGEwzsr7-lIV8lLxcO-gKiy2ZupTVbwWr_8A81H5yA)
 
 ## Checks
 

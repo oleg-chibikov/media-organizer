@@ -6,7 +6,7 @@ Before coding:
 
 1. Read `AGENTS.md`.
 2. Read `docs/agent/quickstart.md`.
-3. Read deeper references from `docs/agent/upstream/` only if needed for the task.
+3. Read `docs/architecture.md` when changing behavior or command and event payloads.
 
 Key project conventions:
 

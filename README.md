@@ -91,6 +91,6 @@ mise x -- pnpm build
 - Backend overview, flows and diagrams: `src-tauri/README.md`
 - ExifTool sidecar setup: `docs/exiftool-sidecar.md`
 - Android app: `android/README.md`
-- Agent conventions and upstream references: `docs/agent/README.md`
+- Agent conventions: `docs/agent/README.md`
 - Feature specs: `specs/`
 - Agent rules: `AGENTS.md`

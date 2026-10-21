@@ -145,9 +145,9 @@
 
 ## Phase 14: Documentation
 
-- [ ] T097 Add README with development setup using mise.
-- [ ] T098 Add ExifTool sidecar setup instructions.
-- [ ] T099 Add user workflow documentation.
+- [x] T097 Add README with development setup using mise.
+- [x] T098 Add ExifTool sidecar setup instructions.
+- [x] T099 Add user workflow documentation.
 - [x] T100 Add safety notes about dry-run preview and copy-verify-keep-source behavior.
 
 ## First Useful Delivery
