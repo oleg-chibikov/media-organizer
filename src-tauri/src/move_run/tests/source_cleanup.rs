@@ -15,7 +15,7 @@ fn removes_empty_source_directory_chain_after_moves() {
 
     assert!(!nested.exists());
     assert!(!selected_root.join("a").exists());
-    assert!(!selected_root.exists());
+    assert!(selected_root.exists());
 }
 
 #[test]
@@ -34,14 +34,14 @@ fn stops_pruning_when_parent_contains_files() {
 }
 
 #[test]
-fn removes_selected_root_when_processing_leaves_it_empty() {
+fn keeps_selected_root_even_when_processing_leaves_it_empty() {
     let temp = tempdir().expect("temp dir");
     let selected_root = temp.path().join("todo");
     fs::create_dir_all(&selected_root).expect("create selected root");
 
     cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&selected_root));
 
-    assert!(!selected_root.exists());
+    assert!(selected_root.exists());
 }
 
 #[test]
@@ -54,4 +54,21 @@ fn keeps_selected_root_when_it_still_contains_files() {
     cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&selected_root));
 
     assert!(selected_root.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn never_prunes_through_a_symlink_out_of_the_selected_root() {
+    let temp = tempdir().expect("temp dir");
+    let selected_root = temp.path().join("todo");
+    let outside = temp.path().join("outside").join("empty");
+    fs::create_dir_all(&outside).expect("create outside dir");
+    fs::create_dir_all(&selected_root).expect("create selected root");
+    std::os::unix::fs::symlink(temp.path().join("outside"), selected_root.join("link"))
+        .expect("symlink");
+
+    cleanup_empty_source_directories(&selected_root, &[selected_root.join("link").join("empty")]);
+
+    assert!(outside.exists());
+    assert!(selected_root.join("link").exists());
 }

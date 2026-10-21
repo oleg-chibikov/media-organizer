@@ -10,6 +10,7 @@ mod created_file;
 mod move_file;
 mod no_replace_rename;
 mod occupancy;
+mod removal;
 mod staged_copy;
 
 #[cfg(test)]
@@ -17,4 +18,5 @@ mod tests;
 
 pub(crate) use move_file::move_file_no_replace;
 pub(crate) use occupancy::{is_plain_file, path_is_occupied};
+pub(crate) use removal::{remove_empty_dir_within, remove_verified_duplicate};
 pub(crate) use staged_copy::copy_verified_no_replace;

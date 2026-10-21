@@ -4,7 +4,7 @@ use tempfile::tempdir;
 
 use super::{photo_paths, recorded_rename};
 use crate::{
-    models::{HistoryOperationKind, HistoryOperationStatus},
+    models::{HistoryOperation, HistoryOperationKind, HistoryOperationStatus, MoveStrategy},
     undo_redo::{records::build_undo_history_operation, undo::execute_undo_operation},
 };
 
@@ -82,4 +82,41 @@ fn blocks_undo_when_rename_source_already_exists() {
         .contains("already exists"));
     assert!(original_source.exists());
     assert!(processed_destination.exists());
+}
+
+#[test]
+fn undo_of_a_copy_removes_it_only_when_it_matches_the_kept_source() {
+    let temp = tempdir().expect("temp dir");
+    let (original_source, copied_destination) = photo_paths(temp.path());
+    for path in [&original_source, &copied_destination] {
+        fs::create_dir_all(path.parent().expect("parent")).expect("create parent");
+    }
+    fs::write(&original_source, b"image-bytes").expect("write source");
+    fs::write(&copied_destination, b"image-BYTES").expect("write edited copy");
+    let copy_operation = HistoryOperation {
+        move_strategy: MoveStrategy::CopyKeepSource,
+        ..recorded_rename(
+            "run-1-op-1",
+            HistoryOperationKind::Process,
+            &original_source,
+            &copied_destination,
+            "2026-05-24T01:03:03Z",
+        )
+    };
+
+    let edited = execute_undo_operation(&copy_operation);
+    assert!(matches!(edited.status, HistoryOperationStatus::Blocked));
+    assert_eq!(
+        fs::read(&copied_destination).expect("read copy"),
+        b"image-BYTES"
+    );
+
+    fs::write(&copied_destination, b"image-bytes").expect("write matching copy");
+    let matching = execute_undo_operation(&copy_operation);
+    assert!(matches!(matching.status, HistoryOperationStatus::Succeeded));
+    assert!(!copied_destination.exists());
+    assert_eq!(
+        fs::read(&original_source).expect("read source"),
+        b"image-bytes"
+    );
 }

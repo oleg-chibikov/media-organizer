@@ -1,4 +1,5 @@
 mod move_file;
+mod removal;
 mod staged_copy;
 
 use std::{fs, path::Path};

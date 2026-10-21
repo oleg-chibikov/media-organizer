@@ -61,12 +61,12 @@ fn undo_copy_keep_source_operation(operation: &HistoryOperation) -> Result<(), O
     let copied_destination = Path::new(&operation.destination_path);
     let original_source = Path::new(&operation.source_path);
 
-    if !original_source.is_file() {
+    if !safe_fs::is_plain_file(original_source) {
         return Err(OperationOutcome::blocked(
             "Undo blocked: original source file is missing.",
         ));
     }
-    if !copied_destination.is_file() {
+    if !safe_fs::is_plain_file(copied_destination) {
         return Err(OperationOutcome::blocked(
             "Undo blocked: copied destination file is missing.",
         ));
@@ -84,10 +84,10 @@ fn undo_copy_keep_source_operation(operation: &HistoryOperation) -> Result<(), O
         "destination",
     )?;
 
-    fs::remove_file(copied_destination).map_err(|error| {
-        OperationOutcome::failed(format!(
-            "Undo failed: could not remove copied destination: {error}"
+    // The copy goes only after the kept source is proven to hold the same bytes.
+    safe_fs::remove_verified_duplicate(copied_destination, original_source).map_err(|error| {
+        OperationOutcome::blocked(format!(
+            "Undo blocked: copied destination was kept: {error}"
         ))
-    })?;
-    Ok(())
+    })
 }
