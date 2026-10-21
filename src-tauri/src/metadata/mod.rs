@@ -6,6 +6,7 @@ mod exiftool_json;
 mod exiftool_path;
 mod output_reader;
 mod request_writer;
+mod result_alignment;
 mod timestamp;
 mod worker;
 mod worker_batch;
@@ -24,6 +25,7 @@ pub(crate) use worker_manager::ExifToolWorkerManager;
 
 #[derive(Debug, Clone)]
 pub struct RawMetadataDates {
+    pub source_file: Option<String>,
     pub sub_sec_date_time_original: Option<String>,
     pub date_time_original: Option<String>,
     pub create_date: Option<String>,
@@ -44,6 +46,7 @@ pub struct SelectedMetadataDate {
 
 #[derive(Debug, Clone)]
 pub struct MetadataBatchReadOutcome {
-    pub raw_dates: Vec<RawMetadataDates>,
+    /// One slot per requested path; `None` when ExifTool returned no result for it.
+    pub raw_dates: Vec<Option<RawMetadataDates>>,
     pub did_restart: bool,
 }

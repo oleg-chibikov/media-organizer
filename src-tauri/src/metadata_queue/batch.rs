@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::atomic::Ordering};
 use super::{
     admission::{queue_full_results, split_missing_sources, PendingRead},
     results::{
-        metadata_batch_timeout, metadata_error_result, metadata_result_from_raw,
+        metadata_batch_timeout, metadata_error_result, metadata_result_from_slot,
         unwrap_metadata_results,
     },
     MetadataQueue,
@@ -56,7 +56,7 @@ impl MetadataQueue {
         match read_result {
             Ok(outcome) => {
                 for (pending, raw_dates) in pending.into_iter().zip(outcome.raw_dates) {
-                    results[pending.index] = Some(metadata_result_from_raw(
+                    results[pending.index] = Some(metadata_result_from_slot(
                         pending.request,
                         raw_dates,
                         outcome.did_restart,

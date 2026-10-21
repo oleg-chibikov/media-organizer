@@ -24,6 +24,7 @@ pub(super) fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDat
             })?;
 
             Ok(RawMetadataDates {
+                source_file: read_tag(object, "SourceFile"),
                 sub_sec_date_time_original: read_tag(object, "SubSecDateTimeOriginal"),
                 date_time_original: read_tag(object, "DateTimeOriginal"),
                 create_date: read_tag(object, "CreateDate"),

@@ -5,6 +5,7 @@ use crate::{
 
 fn empty_raw_dates() -> RawMetadataDates {
     RawMetadataDates {
+        source_file: None,
         sub_sec_date_time_original: None,
         date_time_original: None,
         create_date: None,

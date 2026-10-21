@@ -7,7 +7,22 @@ use crate::{
 
 const MAX_BATCH_TIMEOUT_MS: u128 = 120_000;
 
-pub(super) fn metadata_result_from_raw(
+/// Turns one ExifTool result slot into a result; an empty slot means the file wasn't read.
+pub(super) fn metadata_result_from_slot(
+    request: MetadataReadRequest,
+    raw_dates: Option<RawMetadataDates>,
+    did_restart: bool,
+) -> MetadataResult {
+    match raw_dates {
+        Some(raw_dates) => metadata_result_from_raw(request, raw_dates, did_restart),
+        None => metadata_error_result(
+            request.file_id,
+            "ExifTool couldn't read this file.".to_string(),
+        ),
+    }
+}
+
+fn metadata_result_from_raw(
     request: MetadataReadRequest,
     raw_dates: RawMetadataDates,
     did_restart: bool,

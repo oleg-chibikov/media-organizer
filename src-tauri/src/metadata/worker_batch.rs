@@ -8,17 +8,18 @@ use super::{
     exiftool_json::parse_exiftool_json_batch,
     output_reader::ReaderEvent,
     request_writer::write_request,
+    result_alignment::align_results,
     worker::{ExifToolWorker, WorkerError},
     RawMetadataDates,
 };
 
 impl ExifToolWorker {
-    /// Sends one request and waits for its framed response, one result per source path.
+    /// Sends one request and waits for its framed response, one slot per source path.
     pub(super) fn read_metadata_batch(
         &mut self,
         source_paths: &[PathBuf],
         timeout: Duration,
-    ) -> Result<Vec<RawMetadataDates>, WorkerError> {
+    ) -> Result<Vec<Option<RawMetadataDates>>, WorkerError> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
 
@@ -52,14 +53,7 @@ impl ExifToolWorker {
                 }
                 let raw_dates =
                     parse_exiftool_json_batch(&payload).map_err(WorkerError::Protocol)?;
-                if raw_dates.len() != source_paths.len() {
-                    return Err(WorkerError::Protocol(format!(
-                        "ExifTool returned {} metadata results for {} requested files.",
-                        raw_dates.len(),
-                        source_paths.len()
-                    )));
-                }
-                Ok(raw_dates)
+                Ok(align_results(source_paths, raw_dates))
             }
             Ok(ReaderEvent::Exited) => Err(WorkerError::Crashed(
                 "ExifTool worker exited unexpectedly during metadata request.".to_string(),
