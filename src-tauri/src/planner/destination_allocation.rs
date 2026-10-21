@@ -9,7 +9,8 @@ use crate::{
     path_safety::normalized_path_string,
 };
 
-/// Picks the first free `<stem>[ (n)].<ext>` path, blocking exact duplicates already on disk.
+/// Picks the first free `<stem>[ (n)].<ext>` path. An earlier copy of the same bytes under
+/// any of those names blocks the plan, so a kept source isn't copied again on the next run.
 pub(super) fn allocate_destination_path(
     source_path: &Path,
     destination_dir: &Path,
@@ -37,7 +38,6 @@ pub(super) fn allocate_destination_path(
         let exists_in_run = reserved_paths.contains(&path_key);
 
         if exists_on_disk
-            && suffix == 0
             && files_have_same_bytes(source_path, &destination_path)
                 .map_err(|error| format!("Failed to compare files for conflict check: {error}"))?
         {

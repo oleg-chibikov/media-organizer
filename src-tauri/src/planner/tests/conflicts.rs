@@ -52,6 +52,23 @@ fn blocks_conflict_when_existing_destination_has_identical_content() {
 }
 
 #[test]
+fn blocks_conflict_when_a_suffixed_destination_has_identical_content() {
+    let temp_dir = tempfile::tempdir().expect("temp dir should be created");
+    let mut file = photo_record("IMG_1001", "mp4");
+    file.source_path = existing_destination(temp_dir.path(), b"copied-bytes", b"other");
+    let suffixed = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro (1).mp4";
+    let destination_dir = temp_dir.path().join("2026").join("3").join("5");
+    std::fs::write(destination_dir.join(suffixed), b"copied-bytes").expect("write copy");
+    let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
+
+    let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut HashSet::new())
+        .expect("plan should be created");
+
+    assert!(matches!(plan.plan_status, PlanStatus::BlockedConflict));
+    assert_eq!(plan.destination_filename, suffixed);
+}
+
+#[test]
 fn applies_suffix_for_duplicate_in_same_run() {
     let destination_dir = Path::new(r"C:\todo\Processed\2026\3\5");
     let stem_base = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro";
