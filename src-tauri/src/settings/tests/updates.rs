@@ -1,6 +1,6 @@
 use crate::settings::{
-    clear_root_media_folder, set_force_processed_folder, set_root_media_folder,
-    storage::default_destination_settings,
+    clear_root_media_folder, set_force_processed_folder, set_rename_in_place,
+    set_root_media_folder, storage::default_destination_settings,
 };
 
 #[test]
@@ -29,4 +29,20 @@ fn updates_force_toggle_and_keeps_existing_root() {
         Some(r"C:\Media\Library".to_string())
     );
     assert!(toggled.updated_at.is_some());
+}
+
+#[test]
+fn updates_rename_in_place_and_keeps_other_settings() {
+    let with_root = set_root_media_folder(
+        &default_destination_settings(),
+        Some(r"C:\Media\Library".to_string()),
+    );
+    let toggled = set_rename_in_place(&set_force_processed_folder(&with_root, true), true);
+
+    assert!(toggled.rename_in_place);
+    assert!(toggled.force_processed_folder);
+    assert_eq!(
+        toggled.root_media_folder,
+        Some(r"C:\Media\Library".to_string())
+    );
 }

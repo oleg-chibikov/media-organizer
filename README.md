@@ -102,6 +102,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - Falls back from rename to copy-verify-keep-source for NAS/cross-device behavior.
 - Stores processing history in appData for inspection, undo, and redo.
 - Supports either legacy `<selected folder>/Processed` destinations or a persisted custom media root.
+- Renames files where they are, with **Rename only** in the toolbar. Files keep their folder and get the dated name.
 
 ## User Flow
 

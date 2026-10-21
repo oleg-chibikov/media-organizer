@@ -37,6 +37,9 @@ export function fileNotesLabel({
   if (movePlan?.plan_status === "blocked_no_date") {
     return "No capture date found. This file stays in place.";
   }
+  if (movePlan?.plan_status === "already_named") {
+    return "This file already has its new name. It stays as it is.";
+  }
   if (movePlan?.conflict_status === "suffix_applied") {
     return "A file with this name is already there. A number is added.";
   }

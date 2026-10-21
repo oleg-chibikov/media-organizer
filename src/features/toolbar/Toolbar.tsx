@@ -7,10 +7,12 @@ interface ToolbarProps {
   selectedFolder: string | null;
   destinationRoot: string | null;
   destinationError: string | null;
+  renamesInPlace?: boolean;
   folderError: string | null;
   isScanning: boolean;
   movesRunning: boolean;
   historyMenu?: ReactNode;
+  renameToggle?: ReactNode;
   settingsMenu?: ReactNode;
   onChooseFolder: () => void;
   onCancelScan: () => void;
@@ -21,10 +23,12 @@ export function Toolbar({
   selectedFolder,
   destinationRoot,
   destinationError,
+  renamesInPlace = false,
   folderError,
   isScanning,
   movesRunning,
   historyMenu,
+  renameToggle,
   settingsMenu,
   onChooseFolder,
   onCancelScan,
@@ -59,9 +63,11 @@ export function Toolbar({
             selectedFolder={selectedFolder}
             destinationRoot={destinationRoot}
             destinationError={destinationError}
+            renamesInPlace={renamesInPlace}
           />
         </div>
 
+        {renameToggle ? <div className="shrink-0">{renameToggle}</div> : null}
         {settingsMenu ? <div className="shrink-0">{settingsMenu}</div> : null}
       </div>
       {folderError ? <ErrorBanner message={folderError} onDismiss={onDismissError} /> : null}

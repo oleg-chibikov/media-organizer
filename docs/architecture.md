@@ -135,12 +135,12 @@ Each layer may depend only on the layers below it.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing and capture-date selection.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits.
-- `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run.
+- `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
 - `move_run/`: one confirmed batch from start to finish: history run, per-file progress, results and source folder cleanup.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
-- `settings/`: `SettingsStore` and effective destination root resolution.
+- `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `picked_folders.rs`: folders the user chose in the native picker this session.
 - `filename/`, `system_explorer/`, `path_safety.rs`, `file_ops/`: focused helpers named after what they decide.

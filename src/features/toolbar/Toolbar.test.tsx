@@ -31,6 +31,14 @@ describe("Toolbar", () => {
     expect(screen.getByText("Can't use the destination: Folder is offline")).toBeInTheDocument();
   });
 
+  it("says files keep their folders when renaming only", () => {
+    render(<Toolbar {...BASE_PROPS} renamesInPlace={true} />);
+
+    expect(screen.getByText("To").nextElementSibling).toHaveTextContent(
+      "Same folders, new names only"
+    );
+  });
+
   it("stops a scan and dismisses an error", () => {
     const onCancelScan = vi.fn();
     const onDismissError = vi.fn();

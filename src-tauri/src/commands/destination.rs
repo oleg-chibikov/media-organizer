@@ -63,3 +63,15 @@ pub async fn set_force_processed_folder(
     })
     .await
 }
+
+#[tauri::command]
+pub async fn set_rename_in_place(
+    rename_in_place: bool,
+    app: AppHandle,
+) -> Result<DestinationSettings, String> {
+    let store = settings_store(&app)?;
+    run_blocking(move || {
+        store.update(|current| settings::set_rename_in_place(current, rename_in_place))
+    })
+    .await
+}

@@ -19,6 +19,7 @@ const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   ready: "Ready",
   blocked_no_date: "No date",
   blocked_conflict: "Name taken",
+  already_named: "Already named",
   error: "Can't plan"
 };
 

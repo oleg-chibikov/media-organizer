@@ -1,5 +1,10 @@
 export type ConflictStatus = "none" | "suffix_applied" | "blocked";
-export type PlanStatus = "ready" | "blocked_no_date" | "blocked_conflict" | "error";
+export type PlanStatus =
+  | "ready"
+  | "blocked_no_date"
+  | "blocked_conflict"
+  | "already_named"
+  | "error";
 
 export interface MovePlan {
   file_id: string;

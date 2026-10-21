@@ -8,19 +8,13 @@ pub(crate) fn set_root_media_folder(
     settings: &DestinationSettings,
     root_media_folder: Option<String>,
 ) -> DestinationSettings {
-    DestinationSettings {
-        version: DESTINATION_SETTINGS_VERSION,
-        root_media_folder: root_media_folder.and_then(|path| {
-            let trimmed = path.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        }),
-        force_processed_folder: settings.force_processed_folder,
-        updated_at: Some(Utc::now().to_rfc3339()),
-    }
+    let root_media_folder = root_media_folder
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty());
+    stamped(DestinationSettings {
+        root_media_folder,
+        ..settings.clone()
+    })
 }
 
 pub(crate) fn clear_root_media_folder(settings: &DestinationSettings) -> DestinationSettings {
@@ -31,10 +25,26 @@ pub(crate) fn set_force_processed_folder(
     settings: &DestinationSettings,
     force_processed_folder: bool,
 ) -> DestinationSettings {
+    stamped(DestinationSettings {
+        force_processed_folder,
+        ..settings.clone()
+    })
+}
+
+pub(crate) fn set_rename_in_place(
+    settings: &DestinationSettings,
+    rename_in_place: bool,
+) -> DestinationSettings {
+    stamped(DestinationSettings {
+        rename_in_place,
+        ..settings.clone()
+    })
+}
+
+fn stamped(settings: DestinationSettings) -> DestinationSettings {
     DestinationSettings {
         version: DESTINATION_SETTINGS_VERSION,
-        root_media_folder: settings.root_media_folder.clone(),
-        force_processed_folder,
         updated_at: Some(Utc::now().to_rfc3339()),
+        ..settings
     }
 }

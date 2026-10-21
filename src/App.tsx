@@ -1,5 +1,5 @@
 import { useAppSession } from "./app/useAppSession";
-import { DestinationSettingsMenu } from "./features/destination-settings";
+import { DestinationSettingsMenu, RenameInPlaceToggle } from "./features/destination-settings";
 import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { MoveConfirmationDialog } from "./features/moves";
@@ -12,6 +12,7 @@ export default function App() {
     session;
   const { execution } = moves;
   const chooseFolder = () => void scan.chooseFolderAndScan();
+  const renamesInPlace = destination.settings?.rename_in_place ?? false;
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
@@ -19,6 +20,7 @@ export default function App() {
         selectedFolder={scan.selectedFolder}
         destinationRoot={effectiveDestination.rootPath}
         destinationError={effectiveDestination.error}
+        renamesInPlace={renamesInPlace}
         folderError={session.folderError}
         isScanning={scan.isScanning}
         movesRunning={execution.executing}
@@ -35,6 +37,13 @@ export default function App() {
             onRedoRun={history.redoRun}
             onDeleteRun={history.deleteRun}
             onOpenLog={history.openLog}
+          />
+        }
+        renameToggle={
+          <RenameInPlaceToggle
+            checked={renamesInPlace}
+            disabled={destination.loading || destination.pending || destinationActions.locked}
+            onChange={destinationActions.setRenameInPlace}
           />
         }
         settingsMenu={
@@ -92,6 +101,7 @@ export default function App() {
         <MoveConfirmationDialog
           summary={moves.confirmation.summary}
           destinationRoot={effectiveDestination.rootPath}
+          renamesInPlace={renamesInPlace}
           stillChecking={planning.stillChecking}
           onConfirm={moves.confirmation.confirm}
           onCancel={moves.confirmation.cancel}

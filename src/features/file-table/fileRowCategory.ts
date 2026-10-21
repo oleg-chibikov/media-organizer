@@ -27,7 +27,9 @@ export function fileRowCategory({
     record.scan_status === "skipped_unsupported" ||
     metadata?.metadata_status === "no_date" ||
     metadata?.date_kind === "fallback" ||
-    (movePlan !== undefined && movePlan.plan_status !== "ready")
+    (movePlan !== undefined &&
+      movePlan.plan_status !== "ready" &&
+      movePlan.plan_status !== "already_named")
   ) {
     return "review";
   }

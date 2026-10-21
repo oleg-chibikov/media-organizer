@@ -6,6 +6,7 @@ import { fileCountLabel, moveConfirmationNotes } from "./moveConfirmationPrompt"
 interface MoveConfirmationDialogProps {
   summary: MoveConfirmationSummary;
   destinationRoot: string | null;
+  renamesInPlace: boolean;
   // The summary counts only files checked so far; the rest join the run as they become ready.
   stillChecking: boolean;
   onConfirm: () => void;
@@ -15,6 +16,7 @@ interface MoveConfirmationDialogProps {
 export function MoveConfirmationDialog({
   summary,
   destinationRoot,
+  renamesInPlace,
   stillChecking,
   onConfirm,
   onCancel
@@ -22,10 +24,11 @@ export function MoveConfirmationDialog({
   const ready = fileCountLabel(summary.ready_operations);
   const files = stillChecking ? "all files" : ready;
   const notes = moveConfirmationNotes(summary);
+  const verb = renamesInPlace ? "Rename" : "Move";
 
   return (
     <Dialog
-      title={`Move ${files}?`}
+      title={`${verb} ${files}?`}
       onCancel={onCancel}
       actions={
         <>
@@ -33,19 +36,25 @@ export function MoveConfirmationDialog({
             Cancel
           </Button>
           <Button variant="primary" className="px-3 py-1.5 text-sm" onClick={onConfirm}>
-            Move {files}
+            {verb} {files}
           </Button>
         </>
       }
     >
-      <p className="text-slate-400">To</p>
-      <p className="break-all font-mono text-xs text-slate-100">
-        {destinationRoot ?? "The destination in the toolbar"}
-      </p>
-      <p className="mt-3">
-        Each file goes into a folder for its year, month and day. Its new name starts with the
-        capture time.
-      </p>
+      {renamesInPlace ? (
+        <p>Each file stays in its folder. Its new name starts with the capture time.</p>
+      ) : (
+        <>
+          <p className="text-slate-400">To</p>
+          <p className="break-all font-mono text-xs text-slate-100">
+            {destinationRoot ?? "The destination in the toolbar"}
+          </p>
+          <p className="mt-3">
+            Each file goes into a folder for its year, month and day. Its new name starts with the
+            capture time.
+          </p>
+        </>
+      )}
       {notes.length > 0 ? (
         <ul className="mt-3 list-disc space-y-1 pl-5 text-amber-200">
           {notes.map((note) => (

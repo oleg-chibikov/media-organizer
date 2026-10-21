@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::Path};
 
-use super::photo_record;
+use super::{dated, photo_record};
 use crate::{
     models::{ConflictStatus, PlanStatus},
     planner::{destination_allocation::allocate_destination_path, file_plan::create_plan_for_file},
@@ -27,8 +27,13 @@ fn applies_suffix_for_existing_destination_file() {
     file.source_path = existing_destination(temp_dir.path(), b"source-bytes", b"existing");
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
-    let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut HashSet::new())
-        .expect("plan should be created");
+    let plan = create_plan_for_file(
+        &dated(temp_dir.path()),
+        &file,
+        Some(&metadata),
+        &mut HashSet::new(),
+    )
+    .expect("plan should be created");
 
     assert_eq!(
         plan.destination_filename,
@@ -43,8 +48,13 @@ fn blocks_conflict_when_existing_destination_has_identical_content() {
     file.source_path = existing_destination(temp_dir.path(), b"same-bytes", b"same-bytes");
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
-    let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut HashSet::new())
-        .expect("plan should be created");
+    let plan = create_plan_for_file(
+        &dated(temp_dir.path()),
+        &file,
+        Some(&metadata),
+        &mut HashSet::new(),
+    )
+    .expect("plan should be created");
 
     assert!(matches!(plan.plan_status, PlanStatus::BlockedConflict));
     assert!(matches!(plan.conflict_status, ConflictStatus::Blocked));
@@ -61,8 +71,13 @@ fn blocks_conflict_when_a_suffixed_destination_has_identical_content() {
     std::fs::write(destination_dir.join(suffixed), b"copied-bytes").expect("write copy");
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
-    let plan = create_plan_for_file(temp_dir.path(), &file, Some(&metadata), &mut HashSet::new())
-        .expect("plan should be created");
+    let plan = create_plan_for_file(
+        &dated(temp_dir.path()),
+        &file,
+        Some(&metadata),
+        &mut HashSet::new(),
+    )
+    .expect("plan should be created");
 
     assert!(matches!(plan.plan_status, PlanStatus::BlockedConflict));
     assert_eq!(plan.destination_filename, suffixed);

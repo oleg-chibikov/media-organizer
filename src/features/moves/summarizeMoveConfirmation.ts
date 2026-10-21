@@ -10,7 +10,8 @@ export function summarizeMoveConfirmation(
   metadataByFileId: Record<string, MetadataResult>,
   plansByFileId: Record<string, MovePlan>
 ): MoveConfirmationSummary {
-  const plans = Object.values(plansByFileId);
+  // Files that already have their planned name have nothing to do.
+  const plans = Object.values(plansByFileId).filter((plan) => plan.plan_status !== "already_named");
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const summary: MoveConfirmationSummary = {
     total_plans: plans.length,

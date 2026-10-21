@@ -2,6 +2,7 @@ interface FolderPathsProps {
   selectedFolder: string | null;
   destinationRoot: string | null;
   destinationError: string | null;
+  renamesInPlace: boolean;
 }
 
 function PathValue({ path }: { path: string }) {
@@ -16,7 +17,8 @@ function PathValue({ path }: { path: string }) {
 export function FolderPaths({
   selectedFolder,
   destinationRoot,
-  destinationError
+  destinationError,
+  renamesInPlace
 }: FolderPathsProps) {
   if (!selectedFolder) {
     return <p className="text-sm text-slate-400">No folder selected</p>;
@@ -31,6 +33,8 @@ export function FolderPaths({
         <dd className="truncate text-amber-300" title={destinationError}>
           Can't use the destination: {destinationError}
         </dd>
+      ) : renamesInPlace ? (
+        <dd className="truncate text-sky-300">Same folders, new names only</dd>
       ) : destinationRoot ? (
         <PathValue path={destinationRoot} />
       ) : (

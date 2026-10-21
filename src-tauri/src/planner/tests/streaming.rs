@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use super::dated;
 use crate::{
     events,
     models::FileKind,
@@ -17,7 +18,12 @@ fn streams_one_plan_per_media_file_then_totals() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
     let sink = RecordingSink::default();
 
-    stream_move_plan(&sink, Path::new("MediaRoot"), &[photo, notes], &[metadata]);
+    stream_move_plan(
+        &sink,
+        &dated(Path::new("MediaRoot")),
+        &[photo, notes],
+        &[metadata],
+    );
 
     assert_eq!(sink.names(), vec![events::PLAN_FILE, events::PLAN_FINISHED]);
     let finished = &sink.payloads(events::PLAN_FINISHED)[0];

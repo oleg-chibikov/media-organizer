@@ -12,13 +12,14 @@ const SUMMARY = {
   suffix_applied: 0
 } as MoveConfirmationSummary;
 
-function renderDialog(stillChecking: boolean) {
+function renderDialog(stillChecking: boolean, renamesInPlace = false) {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
   render(
     <MoveConfirmationDialog
       summary={SUMMARY}
       destinationRoot={"D:\\Media"}
+      renamesInPlace={renamesInPlace}
       stillChecking={stillChecking}
       onConfirm={onConfirm}
       onCancel={onCancel}
@@ -52,6 +53,17 @@ describe("MoveConfirmationDialog", () => {
     expect(screen.getByText(/still being checked move too/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Move all files" }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks to rename when files stay in their folders", () => {
+    const { onConfirm } = renderDialog(false, true);
+
+    expect(screen.getByRole("dialog", { name: "Rename 57 files?" })).toBeInTheDocument();
+    expect(screen.getByText(/stays in its folder/)).toBeInTheDocument();
+    expect(screen.queryByText("D:\\Media")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rename 57 files" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });

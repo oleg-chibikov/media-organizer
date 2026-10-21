@@ -13,3 +13,5 @@ export const setForceProcessedFolder = (forceProcessedFolder: boolean) =>
   invokeCommand<DestinationSettings>("set_force_processed_folder", {
     forceProcessedFolder
   });
+export const setRenameInPlace = (renameInPlace: boolean) =>
+  invokeCommand<DestinationSettings>("set_rename_in_place", { renameInPlace });

@@ -32,8 +32,11 @@ describe("fileRowCategory", () => {
     ).toBe("review");
   });
 
-  it("leaves ready and moved files alone", () => {
+  it("leaves ready, already named and moved files alone", () => {
     expect(fileRowCategory(READY_STATE)).toBe("other");
+    expect(fileRowCategory(state({ movePlan: { plan_status: "already_named" } as MovePlan }))).toBe(
+      "other"
+    );
     expect(fileRowCategory(state({ moveResult: { result_status: "moved" } as MoveResult }))).toBe(
       "other"
     );

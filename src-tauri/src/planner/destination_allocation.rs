@@ -6,11 +6,12 @@ use std::{
 use crate::{
     file_ops::files_have_same_bytes,
     models::{ConflictStatus, PlanStatus},
-    path_safety::normalized_path_string,
+    path_safety::{normalized_path_string, paths_equal_case_insensitive},
 };
 
 /// Picks the first free `<stem>[ (n)].<ext>` path. An earlier copy of the same bytes under
 /// any of those names blocks the plan, so a kept source isn't copied again on the next run.
+/// A source that already sits at one of those names keeps it.
 pub(super) fn allocate_destination_path(
     source_path: &Path,
     destination_dir: &Path,
@@ -33,6 +34,16 @@ pub(super) fn allocate_destination_path(
         };
         let destination_path = destination_dir.join(&filename);
         let path_key = normalized_path_string(&destination_path);
+
+        if paths_equal_case_insensitive(source_path, &destination_path) {
+            reserved_paths.insert(path_key);
+            return Ok((
+                destination_path,
+                filename,
+                ConflictStatus::None,
+                PlanStatus::AlreadyNamed,
+            ));
+        }
 
         let exists_on_disk = destination_path.exists();
         let exists_in_run = reserved_paths.contains(&path_key);

@@ -6,7 +6,7 @@ use crate::{
     models::DestinationRootMode,
     settings::{
         effective_root::resolve_effective_destination_root, set_force_processed_folder,
-        set_root_media_folder, storage::default_destination_settings,
+        set_rename_in_place, set_root_media_folder, storage::default_destination_settings,
     },
 };
 
@@ -92,4 +92,25 @@ fn rejects_invalid_custom_root_during_resolution() {
         .expect_err("missing custom root should fail resolution");
 
     assert!(error.contains("does not exist"));
+}
+
+#[test]
+fn resolves_selected_folder_when_renaming_in_place() {
+    let temp = tempdir().expect("temp dir should be created");
+    let selected = temp.path().join("todo");
+    let custom_root = temp.path().join("media-root");
+    fs::create_dir_all(&selected).expect("selected folder should be created");
+    fs::create_dir_all(&custom_root).expect("custom root should be created");
+
+    let with_root = set_root_media_folder(
+        &default_destination_settings(),
+        Some(custom_root.to_string_lossy().to_string()),
+    );
+    let in_place = set_rename_in_place(&set_force_processed_folder(&with_root, true), true);
+    let resolved = resolve_effective_destination_root(&selected, &in_place)
+        .expect("in place root should resolve");
+
+    assert_eq!(resolved.mode, DestinationRootMode::InPlace);
+    assert_eq!(resolved.root_path, selected.to_string_lossy().to_string());
+    assert!(resolved.custom_root_configured);
 }

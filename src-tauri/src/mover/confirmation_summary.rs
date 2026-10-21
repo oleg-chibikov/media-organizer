@@ -6,12 +6,18 @@ use crate::models::{
     MovePlan, PlanStatus,
 };
 
+/// Counts what a move would do. Files that already have their planned name are left out.
 pub(crate) fn build_move_confirmation_summary(
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
     plans: &[MovePlan],
 ) -> MoveConfirmationSummary {
-    let prepared = prepare_move_operations(files, plans);
+    let plans: Vec<MovePlan> = plans
+        .iter()
+        .filter(|plan| !matches!(plan.plan_status, PlanStatus::AlreadyNamed))
+        .cloned()
+        .collect();
+    let prepared = prepare_move_operations(files, &plans);
     let file_by_id: HashMap<&str, &FileRecord> =
         files.iter().map(|file| (file.id.as_str(), file)).collect();
     let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
@@ -32,12 +38,12 @@ pub(crate) fn build_move_confirmation_summary(
         videos_ready: 0,
     };
 
-    for plan in plans {
+    for plan in &plans {
         match plan.plan_status {
             PlanStatus::BlockedNoDate => summary.blocked_no_date += 1,
             PlanStatus::BlockedConflict => summary.blocked_conflict += 1,
             PlanStatus::Error => summary.plan_errors += 1,
-            PlanStatus::Ready => {}
+            PlanStatus::Ready | PlanStatus::AlreadyNamed => {}
         }
         if matches!(plan.conflict_status, ConflictStatus::SuffixApplied) {
             summary.suffix_applied += 1;

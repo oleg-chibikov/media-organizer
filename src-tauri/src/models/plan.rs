@@ -14,6 +14,8 @@ pub enum PlanStatus {
     Ready,
     BlockedNoDate,
     BlockedConflict,
+    /// The file already has its planned name in its planned folder.
+    AlreadyNamed,
     Error,
 }
 

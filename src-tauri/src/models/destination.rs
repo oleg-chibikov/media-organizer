@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub enum DestinationRootMode {
     CustomRoot,
     ProcessedFolder,
+    /// Files keep their folder and only get the new name.
+    InPlace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -12,6 +14,8 @@ pub struct DestinationSettings {
     pub version: u32,
     pub root_media_folder: Option<String>,
     pub force_processed_folder: bool,
+    #[serde(default)]
+    pub rename_in_place: bool,
     pub updated_at: Option<String>,
 }
 

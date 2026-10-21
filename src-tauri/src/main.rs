@@ -89,6 +89,7 @@ pub fn run() {
             destination::choose_root_media_folder,
             destination::clear_root_media_folder,
             destination::set_force_processed_folder,
+            destination::set_rename_in_place,
             scan::start_scan,
             scan::cancel_scan,
             metadata_commands::read_metadata_for_file,

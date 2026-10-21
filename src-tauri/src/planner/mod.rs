@@ -1,15 +1,13 @@
-//! Destination planning: dated folders, original-name filenames and conflict suffixes.
+//! Destination planning: dated or same folders, original-name filenames and conflict suffixes.
 
 mod destination_allocation;
+mod destination_layout;
 mod file_plan;
 
 #[cfg(test)]
 mod tests;
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     events::{self, EventSink},
@@ -17,13 +15,14 @@ use crate::{
         FileKind, FileRecord, MetadataResult, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
     },
 };
+pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
 
-/// Plans every photo/video under `destination_root`, streaming one event per file.
-/// Planning is a dry run: it never creates folders or files.
+/// Plans every photo/video into `layout`, streaming one event per file.
+/// Planning is a dry run: it doesn't create folders or files.
 pub(crate) fn stream_move_plan(
     sink: &impl EventSink,
-    destination_root: &Path,
+    layout: &DestinationLayout,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
 ) {
@@ -41,7 +40,7 @@ pub(crate) fn stream_move_plan(
         }
 
         let metadata = metadata_by_id.get(file.id.as_str()).copied();
-        match create_plan_for_file(destination_root, file, metadata, &mut reserved_paths) {
+        match create_plan_for_file(layout, file, metadata, &mut reserved_paths) {
             Ok(plan) => {
                 planned += 1;
                 events::plan_file(sink, PlanFileEvent { plan });

@@ -22,6 +22,7 @@ pub(super) fn default_destination_settings() -> DestinationSettings {
         version: DESTINATION_SETTINGS_VERSION,
         root_media_folder: None,
         force_processed_folder: false,
+        rename_in_place: false,
         updated_at: Some(Utc::now().to_rfc3339()),
     }
 }

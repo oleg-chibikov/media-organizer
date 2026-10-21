@@ -72,3 +72,18 @@ fn store_update_applies_change_to_saved_settings() {
             .force_processed_folder
     );
 }
+
+#[test]
+fn loads_settings_saved_before_rename_in_place_existed() {
+    let temp = tempdir().expect("temp dir should be created");
+    let path = destination_settings_path(temp.path());
+    std::fs::create_dir_all(path.parent().expect("settings dir")).expect("dir should be created");
+    let saved =
+        r#"{"version":1,"root_media_folder":null,"force_processed_folder":true,"updated_at":null}"#;
+    std::fs::write(&path, saved).expect("settings should be written");
+
+    let loaded = load_destination_settings(temp.path()).expect("old settings should load");
+
+    assert!(loaded.force_processed_folder);
+    assert!(!loaded.rename_in_place);
+}

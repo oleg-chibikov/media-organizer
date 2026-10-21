@@ -6,7 +6,12 @@ import type {
 import type { useMoveExecution } from "../features/moves";
 import type { useMovePlanning } from "../features/planning";
 import type { useScanSession } from "../features/scan";
-import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "../lib/api";
+import {
+  chooseRootMediaFolder,
+  clearRootMediaFolder,
+  setForceProcessedFolder,
+  setRenameInPlace
+} from "../lib/api";
 import type { MetadataResult } from "../lib/types";
 
 interface DestinationChangeOptions {
@@ -17,7 +22,7 @@ interface DestinationChangeOptions {
   moves: ReturnType<typeof useMoveExecution>;
 }
 
-// A new destination root changes every planned path, so plans are rebuilt before execution starts.
+// A new root or mode changes every planned path, so plans are rebuilt before execution starts.
 export function useDestinationChange(options: DestinationChangeOptions) {
   const { destination, moves } = options;
   // Files keep moving after confirmation as they become ready, so the root they go to stays fixed.
@@ -52,6 +57,7 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     locked,
     chooseRoot: () => change(chooseRootMediaFolder),
     clearRoot: () => change(clearRootMediaFolder),
-    setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue))
+    setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue)),
+    setRenameInPlace: (nextValue: boolean) => change(() => setRenameInPlace(nextValue))
   };
 }

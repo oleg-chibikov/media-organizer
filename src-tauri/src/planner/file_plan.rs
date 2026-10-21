@@ -1,11 +1,8 @@
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashSet, path::Path};
 
-use chrono::{Datelike, NaiveDateTime};
+use chrono::NaiveDateTime;
 
-use super::destination_allocation::allocate_destination_path;
+use super::{destination_allocation::allocate_destination_path, DestinationLayout};
 use crate::{
     filename,
     models::{
@@ -14,9 +11,9 @@ use crate::{
     },
 };
 
-/// Plans `<root>/<year>/<month>/<day>/<date> (<original>) - <device>.<ext>` for one file.
+/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file.
 pub(super) fn create_plan_for_file(
-    destination_root: &Path,
+    layout: &DestinationLayout,
     file: &FileRecord,
     metadata: Option<&MetadataResult>,
     reserved_paths: &mut HashSet<String>,
@@ -28,14 +25,15 @@ pub(super) fn create_plan_for_file(
     let parsed_date = NaiveDateTime::parse_from_str(chosen_date, "%Y-%m-%d %H:%M:%S")
         .map_err(|error| format!("Invalid chosen date for {}: {error}", file.source_path))?;
 
-    let destination_dir = dated_destination_dir(destination_root, &parsed_date);
+    let source_path = Path::new(&file.source_path);
+    let destination_dir = layout.destination_dir(source_path, &parsed_date)?;
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let device_name = metadata.and_then(|metadata| metadata.device_name.as_deref());
     let stem_base = destination_stem(&parsed_date, &original_name, device_name);
 
     let (destination_path, destination_filename, conflict_status, plan_status) =
         allocate_destination_path(
-            Path::new(&file.source_path),
+            source_path,
             &destination_dir,
             &stem_base,
             &file.extension,
@@ -62,13 +60,6 @@ fn plannable_date<'a>(file: &FileRecord, metadata: Option<&'a MetadataResult>) -
         return None;
     }
     metadata.chosen_date.as_deref()
-}
-
-fn dated_destination_dir(destination_root: &Path, date: &NaiveDateTime) -> PathBuf {
-    destination_root
-        .join(date.format("%Y").to_string())
-        .join(date.month().to_string())
-        .join(date.day().to_string())
 }
 
 fn destination_stem(

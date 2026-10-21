@@ -71,7 +71,7 @@ flowchart TD
   plan["features/planning<br/>asks for plans, keeps only the ones it asked for"] -->|plans| moves
   moves["features/moves<br/>backend summary, confirm, dispatch queue"] -->|confirmed batch| api
   history["features/history<br/>confirm, then undo, redo or delete"] -->|run id| api
-  toolbar -->|opens Settings| settings["features/destination-settings<br/>media root or a Processed folder"]
+  toolbar -->|opens Settings| settings["features/destination-settings<br/>media root, a Processed folder<br/>or rename only"]
   settings -->|new destination| destChange["app/useDestinationChange<br/>saves it, replans before any move"]
   destChange -->|settings commands| api
   destChange -->|replans| plan

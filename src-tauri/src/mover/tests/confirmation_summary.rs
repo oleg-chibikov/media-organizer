@@ -45,3 +45,27 @@ fn counts_suffix_applied_conflicts() {
     assert_eq!(summary.ready_operations, 1);
     assert_eq!(summary.skipped_operations, 0);
 }
+
+#[test]
+fn leaves_out_files_that_already_have_their_name() {
+    let files = vec![
+        file_record("photo_1", "jpg", FileKind::Photo),
+        file_record("photo_2", "jpg", FileKind::Photo),
+    ];
+    let mut already_named = ready_plan("photo_2", r"C:\todo\photo_2.jpg");
+    already_named.plan_status = PlanStatus::AlreadyNamed;
+    let plans = vec![
+        ready_plan("photo_1", r"C:\todo\2026-05-23 10-00-00 (photo_1).jpg"),
+        already_named,
+    ];
+    let metadata = vec![
+        ready_metadata("photo_1", DateKind::TimezoneAware),
+        ready_metadata("photo_2", DateKind::TimezoneAware),
+    ];
+
+    let summary = build_move_confirmation_summary(&files, &metadata, &plans);
+
+    assert_eq!(summary.total_plans, 1);
+    assert_eq!(summary.ready_operations, 1);
+    assert_eq!(summary.skipped_operations, 0);
+}

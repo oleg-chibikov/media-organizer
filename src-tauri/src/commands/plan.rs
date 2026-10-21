@@ -19,16 +19,16 @@ pub async fn create_move_plan(
     app: AppHandle,
 ) -> Result<(), String> {
     let settings = settings_store(&app)?;
-    let destination_root = run_blocking(move || {
+    let layout = run_blocking(move || {
         let selected_folder = PathBuf::from(selected_path);
         path_safety::validate_selected_folder(&selected_folder)?;
         let effective_root = settings.effective_destination_root(&selected_folder)?;
-        Ok(PathBuf::from(effective_root.root_path))
+        Ok(planner::DestinationLayout::for_root(&effective_root))
     })
     .await?;
 
     spawn_job(move || {
-        planner::stream_move_plan(&app, &destination_root, &files, &metadata_results);
+        planner::stream_move_plan(&app, &layout, &files, &metadata_results);
     });
     Ok(())
 }

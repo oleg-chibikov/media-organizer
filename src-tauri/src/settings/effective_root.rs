@@ -5,58 +5,68 @@ use crate::models::{DestinationRootMode, DestinationSettings, EffectiveDestinati
 
 const PROCESSED_FOLDER_NAME: &str = "Processed";
 
-/// Uses the configured custom root unless forced or unset, then `<selected>/Processed`.
+/// Renames in place when asked. Otherwise uses the configured custom root unless forced or
+/// unset, then `<selected>/Processed`.
 pub(super) fn resolve_effective_destination_root(
     selected_folder: &Path,
     settings: &DestinationSettings,
 ) -> Result<EffectiveDestinationRoot, String> {
-    if settings.force_processed_folder {
-        return Ok(processed_folder_root(selected_folder, settings));
+    if settings.rename_in_place {
+        return Ok(root(
+            DestinationRootMode::InPlace,
+            selected_folder,
+            settings,
+        ));
     }
 
-    let configured_root = settings
-        .root_media_folder
-        .as_ref()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty());
+    let processed_folder = selected_folder.join(PROCESSED_FOLDER_NAME);
+    if settings.force_processed_folder {
+        return Ok(root(
+            DestinationRootMode::ProcessedFolder,
+            &processed_folder,
+            settings,
+        ));
+    }
 
-    let Some(root_path) = configured_root else {
-        return Ok(processed_folder_root(selected_folder, settings));
+    let Some(root_path) = configured_root(settings) else {
+        return Ok(root(
+            DestinationRootMode::ProcessedFolder,
+            &processed_folder,
+            settings,
+        ));
     };
 
-    let root = PathBuf::from(root_path);
-    if !root.is_absolute() {
+    let custom_root = PathBuf::from(root_path);
+    if !custom_root.is_absolute() {
         return Err("Configured root Media folder path must be absolute.".to_string());
     }
 
-    validate_custom_root_media_folder(&root)?;
+    validate_custom_root_media_folder(&custom_root)?;
 
-    Ok(EffectiveDestinationRoot {
-        mode: DestinationRootMode::CustomRoot,
-        root_path: root.to_string_lossy().to_string(),
-        custom_root_configured: true,
-        force_processed_folder: settings.force_processed_folder,
-        warning: None,
-    })
+    Ok(root(
+        DestinationRootMode::CustomRoot,
+        &custom_root,
+        settings,
+    ))
 }
 
-fn processed_folder_root(
-    selected_folder: &Path,
+fn configured_root(settings: &DestinationSettings) -> Option<&str> {
+    settings
+        .root_media_folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn root(
+    mode: DestinationRootMode,
+    root_path: &Path,
     settings: &DestinationSettings,
 ) -> EffectiveDestinationRoot {
-    let custom_root_configured = settings
-        .root_media_folder
-        .as_ref()
-        .map(|value| !value.trim().is_empty())
-        .unwrap_or(false);
-
     EffectiveDestinationRoot {
-        mode: DestinationRootMode::ProcessedFolder,
-        root_path: selected_folder
-            .join(PROCESSED_FOLDER_NAME)
-            .to_string_lossy()
-            .to_string(),
-        custom_root_configured,
+        mode,
+        root_path: root_path.to_string_lossy().to_string(),
+        custom_root_configured: configured_root(settings).is_some(),
         force_processed_folder: settings.force_processed_folder,
         warning: None,
     }

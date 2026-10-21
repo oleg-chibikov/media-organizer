@@ -1,4 +1,4 @@
-export type DestinationRootMode = "custom_root" | "processed_folder";
+export type DestinationRootMode = "custom_root" | "processed_folder" | "in_place";
 
 export interface EffectiveDestinationRoot {
   mode: DestinationRootMode;
@@ -12,5 +12,6 @@ export interface DestinationSettings {
   version: number;
   root_media_folder: string | null;
   force_processed_folder: boolean;
+  rename_in_place: boolean;
   updated_at: string;
 }

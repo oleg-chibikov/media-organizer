@@ -28,6 +28,8 @@ describe("fileStatusLabel", () => {
     expect(fileStatusLabel(state(), "f1")).toBe("Moving");
     const suffixed = { plan_status: "ready", conflict_status: "suffix_applied" } as MovePlan;
     expect(fileStatusLabel(state({ movePlan: suffixed }), null)).toBe("Ready (renamed)");
+    const named = { plan_status: "already_named" } as MovePlan;
+    expect(fileStatusLabel(state({ movePlan: named }), null)).toBe("Already named");
     const copied = { result_status: "copied" } as MoveResult;
     expect(fileStatusLabel(state({ moveResult: copied }), null)).toBe("Copied, original kept");
   });
