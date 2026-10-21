@@ -1,6 +1,30 @@
 # Media Organizer
 
-Windows desktop app for organizing photo and video TODO folders into date-based destinations using metadata from a bundled ExifTool sidecar.
+Windows and macOS desktop app for organizing photo and video TODO folders into date-based destinations using metadata from a bundled ExifTool sidecar.
+
+## Install
+
+One command installs the latest release. No clone needed.
+
+Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/install.ps1 | iex
+```
+
+macOS, in Terminal:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/install.sh | sh
+```
+
+- **Windows** installs for the current user, no admin rights needed.
+- **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
+- **Update** by running the same command again.
+
+## Release
+
+Push a version tag, for example `git tag v0.2.0 && git push origin v0.2.0`. The `Release` workflow builds the Windows installer and the macOS apps, then publishes them as the latest GitHub release.
 
 ## What It Does
 

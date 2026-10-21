@@ -1,0 +1,68 @@
+name: Release
+
+# Pushing a tag like v0.2.0 builds the installers and publishes them as the latest release.
+# install.sh and install.ps1 download these assets by name, so keep the names stable.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create a draft release
+        run: >
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+          --draft --generate-notes --title "Media Organizer $GITHUB_REF_NAME"
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle: nsis
+            asset: MediaOrganizer-windows-x64-setup.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bundle: app
+            asset: MediaOrganizer-macos-aarch64.app.tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bundle: app
+            asset: MediaOrganizer-macos-x86_64.app.tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise x -- rustup target add ${{ matrix.target }}
+      - run: mise x -- pnpm install --frozen-lockfile
+      - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+
+      - name: Package the Windows installer
+        if: runner.os == 'Windows'
+        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "${{ matrix.asset }}"
+
+      - name: Package the macOS app
+        if: runner.os == 'macOS'
+        run: tar -czf "${{ matrix.asset }}" -C "src-tauri/target/${{ matrix.target }}/release/bundle/macos" "Media Organizer.app"
+
+      - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
