@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Media Organizer</string>
+    <string name="source_label">Gallery folder</string>
+    <string name="destination_label">Move to</string>
+    <string name="destination_hint">Empty: gallery folder/Processed</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="progress_label">Sorting progress</string>
+    <string name="log_label">Log</string>
+    <string name="allow_all_files">Allow access to all files, then press Start again.</string>
+    <string name="counts">%1$d of %2$d files\nMoved: %3$d\nAlready there: %4$d\nNo date: %5$d\nErrors: %6$d\nNot photo or video: %7$d</string>
+</resources>
