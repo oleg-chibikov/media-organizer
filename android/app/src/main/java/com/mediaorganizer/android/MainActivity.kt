@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
 import android.widget.Toast
+import com.mediaorganizer.android.background.BackgroundSwitch
 import com.mediaorganizer.android.folders.FolderFields
 import com.mediaorganizer.android.organize.RequestCheck
 import com.mediaorganizer.android.organize.checkRequest
@@ -29,6 +30,7 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
         screen = RunScreen(this)
         folders = FolderFields(this, screen.source, screen.destination, screen.pickSource, screen.pickDestination)
+        BackgroundSwitch(this, screen.background, folders::save)
         screen.start.setOnClickListener { onStartPressed() }
     }
 
@@ -56,7 +58,10 @@ class MainActivity : Activity() {
         when (val check = checkRequest(folders.source, folders.destination)) {
             is RequestCheck.Invalid -> Toast.makeText(this, check.message, Toast.LENGTH_LONG).show()
             is RequestCheck.Valid -> {
-                ActiveRun.start(this, check.request)
+                if (!ActiveRun.start(this, check.request)) {
+                    Toast.makeText(this, R.string.background_busy, Toast.LENGTH_LONG).show()
+                    return
+                }
                 showRunning(true)
                 handler.removeCallbacks(refresh)
                 handler.post(refresh)

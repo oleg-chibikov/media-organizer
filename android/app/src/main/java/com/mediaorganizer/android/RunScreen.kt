@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
 import com.mediaorganizer.android.organize.FileOutcome
 import com.mediaorganizer.android.organize.RunProgress
@@ -16,6 +17,7 @@ class RunScreen(activity: Activity) {
     val destination: EditText = activity.findViewById(R.id.destination_path)
     val pickSource: Button = activity.findViewById(R.id.pick_source)
     val pickDestination: Button = activity.findViewById(R.id.pick_destination)
+    val background: Switch = activity.findViewById(R.id.background)
     val start: Button = activity.findViewById(R.id.start)
     private val status: TextView = activity.findViewById(R.id.status)
     private val progressBar: ProgressBar = activity.findViewById(R.id.progress)

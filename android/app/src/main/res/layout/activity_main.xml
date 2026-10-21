@@ -66,6 +66,14 @@
                 android:text="@string/choose" />
         </LinearLayout>
 
+        <Switch
+            android:id="@+id/background"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="48dp"
+            android:text="@string/background_label" />
+
         <Button
             android:id="@+id/start"
             android:layout_width="match_parent"

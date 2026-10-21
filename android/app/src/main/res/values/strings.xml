@@ -9,6 +9,8 @@
     <string name="use_folder">Use this folder</string>
     <string name="up">↑ Up</string>
     <string name="storages">Storage</string>
+    <string name="background_label">Move new photos and videos automatically</string>
+    <string name="background_busy">New photos are being moved in the background. Press Start again in a few seconds.</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="status_running">Sorting. Keep the app on screen.</string>

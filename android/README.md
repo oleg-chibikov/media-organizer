@@ -40,6 +40,16 @@ Choose opens a folder list inside the app. Tap a folder to open it, and "↑ Up"
 
 Choose next to "Move to" creates the folder first when it doesn't exist yet, so the picker opens inside it.
 
+## Move new photos automatically
+
+Turn on "Move new photos and videos automatically". The app then sorts each new photo or video a few seconds after the camera saves it, with the app closed.
+
+- **Folders** are the last ones on screen. Change a field and the next sort uses it.
+- **No app runs in between.** Android starts the app when the gallery changes, and the app exits after the sort. Once a day it also sorts the whole gallery folder, for files the trigger missed.
+- **Battery** Android asks once to let the app run in the background. Allow it, or Android may hold new photos back for hours. Phones such as Xiaomi also need "Autostart" on for the app.
+- **Reboot** keeps the setting. Force stop in the system settings turns it off until the next app launch.
+- **Start** waits while a background sort runs. Press it again a few seconds later.
+
 ## What matches the desktop app
 
 - **Folders** `<root>/<year>/<month>/<day>/<date> (<original>) - <device>.<ext>`.
