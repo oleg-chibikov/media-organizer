@@ -1,6 +1,12 @@
 use std::path::{Path, PathBuf};
 
 const SIDECAR_FILE_NAME: &str = "exiftool-x86_64-pc-windows-msvc.exe";
+/// Tauri bundles the sidecar as `exiftool.exe` on Windows and `exiftool` elsewhere.
+const BUNDLED_FILE_NAME: &str = if cfg!(windows) {
+    "exiftool.exe"
+} else {
+    "exiftool"
+};
 
 /// Finds the bundled ExifTool sidecar in resource, executable and dev source locations.
 pub(super) fn resolve_exiftool_path(resource_dir: Option<&Path>) -> Result<PathBuf, String> {
@@ -8,14 +14,14 @@ pub(super) fn resolve_exiftool_path(resource_dir: Option<&Path>) -> Result<PathB
 
     if let Some(resource_dir) = resource_dir {
         candidates.push(resource_dir.join(SIDECAR_FILE_NAME));
-        candidates.push(resource_dir.join("exiftool.exe"));
+        candidates.push(resource_dir.join(BUNDLED_FILE_NAME));
         candidates.push(resource_dir.join("binaries").join(SIDECAR_FILE_NAME));
     }
 
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
             candidates.push(exe_dir.join(SIDECAR_FILE_NAME));
-            candidates.push(exe_dir.join("exiftool.exe"));
+            candidates.push(exe_dir.join(BUNDLED_FILE_NAME));
         }
     }
 
