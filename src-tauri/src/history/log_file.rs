@@ -47,13 +47,13 @@ impl RunLogWriter {
 }
 
 /// Writes one JSONL record and flushes so a crash loses at most a partial trailing line.
+/// The line and its newline go out in one write, so two appenders can't split a record.
 pub(super) fn append_history_record(file: &mut File, record: &HistoryRecord) -> Result<(), String> {
-    let line = serde_json::to_string(record)
+    let mut line = serde_json::to_vec(record)
         .map_err(|error| format!("Failed to serialize history record: {error}"))?;
-    file.write_all(line.as_bytes())
+    line.push(b'\n');
+    file.write_all(&line)
         .map_err(|error| format!("Failed to append history record: {error}"))?;
-    file.write_all(b"\n")
-        .map_err(|error| format!("Failed to append history record newline: {error}"))?;
     file.flush()
         .map_err(|error| format!("Failed to flush history record: {error}"))
 }
