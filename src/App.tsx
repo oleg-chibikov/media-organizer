@@ -1,15 +1,15 @@
 import { useAppSession } from "./app/useAppSession";
-import { DestinationSettingsMenu } from "./components/DestinationSettingsMenu";
+import { DestinationSettingsMenu } from "./features/destination-settings/DestinationSettingsMenu";
 import { FileTable } from "./features/file-table/FileTable";
 import { HistoryMenu } from "./features/history/HistoryMenu";
+import { StatusBar } from "./features/status-bar/StatusBar";
 import { Toolbar } from "./features/toolbar/Toolbar";
-import { StatusBar } from "./components/StatusBar";
 import { chooseRootMediaFolder, clearRootMediaFolder, setForceProcessedFolder } from "./lib/api";
 
 export default function App() {
   const session = useAppSession();
   const { scan, planning, moves, history, destination, changeDestinationSettings } = session;
-  const { execution, moveCounts } = moves;
+  const { execution } = moves;
   const rootMediaFolder = destination.settings?.root_media_folder ?? null;
 
   return (
@@ -64,24 +64,11 @@ export default function App() {
 
       <StatusBar
         health={session.health}
-        discovered={scan.progress.discovered}
-        skipped={scan.progress.skipped}
-        errors={scan.progress.errors}
-        planErrors={planning.planErrors}
-        confirmationSummary={moves.confirmationSummary}
-        executionConfirmed={execution.confirmed}
-        isPlanning={planning.isPlanning}
-        planCompleted={planning.planCompleted}
-        completed={scan.progress.completed}
-        cancelled={scan.progress.cancelled}
-        isExecutingMoves={execution.executing}
-        isMoveDispatchPaused={execution.paused}
-        moveStatusMessage={execution.statusMessage}
-        moveCompleted={execution.completed}
-        moved={moveCounts.moved}
-        copied={moveCounts.copied}
-        moveSkipped={moveCounts.skipped}
-        moveFailed={moveCounts.failed}
+        scan={scan.progress}
+        planning={planning}
+        summary={moves.confirmationSummary}
+        execution={execution}
+        moveCounts={moves.moveCounts}
         hasPendingExecutableItems={moves.hasPendingExecutableItems}
         onExecutionAction={moves.runExecutionAction}
       />

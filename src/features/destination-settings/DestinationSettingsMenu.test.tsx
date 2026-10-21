@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DestinationSettingsMenu } from "./DestinationSettingsMenu";
-import type { DestinationSettings } from "../lib/types";
+import type { DestinationSettings } from "../../lib/types";
 
 const SETTINGS: DestinationSettings = {
   version: 1,
