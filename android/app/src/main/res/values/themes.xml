@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The default platform button is gray, the same as a disabled one. The colored style fills it with the system accent. -->
+    <style name="AppTheme" parent="android:Theme.DeviceDefault.DayNight">
+        <item name="android:buttonStyle">@android:style/Widget.Material.Button.Colored</item>
+    </style>
+</resources>
