@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { attachPlanListeners, createMovePlan, useBackendEvents } from "../../lib/api";
-import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
+import type { FileRecord, MetadataResult } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
+import { usePlanBatches } from "./usePlanBatches";
 
 interface MovePlanningOptions {
   selectedFolder: string | null;
@@ -9,7 +10,7 @@ interface MovePlanningOptions {
 }
 
 export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOptions) {
-  const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
+  const { movePlansByFileId, addPlan, flushPlans, dropPlans } = usePlanBatches();
   const [activePlanRequests, setActivePlanRequests] = useState(0);
   const [planErrors, setPlanErrors] = useState(0);
   const signaturesRef = useRef<Map<string, string>>(new Map());
@@ -41,23 +42,36 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
     [changeActiveRequests, reportError, selectedFolder]
   );
 
+  // Plan events carry no request id, so a file this session didn't ask for belongs to an older scan.
+  const isRequested = (fileId: string) => signaturesRef.current.has(fileId);
+
   useBackendEvents(
     attachPlanListeners,
     {
-      onFile: ({ plan }) => setMovePlansByFileId((prev) => ({ ...prev, [plan.file_id]: plan })),
-      onError: ({ error }) => {
-        setPlanErrors((count) => count + 1);
-        reportError(`Plan error: ${error}`);
+      onFile: ({ plan }) => {
+        if (isRequested(plan.file_id)) {
+          addPlan(plan);
+        }
       },
-      onFinished: () => changeActiveRequests(-1)
+      onError: ({ file_id, error }) => {
+        if (isRequested(file_id)) {
+          setPlanErrors((count) => count + 1);
+          reportError(`Plan error: ${error}`);
+        }
+      },
+      onFinished: () => {
+        // Plans land before the request count drops, so planning never looks done too early.
+        flushPlans();
+        changeActiveRequests(-1);
+      }
     },
     (error) => reportError(`Failed to attach plan listeners: ${String(error)}`)
   );
 
   const clearPlans = useCallback(() => {
     signaturesRef.current = new Map();
-    setMovePlansByFileId({});
-  }, []);
+    dropPlans();
+  }, [dropPlans]);
 
   const resetPlanning = useCallback(() => {
     clearPlans();
