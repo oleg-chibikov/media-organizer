@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { HistoryDetailsPanel } from "./HistoryDetailsPanel";
+import { HistoryRunDetailsSection } from "./HistoryRunDetailsSection";
 import type { HistoryRunDetails } from "../../lib/types";
 
 const DETAILS: HistoryRunDetails = {
@@ -69,9 +69,9 @@ const DETAILS: HistoryRunDetails = {
   recovery_error: null
 };
 
-describe("HistoryDetailsPanel", () => {
+describe("HistoryRunDetailsSection", () => {
   it("renders source/destination/status and exposes errors via status tooltip", () => {
-    render(<HistoryDetailsPanel details={DETAILS} loading={false} error={null} />);
+    render(<HistoryRunDetailsSection details={DETAILS} loading={false} error={null} />);
 
     expect(screen.getByText("History Details")).toBeInTheDocument();
     expect(screen.getByText("TODO Camera")).toBeInTheDocument();
