@@ -1,0 +1,27 @@
+name: Android
+
+# Builds the APK from scratch with both scripts, so a change can't break the Windows or Unix build.
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            command: ./android/build-apk.sh test
+          - os: macos-latest
+            command: ./android/build-apk.sh test
+          - os: windows-latest
+            command: powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 test
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: ${{ matrix.command }}
