@@ -48,7 +48,8 @@ describe("App", () => {
     render(<App />);
     await waitFor(() => expect(api.healthCheck).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose Folder" }));
+    expect(screen.getByText("Sort photos and videos by date")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Choose Folder" })[0]);
     await waitFor(() => expect(api.startScan).toHaveBeenCalledWith("C:\\in"));
 
     act(() => {

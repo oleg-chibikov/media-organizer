@@ -1,6 +1,6 @@
 import { useAppSession } from "./app/useAppSession";
 import { DestinationSettingsMenu } from "./features/destination-settings";
-import { FileTable } from "./features/file-table";
+import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
@@ -10,6 +10,7 @@ export default function App() {
   const { scan, planning, moves, history, destination, destinationActions, effectiveDestination } =
     session;
   const { execution } = moves;
+  const chooseFolder = () => void scan.chooseFolderAndScan();
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
@@ -47,21 +48,30 @@ export default function App() {
             onSetForceProcessed={destinationActions.setForceProcessed}
           />
         }
-        onChooseFolder={() => void scan.chooseFolderAndScan()}
+        onChooseFolder={chooseFolder}
         onCancelScan={() => void scan.stopScan()}
         onDismissError={session.dismissError}
       />
 
       <main className="min-h-0 flex-1">
-        <FileTable
-          rows={scan.rows}
-          metadataByFileId={session.metadataByFileId}
-          movePlansByFileId={planning.movePlansByFileId}
-          planErrorsByFileId={planning.planErrorsByFileId}
-          moveResultsByFileId={moves.moveResultsByFileId}
-          activeMoveFileId={execution.activeFileId}
-          destinationRoot={effectiveDestination.rootPath}
-        />
+        {scan.rows.length === 0 ? (
+          <EmptyFileList
+            selectedFolder={scan.selectedFolder}
+            isScanning={scan.isScanning}
+            chooseDisabled={execution.executing}
+            onChooseFolder={chooseFolder}
+          />
+        ) : (
+          <FileTable
+            rows={scan.rows}
+            metadataByFileId={session.metadataByFileId}
+            movePlansByFileId={planning.movePlansByFileId}
+            planErrorsByFileId={planning.planErrorsByFileId}
+            moveResultsByFileId={moves.moveResultsByFileId}
+            activeMoveFileId={execution.activeFileId}
+            destinationRoot={effectiveDestination.rootPath}
+          />
+        )}
       </main>
 
       <StatusBar
