@@ -4,12 +4,15 @@ mod active_run;
 mod candidates;
 mod ids;
 mod index;
+mod index_updates;
 mod log_file;
 mod log_lines;
 mod log_parser;
+mod parsed_run_log;
 mod paths;
 mod queries;
 mod recovery;
+mod run_record;
 mod run_updates;
 
 #[cfg(test)]

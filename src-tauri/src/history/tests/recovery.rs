@@ -8,7 +8,7 @@ use tempfile::tempdir;
 
 use crate::{
     history::{
-        index::upsert_history_index_entry,
+        index_updates::upsert_history_index_entry,
         log_file::append_history_record,
         paths::history_runs_dir,
         queries::{get_history_run_from_root, list_history_runs_from_root},

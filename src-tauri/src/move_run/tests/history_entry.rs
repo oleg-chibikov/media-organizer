@@ -9,11 +9,11 @@ use crate::{
         MoveStrategy, PlanStatus, ScanStatus,
     },
     move_run::{
-        history_entry::{
-            build_history_operation_for_result, history_operation_status_for_move_result,
-            history_run_status_for_completion,
+        history_entry::build_history_operation_for_result,
+        request::RunLookups,
+        status_mapping::{
+            history_operation_status_for_move_result, history_run_status_for_completion,
         },
-        lookups::RunLookups,
     },
 };
 

@@ -1,25 +1,6 @@
 use std::collections::HashMap;
 
-use super::recovery::RecoveredHistoryRun;
-use crate::models::{
-    HistoryOperation, HistoryOperationKind, HistoryOperationStatus, HistoryRunStatus, MoveStrategy,
-};
-
-pub(super) fn undo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
-    matches!(
-        recovered.run.run_status,
-        HistoryRunStatus::Completed
-            | HistoryRunStatus::CompletedWithErrors
-            | HistoryRunStatus::Redone
-    ) && !collect_undoable_operations(&recovered.operations).is_empty()
-}
-
-pub(super) fn redo_candidate_exists(recovered: &RecoveredHistoryRun) -> bool {
-    matches!(
-        recovered.run.run_status,
-        HistoryRunStatus::Undone | HistoryRunStatus::PartiallyUndone
-    ) && !collect_redoable_operations(&recovered.operations).is_empty()
-}
+use crate::models::{HistoryOperation, HistoryOperationKind, HistoryOperationStatus, MoveStrategy};
 
 /// Files whose latest successful operation left them in the processed destination.
 pub(crate) fn collect_undoable_operations(

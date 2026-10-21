@@ -3,11 +3,9 @@ use std::collections::HashMap;
 use tauri::AppHandle;
 
 use super::{
-    history_entry::{
-        build_history_operation_for_result, ensure_expected_source_size,
-        history_run_status_for_completion,
-    },
-    lookups::RunLookups,
+    history_entry::{build_history_operation_for_result, ensure_expected_source_size},
+    request::RunLookups,
+    status_mapping::history_run_status_for_completion,
 };
 use crate::{
     events,
@@ -23,11 +21,7 @@ pub(super) struct MoveRunRecorder<'a> {
     history_run: ActiveHistoryRun,
     lookups: RunLookups<'a>,
     expected_source_sizes: HashMap<&'a str, Option<u64>>,
-    moved: u64,
-    copied: u64,
-    skipped: u64,
-    failed: u64,
-    results: Vec<MoveResult>,
+    finished: MoveFinishedEvent,
     history_log_had_error: bool,
 }
 
@@ -42,17 +36,25 @@ impl<'a> MoveRunRecorder<'a> {
             history_run,
             lookups,
             expected_source_sizes: HashMap::new(),
-            moved: 0,
-            copied: 0,
-            skipped: 0,
-            failed: 0,
-            results: Vec::new(),
+            finished: MoveFinishedEvent {
+                moved: 0,
+                copied: 0,
+                skipped: 0,
+                failed: 0,
+                results: Vec::new(),
+            },
             history_log_had_error: false,
         }
     }
 
     pub(super) fn completed_operations(&self) -> u64 {
-        self.results.len() as u64
+        self.finished.results.len() as u64
+    }
+
+    pub(super) fn record_all(&mut self, results: Vec<MoveResult>) {
+        for result in results {
+            self.record(result);
+        }
     }
 
     pub(super) fn record(&mut self, result: MoveResult) {
@@ -72,17 +74,18 @@ impl<'a> MoveRunRecorder<'a> {
         }
 
         match result.result_status {
-            MoveResultStatus::Moved => self.moved += 1,
-            MoveResultStatus::Copied => self.copied += 1,
-            MoveResultStatus::Skipped => self.skipped += 1,
-            MoveResultStatus::Failed => self.failed += 1,
+            MoveResultStatus::Moved => self.finished.moved += 1,
+            MoveResultStatus::Copied => self.finished.copied += 1,
+            MoveResultStatus::Skipped => self.finished.skipped += 1,
+            MoveResultStatus::Failed => self.finished.failed += 1,
         }
-        self.results.push(result.clone());
+        self.finished.results.push(result.clone());
         let _ = events::emit_move_file(self.app, MoveFileEvent { result });
     }
 
     pub(super) fn finish(mut self) {
-        let run_status = history_run_status_for_completion(self.failed, self.history_log_had_error);
+        let run_status =
+            history_run_status_for_completion(self.finished.failed, self.history_log_had_error);
         let history_run_id = self.history_run.run.run_id.clone();
         let _ = history::complete_history_run(&mut self.history_run, run_status);
         let _ = events::emit_history_index_updated(
@@ -92,15 +95,6 @@ impl<'a> MoveRunRecorder<'a> {
             },
         );
 
-        let _ = events::emit_move_finished(
-            self.app,
-            MoveFinishedEvent {
-                moved: self.moved,
-                copied: self.copied,
-                skipped: self.skipped,
-                failed: self.failed,
-                results: self.results,
-            },
-        );
+        let _ = events::emit_move_finished(self.app, self.finished);
     }
 }

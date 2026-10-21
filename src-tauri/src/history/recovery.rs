@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
-use super::{log_parser::parse_run_log_records, HISTORY_VERSION};
+use super::{
+    candidates::{collect_redoable_operations, collect_undoable_operations},
+    log_parser::parse_run_log_records,
+    HISTORY_VERSION,
+};
 use crate::models::{HistoryIndexEntry, HistoryOperation, HistoryRun, HistoryRunStatus};
 
 /// A run rebuilt from its log; damaged logs are flagged unsafe for undo/redo.
@@ -10,6 +14,28 @@ pub(super) struct RecoveredHistoryRun {
     pub operations: Vec<HistoryOperation>,
     pub unsafe_for_undo_redo: bool,
     pub recovery_error: Option<String>,
+}
+
+impl RecoveredHistoryRun {
+    pub(super) fn undo_available(&self) -> bool {
+        !self.unsafe_for_undo_redo
+            && matches!(
+                self.run.run_status,
+                HistoryRunStatus::Completed
+                    | HistoryRunStatus::CompletedWithErrors
+                    | HistoryRunStatus::Redone
+            )
+            && !collect_undoable_operations(&self.operations).is_empty()
+    }
+
+    pub(super) fn redo_available(&self) -> bool {
+        !self.unsafe_for_undo_redo
+            && matches!(
+                self.run.run_status,
+                HistoryRunStatus::Undone | HistoryRunStatus::PartiallyUndone
+            )
+            && !collect_redoable_operations(&self.operations).is_empty()
+    }
 }
 
 pub(super) fn recover_history_run_from_entry(entry: &HistoryIndexEntry) -> RecoveredHistoryRun {

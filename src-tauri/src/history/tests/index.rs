@@ -5,9 +5,8 @@ use tempfile::tempdir;
 
 use crate::{
     history::{
-        index::{upsert_history_index_entry, HistoryIndexFile},
-        paths::history_index_path,
-        MAX_INDEX_RUNS,
+        index::HistoryIndexFile, index_updates::upsert_history_index_entry,
+        paths::history_index_path, MAX_INDEX_RUNS,
     },
     test_support::history::running_index_entry,
 };

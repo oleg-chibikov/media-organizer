@@ -1,6 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use crate::models::{FileRecord, MetadataResult, MovePlan};
+
+/// A confirmed plan to execute, with the roots it was validated against.
+pub(crate) struct MoveRunRequest {
+    pub selected_folder: PathBuf,
+    pub destination_root: PathBuf,
+    pub files: Vec<FileRecord>,
+    pub metadata_results: Vec<MetadataResult>,
+    pub plans: Vec<MovePlan>,
+}
 
 /// Per-file indexes over the request payload, keyed by file id.
 pub(super) struct RunLookups<'a> {

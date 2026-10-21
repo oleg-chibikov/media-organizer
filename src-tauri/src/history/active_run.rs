@@ -8,10 +8,10 @@ use tauri::AppHandle;
 
 use super::{
     ids::generate_run_id,
-    index::{index_entry_from_run, upsert_history_index_entry},
+    index_updates::{index_entry_from_run, upsert_history_index_entry},
     log_file::{append_history_record, create_run_log},
     paths::{history_root_for_app, history_runs_dir, run_log_filename},
-    HISTORY_VERSION,
+    run_record::new_history_run,
 };
 use crate::models::{
     EffectiveDestinationRoot, HistoryOperation, HistoryRecord, HistoryRun,
@@ -45,19 +45,13 @@ pub(crate) fn start_history_run_with_destination_root(
     let log_path = runs_dir.join(run_log_filename(started_at, &run_id));
     let mut log_file = create_run_log(&log_path)?;
 
-    let run = HistoryRun {
+    let run = new_history_run(
         run_id,
-        history_version: HISTORY_VERSION,
-        app_version: env!("CARGO_PKG_VERSION").to_string(),
-        selected_folder: selected_folder.to_string_lossy().to_string(),
-        folder_label: folder_label_from_path(selected_folder),
-        destination_root_mode: destination_root.map(|root| root.mode.clone()),
-        destination_root_path: destination_root.map(|root| root.root_path.clone()),
-        started_at: started_at.to_rfc3339(),
-        completed_at: None,
-        run_status: HistoryRunStatus::Running,
-        history_file_path: log_path.to_string_lossy().to_string(),
-    };
+        selected_folder,
+        destination_root,
+        started_at,
+        &log_path,
+    );
 
     append_history_record(
         &mut log_file,
@@ -102,12 +96,4 @@ pub(crate) fn append_history_operation(
         &mut active_run.log_file,
         &HistoryRecord::Operation(operation),
     )
-}
-
-fn folder_label_from_path(path: &Path) -> String {
-    path.file_name()
-        .and_then(|segment| segment.to_str())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| path.to_string_lossy().to_string())
 }

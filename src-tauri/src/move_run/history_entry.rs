@@ -2,13 +2,10 @@ use std::{collections::HashMap, fs};
 
 use chrono::Utc;
 
-use super::lookups::RunLookups;
+use super::{request::RunLookups, status_mapping::history_operation_status_for_move_result};
 use crate::{
     history,
-    models::{
-        FileRecord, HistoryOperation, HistoryOperationKind, HistoryOperationStatus,
-        HistoryRunStatus, MoveResult, MoveResultStatus,
-    },
+    models::{FileRecord, HistoryOperation, HistoryOperationKind, MoveResult, MoveResultStatus},
 };
 
 /// Captures the source size once per file, before any move can change it.
@@ -77,27 +74,4 @@ fn expected_destination_size_from_result(result: &MoveResult) -> Option<u64> {
         }
         MoveResultStatus::Skipped | MoveResultStatus::Failed => None,
     }
-}
-
-pub(super) fn history_operation_status_for_move_result(
-    result_status: &MoveResultStatus,
-) -> HistoryOperationStatus {
-    match result_status {
-        MoveResultStatus::Moved | MoveResultStatus::Copied => HistoryOperationStatus::Succeeded,
-        MoveResultStatus::Skipped => HistoryOperationStatus::Skipped,
-        MoveResultStatus::Failed => HistoryOperationStatus::Failed,
-    }
-}
-
-pub(super) fn history_run_status_for_completion(
-    failed: u64,
-    history_log_had_error: bool,
-) -> HistoryRunStatus {
-    if history_log_had_error {
-        return HistoryRunStatus::Corrupt;
-    }
-    if failed > 0 {
-        return HistoryRunStatus::CompletedWithErrors;
-    }
-    HistoryRunStatus::Completed
 }

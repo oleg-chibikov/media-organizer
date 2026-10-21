@@ -1,10 +1,11 @@
 //! Executes a confirmed move plan: safety checks, moves, history logging and progress events.
 
 mod history_entry;
-mod lookups;
 pub(crate) mod progress;
 mod recorder;
+mod request;
 mod source_cleanup;
+mod status_mapping;
 
 #[cfg(test)]
 mod tests;
@@ -15,20 +16,13 @@ use tauri::AppHandle;
 
 use crate::{
     history::ActiveHistoryRun,
-    models::{FileRecord, MetadataResult, MovePlan, MoveProgressPhase, MoveResultStatus},
-    mover,
+    models::{MoveProgressPhase, MoveResultStatus},
+    mover::{self, MoveOperation},
 };
-use lookups::RunLookups;
 use progress::emit_move_progress_message;
 use recorder::MoveRunRecorder;
-
-pub(crate) struct MoveRunRequest {
-    pub selected_folder: PathBuf,
-    pub destination_root: PathBuf,
-    pub files: Vec<FileRecord>,
-    pub metadata_results: Vec<MetadataResult>,
-    pub plans: Vec<MovePlan>,
-}
+pub(crate) use request::MoveRunRequest;
+use request::RunLookups;
 
 pub(crate) fn run_move_plan(
     app: &AppHandle,
@@ -51,9 +45,7 @@ pub(crate) fn run_move_plan(
     let mut recorder = MoveRunRecorder::new(app, history_run, lookups);
     let mut moved_source_directories = Vec::new();
 
-    for result in prepared.skipped {
-        recorder.record(result);
-    }
+    recorder.record_all(prepared.skipped);
 
     for operation in prepared.operations {
         progress(
@@ -67,14 +59,10 @@ pub(crate) fn run_move_plan(
             &request.destination_root,
             vec![operation],
         );
-        for result in safety_checked.skipped {
-            recorder.record(result);
-        }
+        recorder.record_all(safety_checked.skipped);
 
         let rechecked = mover::recheck_destination_conflicts(safety_checked.ready);
-        for result in rechecked.skipped {
-            recorder.record(result);
-        }
+        recorder.record_all(rechecked.skipped);
 
         for operation in rechecked.ready {
             progress(
@@ -83,14 +71,7 @@ pub(crate) fn run_move_plan(
                 "Moving file.",
                 recorder.completed_operations(),
             );
-            let source_parent = Path::new(&operation.source_path)
-                .parent()
-                .map(Path::to_path_buf);
-            let result = mover::execute_move_with_rename(&operation);
-            if matches!(result.result_status, MoveResultStatus::Moved) {
-                moved_source_directories.extend(source_parent);
-            }
-            recorder.record(result);
+            moved_source_directories.extend(move_file(&operation, &mut recorder));
         }
     }
 
@@ -105,4 +86,15 @@ pub(crate) fn run_move_plan(
         &moved_source_directories,
     );
     recorder.finish();
+}
+
+/// Moves one file and returns its source folder when the file left it.
+fn move_file(operation: &MoveOperation, recorder: &mut MoveRunRecorder) -> Option<PathBuf> {
+    let source_parent = Path::new(&operation.source_path)
+        .parent()
+        .map(Path::to_path_buf);
+    let result = mover::execute_move_with_rename(operation);
+    let moved = matches!(result.result_status, MoveResultStatus::Moved);
+    recorder.record(result);
+    source_parent.filter(|_| moved)
 }
