@@ -44,6 +44,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - **Version** the `Release` workflow raises the patch of the latest `vX.Y.Z` tag, for example `v0.2.0` to `v0.2.1`, and tags the commit.
 - **Minor or major** run `gh workflow run release.yml -f bump=minor`, or `major`.
 - **Assets** the Windows installer, a macOS DMG for each chip, and the signed Android APK.
+- **Early downloads** the release shows up as a pre-release right away. Each asset appears once its build ends. The release becomes latest when all builds pass.
 - **Version in files** `package.json`, `Cargo.toml` and `tauri.conf.json` stay as they are. The build takes the version from the tag.
 
 ## What It Does

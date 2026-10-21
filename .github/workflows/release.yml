@@ -41,14 +41,16 @@ jobs:
         run: echo "tag=v$(.github/scripts/next-version.sh "${{ inputs.bump || 'patch' }}")" >> "$GITHUB_OUTPUT"
 
       # A tag pushed with the workflow token starts no other workflow.
-      - name: Tag the commit and create a draft release
+      # A pre-release shows each asset as soon as its job uploads it.
+      # releases/latest skips pre-releases, so the install scripts keep the last full release.
+      - name: Tag the commit and create a pre-release
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           git tag "$TAG" "$GITHUB_SHA"
           git push origin "$TAG"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --draft --generate-notes --title "Media Organizer $TAG"
+            --prerelease --latest=false --generate-notes --title "Media Organizer $TAG"
 
   build:
     needs: create-release
@@ -126,5 +128,5 @@ jobs:
       TAG: ${{ needs.create-release.outputs.tag }}
     runs-on: ubuntu-latest
     steps:
-      - name: Publish the release
-        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+      - name: Mark the release as latest
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
