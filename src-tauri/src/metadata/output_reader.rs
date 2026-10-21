@@ -45,9 +45,14 @@ pub(super) fn spawn_stdout_reader(stdout: ChildStdout) -> Receiver<ReaderEvent> 
     rx
 }
 
-/// Drains stderr so pipe backpressure cannot block stdout.
+/// Drains stderr into the log so pipe backpressure cannot block stdout.
 pub(super) fn spawn_stderr_drain(stderr: ChildStderr) {
-    std::thread::spawn(move || for _ in BufReader::new(stderr).lines() {});
+    std::thread::spawn(move || {
+        // Bytes, because ExifTool on Windows may print paths in a non-UTF-8 code page.
+        for line in BufReader::new(stderr).split(b'\n').map_while(Result::ok) {
+            log::warn!("ExifTool: {}", String::from_utf8_lossy(&line).trim_end());
+        }
+    });
 }
 
 fn parse_ready_marker(line: &str) -> Option<u64> {

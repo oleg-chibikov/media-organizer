@@ -28,6 +28,14 @@ curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/
 - **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
 - **Update** by running the same command again.
 
+## Logs
+
+The app writes its log to the console window on Windows and to a file.
+
+- **Windows** `%LOCALAPPDATA%\com.mediaorganizer.desktop\logs`
+- **macOS** `~/Library/Logs/com.mediaorganizer.desktop`
+- **What it holds** scans, moves, undo and redo steps, errors and ExifTool warnings.
+
 ## How The Parts Fit
 
 ```mermaid

@@ -5,6 +5,10 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 
+mod log_lines;
+
+use log_lines::{log_move_result, log_replay_step};
+
 use crate::models::{
     HistoryIndexUpdatedEvent, HistoryReplayProgressEvent, MoveFileEvent, MoveFinishedEvent,
     MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent,
@@ -39,58 +43,92 @@ impl<R: Runtime> EventSink for AppHandle<R> {
 }
 
 pub(crate) fn scan_started(sink: &impl EventSink, payload: ScanStartedEvent) {
+    log::info!("Scan started in {}", payload.root);
     sink.emit(SCAN_STARTED, payload);
 }
 
 pub(crate) fn scan_file(sink: &impl EventSink, payload: ScanFileEvent) {
+    log::debug!("Found {}", payload.record.source_path);
     sink.emit(SCAN_FILE, payload);
 }
 
 pub(crate) fn scan_skipped(sink: &impl EventSink, payload: ScanFileEvent) {
+    log::debug!("Skipped {}", payload.record.source_path);
     sink.emit(SCAN_SKIPPED, payload);
 }
 
 pub(crate) fn scan_error(sink: &impl EventSink, payload: ScanErrorEvent) {
+    log::warn!("Scan error at {}: {}", payload.path, payload.error);
     sink.emit(SCAN_ERROR, payload);
 }
 
 pub(crate) fn scan_finished(sink: &impl EventSink, payload: ScanFinishedEvent) {
+    log::info!(
+        "Scan finished: {} found, {} skipped, {} errors, cancelled: {}",
+        payload.discovered,
+        payload.skipped,
+        payload.errors,
+        payload.cancelled
+    );
     sink.emit(SCAN_FINISHED, payload);
 }
 
 pub(crate) fn plan_file(sink: &impl EventSink, payload: PlanFileEvent) {
+    log::debug!(
+        "Planned {} -> {}",
+        payload.plan.original_name,
+        payload.plan.destination_path
+    );
     sink.emit(PLAN_FILE, payload);
 }
 
 pub(crate) fn plan_error(sink: &impl EventSink, payload: PlanErrorEvent) {
+    log::warn!("Plan error for {}: {}", payload.file_id, payload.error);
     sink.emit(PLAN_ERROR, payload);
 }
 
 pub(crate) fn plan_finished(sink: &impl EventSink, payload: PlanFinishedEvent) {
+    log::info!(
+        "Plan finished: {} planned, {} errors",
+        payload.planned,
+        payload.errors
+    );
     sink.emit(PLAN_FINISHED, payload);
 }
 
 pub(crate) fn move_file(sink: &impl EventSink, payload: MoveFileEvent) {
+    log_move_result(&payload.result);
     sink.emit(MOVE_FILE, payload);
 }
 
 pub(crate) fn move_progress(sink: &impl EventSink, payload: MoveProgressEvent) {
+    log::debug!("Move {:?}: {}", payload.phase, payload.message);
     sink.emit(MOVE_PROGRESS, payload);
 }
 
 pub(crate) fn move_finished(sink: &impl EventSink, payload: MoveFinishedEvent) {
+    log::info!(
+        "Move finished: {} moved, {} copied, {} skipped, {} failed",
+        payload.moved,
+        payload.copied,
+        payload.skipped,
+        payload.failed
+    );
     sink.emit(MOVE_FINISHED, payload);
 }
 
 pub(crate) fn history_index_updated(sink: &impl EventSink, run_id: &str) {
+    log::debug!("History index updated for run {run_id}");
     let run_id = Some(run_id.to_string());
     sink.emit(HISTORY_INDEX_UPDATED, HistoryIndexUpdatedEvent { run_id });
 }
 
 pub(crate) fn history_undo_progress(sink: &impl EventSink, payload: HistoryReplayProgressEvent) {
+    log_replay_step("Undo", &payload);
     sink.emit(HISTORY_UNDO_PROGRESS, payload);
 }
 
 pub(crate) fn history_redo_progress(sink: &impl EventSink, payload: HistoryReplayProgressEvent) {
+    log_replay_step("Redo", &payload);
     sink.emit(HISTORY_REDO_PROGRESS, payload);
 }

@@ -29,10 +29,41 @@ use commands::{
     destination, history as history_commands, metadata as metadata_commands, move_execution, plan,
     scan, system, undo_redo as undo_redo_commands,
 };
+use tauri::Manager;
+
+const LOG_FILE_MAX_BYTES: u128 = 5 * 1024 * 1024;
+
+/// Writes to the console and to a rotating file in the OS log folder.
+fn log_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri_plugin_log::Builder::new()
+        .level(log::LevelFilter::Info)
+        .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+        .max_file_size(LOG_FILE_MAX_BYTES)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(5))
+        .build()
+}
+
+fn log_startup(app: &tauri::App) {
+    let version = &app.package_info().version;
+    log::info!("Media Organizer {version} started");
+    if let Ok(log_dir) = app.path().app_log_dir() {
+        log::info!("Log files are in {}", log_dir.display());
+    }
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("{info}");
+        default_hook(info);
+    }));
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(log_plugin())
+        .setup(|app| {
+            log_startup(app);
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![

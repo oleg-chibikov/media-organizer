@@ -35,7 +35,9 @@ impl ExifToolWorkerManager {
             let had_worker = self.worker.is_some();
             if self.worker_needs_restart() {
                 self.shutdown_worker();
-                self.worker = Some(ExifToolWorker::start(resource_dir)?);
+                let worker = ExifToolWorker::start(resource_dir)
+                    .inspect_err(|error| log::error!("{error}"))?;
+                self.worker = Some(worker);
                 if had_worker {
                     did_restart = true;
                 }
@@ -53,6 +55,7 @@ impl ExifToolWorkerManager {
                     });
                 }
                 Err(WorkerError::Crashed(message)) => {
+                    log::warn!("ExifTool crashed: {message}");
                     self.shutdown_worker();
                     if attempt == 0 {
                         did_restart = true;
@@ -61,6 +64,7 @@ impl ExifToolWorkerManager {
                     return Err(message);
                 }
                 Err(WorkerError::TimedOut(message) | WorkerError::Protocol(message)) => {
+                    log::warn!("ExifTool failed: {message}");
                     self.shutdown_worker();
                     return Err(message);
                 }

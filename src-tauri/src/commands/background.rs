@@ -6,7 +6,9 @@ pub(super) async fn run_blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(job)
         .await
-        .map_err(|error| format!("Background task failed: {error}"))?
+        .map_err(|error| format!("Background task failed: {error}"))
+        .and_then(|result| result)
+        .inspect_err(|error| log::error!("{error}"))
 }
 
 /// Starts a long job that reports through events; the command returns at once.

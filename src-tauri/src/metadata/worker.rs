@@ -37,6 +37,8 @@ impl ExifToolWorker {
             .spawn()
             .map_err(|error| format!("Failed to start ExifTool at {:?}: {error}", exiftool_path))?;
 
+        log::info!("Started ExifTool at {}", exiftool_path.display());
+
         let stdin = child
             .stdin
             .take()
