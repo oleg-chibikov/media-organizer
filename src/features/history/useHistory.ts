@@ -38,7 +38,7 @@ export function useHistory(reportError: (message: string | null) => void) {
   useBackendEvents(
     attachHistoryListeners,
     {
-      onIndexUpdated: ({ run_id }) => void reloadRuns(run_id),
+      onIndexUpdated: ({ run_id }) => void reloadRuns(run_id).then(details.reload),
       onUndoProgress: (payload) => trackProgress("undo", payload),
       onRedoProgress: (payload) => trackProgress("redo", payload)
     },

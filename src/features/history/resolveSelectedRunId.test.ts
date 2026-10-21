@@ -13,4 +13,9 @@ describe("resolveSelectedRunId", () => {
     expect(resolveSelectedRunId("a", null, RUNS)).toBe("a");
     expect(resolveSelectedRunId("gone", null, RUNS)).toBeNull();
   });
+
+  it("ignores a preferred run that is no longer listed", () => {
+    expect(resolveSelectedRunId("a", "gone", RUNS)).toBe("a");
+    expect(resolveSelectedRunId(null, "gone", RUNS)).toBeNull();
+  });
 });

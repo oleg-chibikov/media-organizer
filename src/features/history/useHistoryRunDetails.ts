@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getHistoryRun } from "../../lib/api";
 import type { HistoryRunDetails } from "../../lib/types";
 
@@ -8,6 +8,9 @@ export function useHistoryRunDetails(
 ) {
   const [details, setDetails] = useState<HistoryRunDetails | null>(null);
   const [loading, setLoading] = useState(false);
+  // Bumped when the backend rewrites the run, so the same selection fetches fresh details.
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((previous) => previous + 1), []);
 
   useEffect(() => {
     if (!selectedRunId) {
@@ -40,7 +43,7 @@ export function useHistoryRunDetails(
     return () => {
       ignore = true;
     };
-  }, [selectedRunId, setHistoryError]);
+  }, [selectedRunId, revision, setHistoryError]);
 
-  return { details, setDetails, loading };
+  return { details, setDetails, loading, reload };
 }
