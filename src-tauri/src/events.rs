@@ -1,10 +1,9 @@
 use tauri::{AppHandle, Emitter};
 
 use crate::models::{
-    HistoryIndexUpdatedEvent, HistoryRedoProgressEvent, HistoryUndoProgressEvent,
-    MetadataResultsEvent, MoveFileEvent, MoveFinishedEvent, MoveProgressEvent, PlanErrorEvent,
-    PlanFileEvent, PlanFinishedEvent, ScanErrorEvent, ScanFileEvent, ScanFinishedEvent,
-    ScanStartedEvent,
+    HistoryIndexUpdatedEvent, HistoryRedoProgressEvent, HistoryUndoProgressEvent, MoveFileEvent,
+    MoveFinishedEvent, MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
+    ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -12,7 +11,6 @@ pub const SCAN_FILE: &str = "scan:file";
 pub const SCAN_SKIPPED: &str = "scan:skipped";
 pub const SCAN_ERROR: &str = "scan:error";
 pub const SCAN_FINISHED: &str = "scan:finished";
-pub const METADATA_RESULTS: &str = "metadata:results";
 pub const PLAN_FILE: &str = "plan:file";
 pub const PLAN_ERROR: &str = "plan:error";
 pub const PLAN_FINISHED: &str = "plan:finished";
@@ -41,11 +39,6 @@ pub fn emit_scan_error(app: &AppHandle, payload: ScanErrorEvent) -> Result<(), S
 
 pub fn emit_scan_finished(app: &AppHandle, payload: ScanFinishedEvent) -> Result<(), String> {
     app.emit(SCAN_FINISHED, payload).map_err(|e| e.to_string())
-}
-
-pub fn emit_metadata_results(app: &AppHandle, payload: MetadataResultsEvent) -> Result<(), String> {
-    app.emit(METADATA_RESULTS, payload)
-        .map_err(|e| e.to_string())
 }
 
 pub fn emit_plan_file(app: &AppHandle, payload: PlanFileEvent) -> Result<(), String> {

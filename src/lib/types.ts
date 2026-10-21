@@ -13,44 +13,6 @@ export interface FileRecord {
 
 export type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
 export type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
-export type PlaceStatus = "not_available" | "pending" | "resolved" | "failed";
-
-export interface GpsCoordinate {
-  latitude: number;
-  longitude: number;
-}
-
-export interface PlaceComponents {
-  landmark: string | null;
-  city: string | null;
-  region: string | null;
-  country: string | null;
-}
-
-export interface PlaceCacheEntry {
-  version: number;
-  osm_place_key: string;
-  place: string;
-  components: PlaceComponents | null;
-  provider: string;
-  resolved_at: string;
-  last_used_at: string;
-  polygon_geojson: string | null;
-}
-
-export interface PlaceLookupDiagnosticResult {
-  coordinate: GpsCoordinate;
-  cached: boolean;
-  osm_place_key: string | null;
-  provider: string;
-  request_url: string;
-  http_status: number | null;
-  display_place: string | null;
-  components: PlaceComponents | null;
-  polygon_geojson: string | null;
-  raw_response: unknown | null;
-  error: string | null;
-}
 
 export interface MetadataResult {
   file_id: string;
@@ -59,12 +21,6 @@ export interface MetadataResult {
   date_kind: DateKind | null;
   raw_metadata_date: string | null;
   device_name: string | null;
-  gps_coordinate: GpsCoordinate | null;
-  gps_source: string | null;
-  place_bucket_id: string | null;
-  place_status: PlaceStatus;
-  place: string | null;
-  place_error: string | null;
   metadata_status: MetadataStatus;
   error: string | null;
 }

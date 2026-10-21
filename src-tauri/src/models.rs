@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -48,64 +47,6 @@ pub enum MetadataStatus {
     ExiftoolRestarted,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct GpsCoordinate {
-    pub latitude: f64,
-    pub longitude: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum PlaceStatus {
-    NotAvailable,
-    Pending,
-    Resolved,
-    Failed,
-}
-
-impl Default for PlaceStatus {
-    fn default() -> Self {
-        Self::NotAvailable
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlaceComponents {
-    pub landmark: Option<String>,
-    pub city: Option<String>,
-    pub region: Option<String>,
-    pub country: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlaceCacheEntry {
-    pub version: u32,
-    pub osm_place_key: String,
-    pub place: String,
-    pub components: Option<PlaceComponents>,
-    pub provider: String,
-    pub resolved_at: String,
-    pub last_used_at: String,
-    #[serde(default)]
-    pub polygon_geojson: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlaceLookupDiagnosticResult {
-    pub coordinate: GpsCoordinate,
-    pub cached: bool,
-    pub osm_place_key: Option<String>,
-    pub provider: String,
-    pub request_url: String,
-    pub http_status: Option<u16>,
-    pub display_place: Option<String>,
-    pub components: Option<PlaceComponents>,
-    #[serde(default)]
-    pub polygon_geojson: Option<String>,
-    pub raw_response: Option<Value>,
-    pub error: Option<String>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetadataResult {
     pub file_id: String,
@@ -114,18 +55,6 @@ pub struct MetadataResult {
     pub date_kind: Option<DateKind>,
     pub raw_metadata_date: Option<String>,
     pub device_name: Option<String>,
-    #[serde(default)]
-    pub gps_coordinate: Option<GpsCoordinate>,
-    #[serde(default)]
-    pub gps_source: Option<String>,
-    #[serde(default)]
-    pub place_bucket_id: Option<String>,
-    #[serde(default)]
-    pub place_status: PlaceStatus,
-    #[serde(default)]
-    pub place: Option<String>,
-    #[serde(default)]
-    pub place_error: Option<String>,
     pub metadata_status: MetadataStatus,
     pub error: Option<String>,
 }
@@ -224,11 +153,6 @@ pub struct ScanFinishedEvent {
     pub skipped: u64,
     pub errors: u64,
     pub cancelled: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MetadataResultsEvent {
-    pub results: Vec<MetadataResult>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -451,33 +375,4 @@ pub struct EffectiveDestinationRoot {
     pub custom_root_configured: bool,
     pub force_processed_folder: bool,
     pub warning: Option<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{MetadataResult, PlaceStatus};
-
-    #[test]
-    fn metadata_result_defaults_location_fields_when_missing() {
-        let legacy_payload = r#"{
-            "file_id":"file-1",
-            "chosen_date":"2026-05-24T00:00:00Z",
-            "chosen_date_source":"DateTimeOriginal",
-            "date_kind":"timezone_aware",
-            "raw_metadata_date":"2026:05:24 00:00:00",
-            "device_name":"Camera",
-            "metadata_status":"ready",
-            "error":null
-        }"#;
-
-        let parsed: MetadataResult = serde_json::from_str(legacy_payload)
-            .expect("legacy metadata payload should deserialize");
-
-        assert!(parsed.gps_coordinate.is_none());
-        assert!(parsed.gps_source.is_none());
-        assert!(parsed.place_bucket_id.is_none());
-        assert_eq!(parsed.place_status, PlaceStatus::NotAvailable);
-        assert!(parsed.place.is_none());
-        assert!(parsed.place_error.is_none());
-    }
 }

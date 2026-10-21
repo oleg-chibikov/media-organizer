@@ -9,11 +9,11 @@ use std::{
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use tauri::Manager;
 
-use crate::models::{DateKind, FileKind, GpsCoordinate};
+use crate::models::{DateKind, FileKind};
 
 pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
 
-const EXIFTOOL_TAGS: [&str; 17] = [
+const EXIFTOOL_TAGS: [&str; 11] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -25,12 +25,6 @@ const EXIFTOOL_TAGS: [&str; 17] = [
     "-Model",
     "-DeviceModelName",
     "-CameraModelName",
-    "-GPSLatitude",
-    "-GPSLongitude",
-    "-GPSLatitudeRef",
-    "-GPSLongitudeRef",
-    "-GPSPosition",
-    "-GPSCoordinates",
 ];
 
 #[derive(Debug, Clone)]
@@ -43,12 +37,6 @@ pub struct RawMetadataDates {
     pub track_create_date: Option<String>,
     pub file_modify_date: Option<String>,
     pub device_name: Option<String>,
-    pub gps_latitude: Option<String>,
-    pub gps_longitude: Option<String>,
-    pub gps_latitude_ref: Option<String>,
-    pub gps_longitude_ref: Option<String>,
-    pub gps_position: Option<String>,
-    pub gps_coordinates: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,12 +45,6 @@ pub struct SelectedMetadataDate {
     pub chosen_date_source: String,
     pub date_kind: DateKind,
     pub raw_metadata_date: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct SelectedGpsCoordinate {
-    pub gps_coordinate: GpsCoordinate,
-    pub gps_source: String,
 }
 
 #[derive(Debug, Clone)]
@@ -400,177 +382,9 @@ pub fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDates>, St
                     object,
                     &["Model", "DeviceModelName", "CameraModelName", "Make"],
                 ),
-                gps_latitude: read_tag(object, "GPSLatitude"),
-                gps_longitude: read_tag(object, "GPSLongitude"),
-                gps_latitude_ref: read_tag(object, "GPSLatitudeRef"),
-                gps_longitude_ref: read_tag(object, "GPSLongitudeRef"),
-                gps_position: read_tag(object, "GPSPosition"),
-                gps_coordinates: read_tag(object, "GPSCoordinates"),
             })
         })
         .collect()
-}
-
-pub fn select_metadata_gps(raw_dates: &RawMetadataDates) -> Option<SelectedGpsCoordinate> {
-    if let Some((latitude, longitude)) = parse_lat_lon_fields(raw_dates) {
-        return Some(SelectedGpsCoordinate {
-            gps_coordinate: GpsCoordinate {
-                latitude,
-                longitude,
-            },
-            gps_source: "GPSLatitude/GPSLongitude".to_string(),
-        });
-    }
-
-    for (source, value) in [
-        ("GPSPosition", raw_dates.gps_position.as_deref()),
-        ("GPSCoordinates", raw_dates.gps_coordinates.as_deref()),
-    ] {
-        let Some(raw_value) = value else {
-            continue;
-        };
-        if let Some((latitude, longitude)) = parse_gps_pair(raw_value) {
-            if is_valid_coordinate(latitude, longitude) {
-                return Some(SelectedGpsCoordinate {
-                    gps_coordinate: GpsCoordinate {
-                        latitude,
-                        longitude,
-                    },
-                    gps_source: source.to_string(),
-                });
-            }
-        }
-    }
-
-    None
-}
-
-fn parse_lat_lon_fields(raw_dates: &RawMetadataDates) -> Option<(f64, f64)> {
-    let latitude = parse_coordinate_with_ref(
-        raw_dates.gps_latitude.as_deref()?,
-        raw_dates.gps_latitude_ref.as_deref(),
-        true,
-    )?;
-    let longitude = parse_coordinate_with_ref(
-        raw_dates.gps_longitude.as_deref()?,
-        raw_dates.gps_longitude_ref.as_deref(),
-        false,
-    )?;
-
-    is_valid_coordinate(latitude, longitude).then_some((latitude, longitude))
-}
-
-fn parse_gps_pair(raw: &str) -> Option<(f64, f64)> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-
-    let parts: Vec<&str> = trimmed
-        .split(',')
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .collect();
-    if parts.len() >= 2 {
-        let latitude = parse_coordinate_with_ref(parts[0], None, true)?;
-        let longitude = parse_coordinate_with_ref(parts[1], None, false)?;
-        return Some((latitude, longitude));
-    }
-
-    let numeric_values = extract_numeric_values(trimmed);
-    if numeric_values.len() >= 2 {
-        return Some((numeric_values[0], numeric_values[1]));
-    }
-
-    None
-}
-
-fn parse_coordinate_with_ref(raw: &str, reference: Option<&str>, is_latitude: bool) -> Option<f64> {
-    let parsed = parse_coordinate_value(raw)?;
-    let reference_sign = parse_hemisphere_sign(raw, is_latitude)
-        .or_else(|| reference.and_then(|value| parse_hemisphere_sign(value, is_latitude)));
-
-    let normalized = match reference_sign {
-        Some(sign) => parsed.abs() * sign,
-        None => parsed,
-    };
-
-    if normalized.is_finite() {
-        Some(normalized)
-    } else {
-        None
-    }
-}
-
-fn parse_coordinate_value(raw: &str) -> Option<f64> {
-    let numeric_values = extract_numeric_values(raw);
-    let first = *numeric_values.first()?;
-    if numeric_values.len() == 1 {
-        return Some(first);
-    }
-
-    let degrees = first.abs();
-    let minutes = numeric_values.get(1).copied().unwrap_or_default().abs();
-    let seconds = numeric_values.get(2).copied().unwrap_or_default().abs();
-    let magnitude = degrees + (minutes / 60.0) + (seconds / 3600.0);
-    Some(magnitude.copysign(first))
-}
-
-fn parse_hemisphere_sign(raw: &str, is_latitude: bool) -> Option<f64> {
-    let mut token = String::new();
-    for ch in raw.chars() {
-        if ch.is_ascii_alphabetic() {
-            token.push(ch.to_ascii_uppercase());
-            continue;
-        }
-
-        if let Some(sign) = hemisphere_sign_from_token(&token, is_latitude) {
-            return Some(sign);
-        }
-        token.clear();
-    }
-
-    hemisphere_sign_from_token(&token, is_latitude)
-}
-
-fn hemisphere_sign_from_token(token: &str, is_latitude: bool) -> Option<f64> {
-    match (is_latitude, token) {
-        (true, "N" | "NORTH") => Some(1.0),
-        (true, "S" | "SOUTH") => Some(-1.0),
-        (false, "E" | "EAST") => Some(1.0),
-        (false, "W" | "WEST") => Some(-1.0),
-        _ => None,
-    }
-}
-
-fn extract_numeric_values(raw: &str) -> Vec<f64> {
-    let mut values: Vec<f64> = Vec::new();
-    let mut token = String::new();
-
-    for ch in raw.chars() {
-        if ch.is_ascii_digit() || matches!(ch, '+' | '-' | '.') {
-            token.push(ch);
-            continue;
-        }
-
-        if let Ok(value) = token.parse::<f64>() {
-            values.push(value);
-        }
-        token.clear();
-    }
-
-    if let Ok(value) = token.parse::<f64>() {
-        values.push(value);
-    }
-
-    values
-}
-
-fn is_valid_coordinate(latitude: f64, longitude: f64) -> bool {
-    latitude.is_finite()
-        && longitude.is_finite()
-        && (-90.0..=90.0).contains(&latitude)
-        && (-180.0..=180.0).contains(&longitude)
 }
 
 fn read_first_available_tag(
@@ -767,7 +581,7 @@ fn resolve_exiftool_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_exiftool_json, select_metadata_date, select_metadata_gps, RawMetadataDates};
+    use super::{parse_exiftool_json, select_metadata_date, RawMetadataDates};
     use crate::models::{DateKind, FileKind};
 
     #[test]
@@ -776,11 +590,7 @@ mod tests {
             "SourceFile": "C:/todo/example.jpg",
             "SubSecDateTimeOriginal": "2026:03:05 07:20:17.616+11:00",
             "DateTimeOriginal": "2026:03:05 07:20:17",
-            "CreateDate": "2026:03:05 07:20:17",
-            "GPSLatitude": "33.8688",
-            "GPSLongitude": "151.2093",
-            "GPSLatitudeRef": "S",
-            "GPSLongitudeRef": "E"
+            "CreateDate": "2026:03:05 07:20:17"
         }]"#;
 
         let parsed = parse_exiftool_json(json).expect("json should parse");
@@ -792,10 +602,6 @@ mod tests {
             parsed.date_time_original.as_deref(),
             Some("2026:03:05 07:20:17")
         );
-        assert_eq!(parsed.gps_latitude.as_deref(), Some("33.8688"));
-        assert_eq!(parsed.gps_longitude.as_deref(), Some("151.2093"));
-        assert_eq!(parsed.gps_latitude_ref.as_deref(), Some("S"));
-        assert_eq!(parsed.gps_longitude_ref.as_deref(), Some("E"));
         assert_eq!(parsed.device_name.as_deref(), None);
         assert_eq!(parsed.media_create_date, None);
     }
@@ -805,8 +611,7 @@ mod tests {
         let json = r#"[{
             "SourceFile": "C:/todo/example.mp4",
             "MediaCreateDate": "2026:03:05 07:20:17",
-            "DeviceModelName": "Pixel 8 Pro",
-            "GPSCoordinates": "-33.8688, 151.2093"
+            "DeviceModelName": "Pixel 8 Pro"
         }]"#;
 
         let parsed = parse_exiftool_json(json).expect("json should parse");
@@ -814,10 +619,6 @@ mod tests {
         assert_eq!(
             parsed.media_create_date.as_deref(),
             Some("2026:03:05 07:20:17")
-        );
-        assert_eq!(
-            parsed.gps_coordinates.as_deref(),
-            Some("-33.8688, 151.2093")
         );
     }
 
@@ -837,12 +638,6 @@ mod tests {
             track_create_date: None,
             file_modify_date: None,
             device_name: None,
-            gps_latitude: None,
-            gps_longitude: None,
-            gps_latitude_ref: None,
-            gps_longitude_ref: None,
-            gps_position: None,
-            gps_coordinates: None,
         }
     }
 
@@ -913,76 +708,5 @@ mod tests {
 
         assert_eq!(selected.chosen_date, "2026-03-05 07:20:17");
         assert!(matches!(selected.date_kind, DateKind::TimezoneUnknown));
-    }
-
-    #[test]
-    fn parses_valid_gps_from_decimal_and_refs() {
-        let mut raw = empty_raw_dates();
-        raw.gps_latitude = Some("33.8688".to_string());
-        raw.gps_longitude = Some("151.2093".to_string());
-        raw.gps_latitude_ref = Some("S".to_string());
-        raw.gps_longitude_ref = Some("E".to_string());
-
-        let selected = select_metadata_gps(&raw).expect("gps should parse");
-        assert_eq!(selected.gps_source, "GPSLatitude/GPSLongitude");
-        assert!((selected.gps_coordinate.latitude + 33.8688).abs() < 0.000001);
-        assert!((selected.gps_coordinate.longitude - 151.2093).abs() < 0.000001);
-    }
-
-    #[test]
-    fn parses_valid_gps_from_hemisphere_based_values() {
-        let mut raw = empty_raw_dates();
-        raw.gps_latitude = Some("33 deg 52' 7.68\" S".to_string());
-        raw.gps_longitude = Some("151 deg 12' 33.48\" E".to_string());
-
-        let selected = select_metadata_gps(&raw).expect("gps should parse");
-        assert_eq!(selected.gps_source, "GPSLatitude/GPSLongitude");
-        assert!((selected.gps_coordinate.latitude + 33.8688).abs() < 0.0001);
-        assert!((selected.gps_coordinate.longitude - 151.2093).abs() < 0.0001);
-    }
-
-    #[test]
-    fn parses_valid_gps_from_gps_coordinates_fallback() {
-        let mut raw = empty_raw_dates();
-        raw.gps_coordinates = Some("-33.8688, 151.2093".to_string());
-
-        let selected = select_metadata_gps(&raw).expect("gps should parse");
-        assert_eq!(selected.gps_source, "GPSCoordinates");
-        assert!((selected.gps_coordinate.latitude + 33.8688).abs() < 0.000001);
-        assert!((selected.gps_coordinate.longitude - 151.2093).abs() < 0.000001);
-    }
-
-    #[test]
-    fn leaves_location_unavailable_when_gps_is_missing() {
-        let raw = empty_raw_dates();
-        assert!(select_metadata_gps(&raw).is_none());
-    }
-
-    #[test]
-    fn leaves_location_unavailable_when_gps_is_malformed() {
-        let mut raw = empty_raw_dates();
-        raw.gps_latitude = Some("not-a-coordinate".to_string());
-        raw.gps_longitude = Some("151.2093".to_string());
-        assert!(select_metadata_gps(&raw).is_none());
-    }
-
-    #[test]
-    fn keeps_zero_coordinate_when_gps_is_zero() {
-        let mut raw = empty_raw_dates();
-        raw.gps_latitude = Some("0".to_string());
-        raw.gps_longitude = Some("0".to_string());
-
-        let selected = select_metadata_gps(&raw).expect("zero coordinate should be accepted");
-        assert_eq!(selected.gps_source, "GPSLatitude/GPSLongitude");
-        assert_eq!(selected.gps_coordinate.latitude, 0.0);
-        assert_eq!(selected.gps_coordinate.longitude, 0.0);
-    }
-
-    #[test]
-    fn leaves_location_unavailable_when_gps_is_out_of_range() {
-        let mut raw = empty_raw_dates();
-        raw.gps_latitude = Some("91.0000".to_string());
-        raw.gps_longitude = Some("151.2093".to_string());
-        assert!(select_metadata_gps(&raw).is_none());
     }
 }

@@ -16,7 +16,6 @@ import type {
   MoveFinishedEvent,
   MoveProgressEvent,
   MovePlan,
-  PlaceLookupDiagnosticResult,
   ProcessingConfig,
   PlanErrorEvent,
   PlanFileEvent,
@@ -41,18 +40,6 @@ function ensureTauriRuntime(): void {
 function invokeCommand<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   ensureTauriRuntime();
   return invoke<T>(command, args);
-}
-
-function normalizeMetadataResult(result: MetadataResult): MetadataResult {
-  return {
-    ...result,
-    gps_coordinate: result.gps_coordinate ?? null,
-    gps_source: result.gps_source ?? null,
-    place_bucket_id: result.place_bucket_id ?? null,
-    place_status: result.place_status ?? "not_available",
-    place: result.place ?? null,
-    place_error: result.place_error ?? null
-  };
 }
 
 export const SCAN_EVENTS = {
@@ -102,13 +89,9 @@ export const readMetadataForFile = (fileId: string, sourcePath: string, fileKind
     fileId,
     sourcePath,
     fileKind
-  }).then(normalizeMetadataResult);
+  });
 export const readMetadataForFiles = (requests: MetadataReadRequest[]) =>
-  invokeCommand<MetadataResult[]>("read_metadata_for_files", { requests }).then((results) =>
-    results.map(normalizeMetadataResult)
-  );
-export const testPlaceLookup = (coordinate: { latitude: number; longitude: number }) =>
-  invokeCommand<PlaceLookupDiagnosticResult>("test_place_lookup", { coordinate });
+  invokeCommand<MetadataResult[]>("read_metadata_for_files", { requests });
 
 export const createMovePlan = (
   selectedPath: string,

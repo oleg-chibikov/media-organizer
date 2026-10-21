@@ -251,7 +251,7 @@ mod tests {
 
     use super::{allocate_destination_path, create_plan_for_file};
     use crate::models::{
-        FileKind, FileRecord, MetadataResult, MetadataStatus, PlaceStatus, PlanStatus, ScanStatus,
+        FileKind, FileRecord, MetadataResult, MetadataStatus, PlanStatus, ScanStatus,
     };
 
     fn file_record(id: &str, extension: &str) -> FileRecord {
@@ -274,12 +274,6 @@ mod tests {
             date_kind: None,
             raw_metadata_date: Some(chosen_date.to_string()),
             device_name: Some("iPhone 15 Pro".to_string()),
-            gps_coordinate: None,
-            gps_source: None,
-            place_bucket_id: None,
-            place_status: PlaceStatus::NotAvailable,
-            place: None,
-            place_error: None,
             metadata_status: MetadataStatus::Ready,
             error: None,
         }
@@ -420,22 +414,6 @@ mod tests {
 
         assert!(matches!(plan.plan_status, PlanStatus::BlockedNoDate));
         assert!(plan.destination_path.is_empty());
-    }
-
-    #[test]
-    fn keeps_plan_ready_when_place_lookup_failed() {
-        let mut reserved = HashSet::new();
-        let file = file_record("IMG_1001", "jpg");
-        let mut metadata = metadata_result("IMG_1001", "2026-03-05 07:20:17");
-        metadata.place_status = PlaceStatus::Failed;
-        metadata.place_error = Some("provider unavailable".to_string());
-
-        let plan =
-            create_plan_for_file(Path::new(r"C:\todo"), &file, Some(&metadata), &mut reserved)
-                .expect("plan should be created");
-
-        assert!(matches!(plan.plan_status, PlanStatus::Ready));
-        assert!(!plan.destination_path.is_empty());
     }
 
     #[test]

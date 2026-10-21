@@ -618,9 +618,7 @@ fn skipped_result(
 mod tests {
     use std::fs;
 
-    use crate::models::{
-        ConflictStatus, DateKind, MetadataResult, MetadataStatus, MovePlan, PlaceStatus,
-    };
+    use crate::models::{ConflictStatus, DateKind, MetadataResult, MetadataStatus, MovePlan};
     use tempfile::tempdir;
 
     use super::*;
@@ -704,12 +702,6 @@ mod tests {
             date_kind: Some(date_kind),
             raw_metadata_date: Some("2026:05:23 10:00:00".to_string()),
             device_name: None,
-            gps_coordinate: None,
-            gps_source: None,
-            place_bucket_id: None,
-            place_status: PlaceStatus::NotAvailable,
-            place: None,
-            place_error: None,
             metadata_status: MetadataStatus::Ready,
             error: None,
         }
