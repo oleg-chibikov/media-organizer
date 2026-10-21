@@ -1,74 +1,85 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use tempfile::tempdir;
 
-use crate::move_run::source_cleanup::cleanup_empty_source_directories;
+use crate::{
+    move_run::remove_empty_source_folders,
+    settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
+};
 
-#[test]
-fn removes_empty_source_directory_chain_after_moves() {
-    let temp = tempdir().expect("temp dir");
-    let selected_root = temp.path().join("todo");
-    let nested = selected_root.join("a").join("b");
-    fs::create_dir_all(&nested).expect("create nested source dirs");
-
-    cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&nested));
-
-    assert!(!nested.exists());
-    assert!(!selected_root.join("a").exists());
-    assert!(selected_root.exists());
+fn settings_in(app_data: &Path) -> SettingsStore {
+    SettingsStore::in_app_data(app_data)
 }
 
 #[test]
-fn stops_pruning_when_parent_contains_files() {
+fn removes_the_selected_folder_when_only_empty_folders_are_left() {
     let temp = tempdir().expect("temp dir");
-    let selected_root = temp.path().join("todo");
-    let parent = selected_root.join("a");
-    let nested = parent.join("b");
-    fs::create_dir_all(&nested).expect("create nested source dirs");
-    fs::write(parent.join("keep.txt"), b"keep").expect("write retained file");
+    let selected = temp.path().join("todo");
+    fs::create_dir_all(selected.join("2024").join("trip")).expect("create nested");
+    fs::create_dir_all(selected.join("never-had-media")).expect("create empty sibling");
 
-    cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&nested));
+    let removed = remove_empty_source_folders(&settings_in(temp.path()), &selected);
 
-    assert!(!nested.exists());
-    assert!(parent.exists());
+    assert_eq!(removed, Ok(true));
+    assert!(!selected.exists());
 }
 
 #[test]
-fn keeps_selected_root_even_when_processing_leaves_it_empty() {
+fn keeps_files_left_behind_and_the_processed_folder() {
     let temp = tempdir().expect("temp dir");
-    let selected_root = temp.path().join("todo");
-    fs::create_dir_all(&selected_root).expect("create selected root");
+    let selected = temp.path().join("todo");
+    let processed = selected.join("Processed").join("2026");
+    fs::create_dir_all(&processed).expect("create processed");
+    fs::create_dir_all(selected.join("a").join("b")).expect("create empty chain");
+    fs::create_dir_all(selected.join("notes")).expect("create notes");
+    fs::write(selected.join("notes").join("readme.txt"), b"keep").expect("write note");
 
-    cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&selected_root));
+    let removed = remove_empty_source_folders(&settings_in(temp.path()), &selected);
 
-    assert!(selected_root.exists());
+    assert_eq!(removed, Ok(false));
+    assert!(processed.exists());
+    assert!(selected.join("notes").join("readme.txt").exists());
+    assert!(!selected.join("a").exists());
 }
 
 #[test]
-fn keeps_selected_root_when_it_still_contains_files() {
+fn leaves_folders_alone_when_renaming_in_place() {
     let temp = tempdir().expect("temp dir");
-    let selected_root = temp.path().join("todo");
-    fs::create_dir_all(&selected_root).expect("create selected root");
-    fs::write(selected_root.join("keep.txt"), b"keep").expect("write retained file");
+    let selected = temp.path().join("todo");
+    fs::create_dir_all(selected.join("empty")).expect("create empty");
+    let settings = settings_in(temp.path());
+    settings
+        .update(|current| set_rename_in_place(current, true))
+        .expect("turn on rename in place");
 
-    cleanup_empty_source_directories(&selected_root, std::slice::from_ref(&selected_root));
-
-    assert!(selected_root.exists());
+    assert_eq!(remove_empty_source_folders(&settings, &selected), Ok(false));
+    assert!(selected.join("empty").exists());
 }
 
-#[cfg(unix)]
 #[test]
-fn never_prunes_through_a_symlink_out_of_the_selected_root() {
+fn removes_the_selected_folder_inside_a_custom_root() {
     let temp = tempdir().expect("temp dir");
-    let selected_root = temp.path().join("todo");
-    let outside = temp.path().join("outside").join("empty");
-    fs::create_dir_all(&outside).expect("create outside dir");
-    fs::create_dir_all(&selected_root).expect("create selected root");
-    std::os::unix::fs::symlink(temp.path().join("outside"), selected_root.join("link"))
-        .expect("symlink");
+    let media = temp.path().join("Media");
+    let selected = media.join("todo");
+    fs::create_dir_all(selected.join("empty")).expect("create empty");
+    let settings = settings_in(temp.path());
+    let media_path = Some(media.to_string_lossy().to_string());
+    settings
+        .update(|current| set_root_media_folder(current, media_path))
+        .expect("set custom root");
 
-    cleanup_empty_source_directories(&selected_root, &[selected_root.join("link").join("empty")]);
+    assert_eq!(remove_empty_source_folders(&settings, &selected), Ok(true));
+    assert!(!selected.exists());
+    assert!(media.exists());
+}
 
-    assert!(outside.exists());
-    assert!(selected_root.join("link").exists());
+#[test]
+fn does_nothing_when_the_selected_folder_is_already_gone() {
+    let temp = tempdir().expect("temp dir");
+    let missing = temp.path().join("missing");
+
+    assert_eq!(
+        remove_empty_source_folders(&settings_in(temp.path()), &missing),
+        Ok(false)
+    );
 }

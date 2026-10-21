@@ -1,9 +1,6 @@
-use std::path::{Path, PathBuf};
-
 use super::{recorder::MoveRunRecorder, request::MoveRunRequest};
 use crate::{
     events::EventSink,
-    models::MoveResultStatus,
     mover::{self, MoveOperation},
 };
 
@@ -24,17 +21,8 @@ pub(super) fn recheck_operation(
     rechecked.ready.into_iter().next()
 }
 
-/// Moves one file and returns its source folder when the file left it.
-pub(super) fn move_file(
-    operation: &MoveOperation,
-    recorder: &mut MoveRunRecorder<impl EventSink>,
-) -> Option<PathBuf> {
-    let source_parent = Path::new(&operation.source_path)
-        .parent()
-        .map(Path::to_path_buf);
+/// Moves one file and records the result.
+pub(super) fn move_file(operation: &MoveOperation, recorder: &mut MoveRunRecorder<impl EventSink>) {
     recorder.remember_source_size(&operation.file_id);
-    let result = mover::execute_move_with_rename(operation);
-    let moved = matches!(result.result_status, MoveResultStatus::Moved);
-    recorder.record(result);
-    source_parent.filter(|_| moved)
+    recorder.record(mover::execute_move_with_rename(operation));
 }

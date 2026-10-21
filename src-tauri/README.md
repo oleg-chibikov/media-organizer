@@ -31,7 +31,7 @@ Each layer uses only the layers below it.
 
 - **Only `safe_fs` changes files.** `clippy.toml` rejects raw rename, copy, delete and truncating writes everywhere else.
 - **Moves don't overwrite.** A move is an exclusive rename. Across volumes the file is copied to a temp file and compared with the source before it takes the name. The source stays.
-- **Deletes need proof.** Undo deletes a copy only when the kept source holds the same bytes. Cleanup removes only empty real folders inside the picked folder.
+- **Deletes need proof.** Undo deletes a copy only when the kept source holds the same bytes. Cleanup removes only empty real folders, the picked folder included once it is empty. It skips links and the destination root.
 - **A log failure stops the run.** A move run or a replay stops moving files once its log can't record a step. One job works on a run at a time.
 - **Paths stay inside their roots.** Sources stay inside the picked folder. Destinations stay inside the destination root. Replays stay inside the folders the run recorded.
 

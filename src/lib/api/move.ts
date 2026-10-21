@@ -22,6 +22,10 @@ export const executeMovePlan = (
     plans
   });
 
+// Resolves true when the selected folder itself was empty and got removed.
+export const removeEmptySourceFolders = (selectedPath: string) =>
+  invokeCommand<boolean>("remove_empty_source_folders", { selectedPath });
+
 export interface MoveListeners {
   onProgress: (payload: MoveProgressEvent) => void;
   onFile: (payload: MoveFileEvent) => void;

@@ -52,6 +52,8 @@ sequenceDiagram
   UI->>Rust: execute_move_plan
   Rust->>Disk: checks, moves and logs each file
   Rust-->>UI: move:file and move:progress events
+  UI->>Rust: remove_empty_source_folders, once the run ends
+  Rust->>Disk: removes empty source folders
   Person->>UI: Undoes or redoes a run in History
   UI->>Rust: undo_history_run or redo_history_run
   Rust->>Disk: replays the run log
@@ -62,7 +64,7 @@ sequenceDiagram
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers.
 4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews.
-5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events.
+5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
 ## How Frontend And Backend Talk
@@ -96,7 +98,7 @@ flowchart LR
   metaQ -.->|"capture dates, as the result"| metaF
   planF -->|create_move_plan| planner
   planner -.->|"plan:* events"| planF
-  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan"| mover
+  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan,<br/>remove_empty_source_folders"| mover
   mover -.->|"move:* events"| movesF
   histF -->|"list, get, delete,<br/>undo, redo history run"| hist
   hist -.->|"history:* events"| histF
@@ -137,7 +139,7 @@ Each layer may depend only on the layers below it.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
-- `move_run/`: one confirmed batch from start to finish: history run, per-file progress, results and source folder cleanup.
+- `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
@@ -182,7 +184,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **Only `safe_fs` mutates files.** `src-tauri/clippy.toml` rejects `fs::rename`, `copy`, `hard_link`, `remove_*`, `write`, `File::create`, `set_len` and `OpenOptions::create`/`truncate` everywhere else. `create_dir_all` only adds folders.
 - **No overwrite.** `move_file_no_replace` uses an exclusive rename: `renamex_np(RENAME_EXCL)` on macOS, `renameat2(RENAME_NOREPLACE)` on Linux, `MoveFileExW` without `REPLACE_EXISTING` on Windows. Where that's unsupported it hard-links, checks identity, then unlinks the source. A destination that appears after the conflict check fails with `AlreadyExists` and both files stay.
 - **Copies keep the source.** Cross-volume moves fall back to `copy_verified_no_replace`: a `create_new` temp file beside the destination, fsync, size and byte check, no-replace publish, final check. A failed copy removes only the temp file this run created, matched by file identity.
-- **Deletes need proof.** Undo of a copy deletes it only when a different regular file at the source has the same bytes (`remove_verified_duplicate`). Source cleanup removes real, empty folders strictly inside the real selected root with `remove_dir`, never the root and never through a link (`remove_empty_dir_within`).
+- **Deletes need proof.** Undo of a copy deletes it only when a different regular file at the source has the same bytes (`remove_verified_duplicate`). Source cleanup walks the selected folder deepest first and calls only `remove_dir`, which refuses a folder that holds anything. It removes the selected folder too once it is empty, skips links, and skips the destination root with everything inside it (`remove_empty_folders`).
 - **Duplicates are kept.** The planner blocks a file whose bytes match a file already at its destination name or a numbered `(n)` variant of it. Neither file is touched.
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
 - **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it and destinations inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).

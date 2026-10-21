@@ -40,3 +40,18 @@ pub async fn execute_move_plan(
     spawn_job(move || run.execute(&app));
     Ok(())
 }
+
+/// Removes the empty folders a finished run left behind, the picked folder included.
+/// Returns whether the picked folder itself was removed.
+#[tauri::command]
+pub async fn remove_empty_source_folders(
+    selected_path: String,
+    app: AppHandle,
+) -> Result<bool, String> {
+    let selected_folder = PathBuf::from(selected_path);
+    app.state::<AppState>()
+        .picked_folders
+        .ensure_picked(&selected_folder)?;
+    let settings = settings_store(&app)?;
+    run_blocking(move || move_run::remove_empty_source_folders(&settings, &selected_folder)).await
+}

@@ -1,4 +1,5 @@
 mod app_files;
+mod empty_folders;
 mod move_file;
 mod removal;
 mod staged_copy;

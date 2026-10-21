@@ -6,6 +6,7 @@ import { useMoveConfirmationSummary } from "./useMoveConfirmationSummary";
 import { useMoveDispatch } from "./useMoveDispatch";
 import { useMoveEvents } from "./useMoveEvents";
 import { useMoveStatus } from "./useMoveStatus";
+import { useSourceFolderCleanup } from "./useSourceFolderCleanup";
 
 interface MoveExecutionOptions {
   // Checking files can still add ready plans, so a run may start before the first one.
@@ -36,6 +37,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     reportError
   });
   useMoveEvents({ queueRef, pumpRef, rowByIdRef, status, reportError });
+  useSourceFolderCleanup(execution.completed, selectedFolder, reportError);
 
   const { confirmationSummary, pendingExecutableCount } = useMoveConfirmationSummary(
     rows,

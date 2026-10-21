@@ -3,14 +3,13 @@ use super::{
     progress::emit_move_progress_message,
     recorder::MoveRunRecorder,
     request::{MoveRunRequest, RunLookups},
-    source_cleanup,
 };
 use crate::{events::EventSink, history::ActiveHistoryRun, models::MoveProgressPhase, mover};
 
 const UNLOGGED_MOVE_REASON: &str =
     "Not moved: the history log stopped recording, so this move couldn't be undone.";
 
-/// Checks, moves and records every operation of one batch, then cleans emptied source folders.
+/// Checks, moves and records every operation of one batch.
 pub(super) fn run_move_plan(
     sink: &impl EventSink,
     request: MoveRunRequest,
@@ -30,7 +29,6 @@ pub(super) fn run_move_plan(
     );
     let prepared = mover::prepare_move_operations(&batch.files, &batch.plans);
     let mut recorder = MoveRunRecorder::new(sink, history_run, RunLookups::new(batch));
-    let mut moved_source_directories = Vec::new();
 
     recorder.record_all(prepared.skipped);
 
@@ -54,18 +52,14 @@ pub(super) fn run_move_plan(
             "Moving file.",
             recorder.completed_operations(),
         );
-        moved_source_directories.extend(move_file(&operation, &mut recorder));
+        move_file(&operation, &mut recorder);
     }
 
     progress(
         MoveProgressPhase::Finalizing,
         None,
-        "Finalizing history and cleaning up source folders.",
+        "Finalizing history.",
         recorder.completed_operations(),
-    );
-    source_cleanup::cleanup_empty_source_directories(
-        &request.selected_folder,
-        &moved_source_directories,
     );
     recorder.finish();
 }

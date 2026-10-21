@@ -14,4 +14,5 @@ mod status_mapping;
 mod tests;
 
 pub(crate) use request::MoveBatch;
+pub(crate) use source_cleanup::remove_empty_source_folders;
 pub(crate) use start::start_move_run;

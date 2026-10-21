@@ -1,38 +1,21 @@
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 
-use crate::{
-    path_safety::{
-        normalized_path_string, path_is_within_case_insensitive, paths_equal_case_insensitive,
-    },
-    safe_fs,
-};
+use crate::{path_safety, safe_fs, settings::SettingsStore};
 
-/// Removes source folders emptied by moves, walking up to just below the selected root.
-/// The selected root itself is always kept.
-pub(super) fn cleanup_empty_source_directories(
-    selected_root: &Path,
-    source_directories: &[PathBuf],
-) {
-    let mut visited = HashSet::new();
-    for directory in source_directories {
-        if visited.insert(normalized_path_string(directory)) {
-            prune_empty_directory_chain(selected_root, directory);
-        }
+/// Removes the empty folders a finished run left in the selected folder, the folder included.
+/// The destination root and everything inside it stay, so `Processed` and in-place runs keep
+/// their folders. Returns whether the selected folder itself was removed.
+pub(crate) fn remove_empty_source_folders(
+    settings: &SettingsStore,
+    selected_folder: &Path,
+) -> Result<bool, String> {
+    if !safe_fs::path_is_occupied(selected_folder) {
+        return Ok(false);
     }
-}
-
-fn prune_empty_directory_chain(selected_root: &Path, start_directory: &Path) {
-    let mut current = start_directory;
-    while !paths_equal_case_insensitive(current, selected_root)
-        && path_is_within_case_insensitive(current, selected_root)
-        && safe_fs::remove_empty_dir_within(current, selected_root)
-    {
-        let Some(parent) = current.parent() else {
-            break;
-        };
-        current = parent;
-    }
+    path_safety::validate_selected_folder(selected_folder)?;
+    let destination = settings.effective_destination_root(selected_folder)?;
+    Ok(safe_fs::remove_empty_folders(
+        selected_folder,
+        Path::new(&destination.root_path),
+    ))
 }

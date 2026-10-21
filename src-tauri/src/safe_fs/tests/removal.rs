@@ -3,7 +3,7 @@ use std::fs;
 use tempfile::tempdir;
 
 use super::{read, write};
-use crate::safe_fs::{remove_empty_dir_within, remove_verified_duplicate};
+use crate::safe_fs::remove_verified_duplicate;
 
 #[test]
 fn removes_a_duplicate_only_when_the_original_holds_the_same_bytes() {
@@ -44,41 +44,4 @@ fn refuses_to_remove_a_symlink_pointing_at_the_original() {
     assert!(remove_verified_duplicate(&original, &link).is_err());
     assert!(remove_verified_duplicate(&link, &original).is_err());
     assert_eq!(read(&original), b"photo");
-}
-
-#[test]
-fn removes_only_empty_folders_strictly_inside_the_root() {
-    let temp = tempdir().expect("temp dir");
-    let root = temp.path().join("todo");
-    let (empty, busy) = (root.join("empty"), root.join("busy"));
-    fs::create_dir_all(&empty).expect("create empty");
-    fs::create_dir_all(&busy).expect("create busy");
-    write(&busy.join("keep.jpg"), b"photo");
-    let outside = temp.path().join("outside");
-    fs::create_dir_all(&outside).expect("create outside");
-
-    assert!(!remove_empty_dir_within(&root, &root));
-    assert!(!remove_empty_dir_within(&busy, &root));
-    assert!(!remove_empty_dir_within(&outside, &root));
-    assert!(remove_empty_dir_within(&empty, &root));
-    assert!(root.exists() && busy.exists() && outside.exists() && !empty.exists());
-}
-
-#[cfg(unix)]
-#[test]
-fn never_follows_links_out_of_the_root() {
-    let temp = tempdir().expect("temp dir");
-    let root = temp.path().join("todo");
-    let outside = temp.path().join("outside");
-    fs::create_dir_all(outside.join("inner")).expect("create outside");
-    fs::create_dir_all(&root).expect("create root");
-    std::os::unix::fs::symlink(&outside, root.join("link")).expect("symlink");
-
-    assert!(!remove_empty_dir_within(
-        &root.join("link").join("inner"),
-        &root
-    ));
-    assert!(!remove_empty_dir_within(&root.join("link"), &root));
-    assert!(outside.join("inner").exists());
-    assert!(root.join("link").exists());
 }

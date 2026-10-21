@@ -101,6 +101,7 @@ pub fn run() {
             undo_redo_commands::undo_history_run,
             undo_redo_commands::redo_history_run,
             move_execution::execute_move_plan,
+            move_execution::remove_empty_source_folders,
             system::reveal_file_in_explorer
         ])
         .run(tauri::generate_context!())
