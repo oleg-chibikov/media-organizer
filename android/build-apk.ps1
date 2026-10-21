@@ -50,10 +50,20 @@ if (-not (Test-Path $sdkmanager)) {
 }
 $platformDir = Join-Path $env:ANDROID_HOME "platforms\$platform"
 $buildToolsDir = Join-Path $env:ANDROID_HOME "build-tools\$buildTools"
+# cmd splits batch file arguments at ";", so each package name goes in quotes.
+function Invoke-Sdkmanager($arguments) {
+    $answers = Join-Path $toolsDir "sdkmanager-answers.txt"
+    Set-Content -Path $answers -Value (@("y") * 50) -Encoding ASCII
+    $process = Start-Process -FilePath $sdkmanager -ArgumentList $arguments -RedirectStandardInput $answers -NoNewWindow -Wait -PassThru
+    Remove-Item $answers
+    if ($process.ExitCode -ne 0) { throw "sdkmanager $arguments failed" }
+}
 if (-not (Test-Path $platformDir) -or -not (Test-Path $buildToolsDir)) {
-    ("y`n" * 20) | & $sdkmanager --licenses | Out-Null
-    & $sdkmanager "platforms;$platform" "build-tools;$buildTools" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "sdkmanager could not install $platform and build-tools $buildTools" }
+    Invoke-Sdkmanager "--licenses"
+    Invoke-Sdkmanager "`"platforms;$platform`" `"build-tools;$buildTools`""
+    if (-not (Test-Path $platformDir) -or -not (Test-Path $buildToolsDir)) {
+        throw "sdkmanager did not install $platform and build-tools $buildTools"
+    }
 }
 
 $gradleDir = Join-Path $toolsDir "gradle-$gradleVersion"

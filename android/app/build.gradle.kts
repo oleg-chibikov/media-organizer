@@ -6,6 +6,8 @@ plugins {
 android {
     namespace = "com.mediaorganizer.android"
     compileSdk = 35
+    // Matches the build-tools that build-apk installs, so Gradle downloads no other version.
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "com.mediaorganizer.android"
