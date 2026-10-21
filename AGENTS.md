@@ -12,7 +12,7 @@
 
 ## Change Workflow
 
-- **Commit and push in one command.** Run `git commit -m "..." && git push`. A commit that is not pushed counts as not done.
+- **Every commit is pushed.** The `.husky/post-commit` hook runs `git push` after each commit. A commit that is not pushed counts as not done. If the hook prints `push failed`, fix the cause and run `git push`.
 - One logical change goes in one commit. Commit every change.
 - Before you finish, check `git status -sb`. It must not show `ahead`.
 - Check `git status --short` before editing and before committing.

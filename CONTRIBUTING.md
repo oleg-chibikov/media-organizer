@@ -22,7 +22,7 @@ Run the smallest meaningful check for the change, then broader checks before com
 
 ## Commit Policy
 
-Every change should be committed and pushed in one step: `git commit -m "..." && git push`. Before committing:
+Every change is committed and pushed. The `.husky/post-commit` hook pushes each commit made on a branch. It skips rebase, cherry-pick and detached HEAD. Set `HUSKY=0` to commit without the hook. Before committing:
 
 ```powershell
 git status --short

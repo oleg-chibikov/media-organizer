@@ -1,0 +1,12 @@
+# Every commit goes to the remote at once, so agents can't leave work unpushed.
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
+
+for state in rebase-merge rebase-apply CHERRY_PICK_HEAD REVERT_HEAD MERGE_HEAD; do
+  [ -e "$(git rev-parse --git-path "$state")" ] && exit 0
+done
+
+if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+  git push --quiet || echo "post-commit: push failed, run git push" >&2
+else
+  git push --quiet --set-upstream origin "$branch" || echo "post-commit: push failed, run git push" >&2
+fi
