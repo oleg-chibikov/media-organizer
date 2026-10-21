@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { Toolbar } from "./Toolbar";
+import { HistoryMenu } from "./HistoryMenu";
 import type { HistoryIndexEntry } from "../lib/types";
 
 const RUNS: HistoryIndexEntry[] = [
@@ -28,30 +28,24 @@ const RUNS: HistoryIndexEntry[] = [
   }
 ];
 
-describe("Toolbar History Menu", () => {
+describe("History Menu", () => {
   it("shows a single undo or redo action next to each run", () => {
     const onSelectHistoryRun = vi.fn();
     const onUndoProcessing = vi.fn();
     const onRedoProcessing = vi.fn();
 
     render(
-      <Toolbar
-        selectedFolder={null}
-        folderError={null}
-        isScanning={false}
-        historyRuns={RUNS}
-        selectedHistoryRunId={"run-a"}
-        historyLoading={false}
+      <HistoryMenu
+        runs={RUNS}
+        selectedRunId={"run-a"}
+        loading={false}
         details={null}
         detailsLoading={false}
         detailsError={null}
-        rootMediaFolder={null}
-        onChooseFolder={vi.fn()}
-        onCancelScan={vi.fn()}
-        onSelectHistoryRun={onSelectHistoryRun}
-        onUndoProcessing={onUndoProcessing}
-        onRedoProcessing={onRedoProcessing}
-        onDeleteProcessing={vi.fn()}
+        onSelectRun={onSelectHistoryRun}
+        onUndoRun={onUndoProcessing}
+        onRedoRun={onRedoProcessing}
+        onDeleteRun={vi.fn()}
       />
     );
 

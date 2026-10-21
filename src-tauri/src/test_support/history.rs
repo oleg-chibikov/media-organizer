@@ -1,4 +1,7 @@
-use crate::models::{HistoryOperation, HistoryOperationKind, HistoryOperationStatus, MoveStrategy};
+use crate::models::{
+    HistoryIndexEntry, HistoryOperation, HistoryOperationKind, HistoryOperationStatus, HistoryRun,
+    HistoryRunStatus, MoveStrategy,
+};
 
 /// Succeeded rename operation; tests override paths, sizes and status as needed.
 pub(crate) fn history_operation(
@@ -22,5 +25,41 @@ pub(crate) fn history_operation(
         status: HistoryOperationStatus::Succeeded,
         error: None,
         timestamp: "2026-05-24T01:03:03Z".to_string(),
+    }
+}
+
+pub(crate) fn running_history_run(run_id: &str, history_file_path: &str) -> HistoryRun {
+    HistoryRun {
+        run_id: run_id.to_string(),
+        history_version: crate::history::HISTORY_VERSION,
+        app_version: "0.1.0".to_string(),
+        selected_folder: r"C:\todo".to_string(),
+        folder_label: "todo".to_string(),
+        destination_root_mode: None,
+        destination_root_path: None,
+        started_at: "2026-05-24T01:02:03Z".to_string(),
+        completed_at: None,
+        run_status: HistoryRunStatus::Running,
+        history_file_path: history_file_path.to_string(),
+    }
+}
+
+pub(crate) fn running_index_entry(
+    run_id: &str,
+    started_at: &str,
+    history_file_path: &str,
+) -> HistoryIndexEntry {
+    HistoryIndexEntry {
+        run_id: run_id.to_string(),
+        folder_label: "todo".to_string(),
+        selected_folder: r"C:\todo".to_string(),
+        destination_root_path: None,
+        started_at: started_at.to_string(),
+        completed_at: None,
+        run_status: HistoryRunStatus::Running,
+        files_migrated: 0,
+        undo_available: false,
+        redo_available: false,
+        history_file_path: history_file_path.to_string(),
     }
 }
