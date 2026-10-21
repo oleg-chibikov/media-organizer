@@ -38,6 +38,7 @@ fn builds_processing_history_operation_with_required_fields() {
         date_kind: None,
         raw_metadata_date: None,
         device_name: None,
+        gps: None,
         metadata_status: MetadataStatus::Ready,
         error: None,
     };

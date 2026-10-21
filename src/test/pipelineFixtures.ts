@@ -17,6 +17,7 @@ export const METADATA: MetadataResult = {
   date_kind: "timezone_aware",
   raw_metadata_date: null,
   device_name: null,
+  gps: null,
   metadata_status: "ready",
   error: null
 };

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::FileKind;
+use super::{FileKind, GpsPoint};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -28,6 +28,7 @@ pub struct MetadataResult {
     pub date_kind: Option<DateKind>,
     pub raw_metadata_date: Option<String>,
     pub device_name: Option<String>,
+    pub gps: Option<GpsPoint>,
     pub metadata_status: MetadataStatus,
     pub error: Option<String>,
 }

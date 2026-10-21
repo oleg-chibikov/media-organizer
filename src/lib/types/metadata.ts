@@ -3,6 +3,12 @@ import type { FileKind } from "./scan";
 type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
 type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
 
+/** Signed decimal degrees. South and west are negative. */
+interface GpsPoint {
+  latitude: number;
+  longitude: number;
+}
+
 export interface MetadataResult {
   file_id: string;
   chosen_date: string | null;
@@ -10,6 +16,7 @@ export interface MetadataResult {
   date_kind: DateKind | null;
   raw_metadata_date: string | null;
   device_name: string | null;
+  gps: GpsPoint | null;
   metadata_status: MetadataStatus;
   error: string | null;
 }

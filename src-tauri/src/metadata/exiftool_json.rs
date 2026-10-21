@@ -1,6 +1,6 @@
 use serde_json::{Map, Value};
 
-use super::RawMetadataDates;
+use super::{gps::read_gps, RawMetadataDates};
 
 /// Android phones write the model of a video to `AndroidModel` or Samsung's `SamsungModel`.
 const DEVICE_NAME_TAGS: [&str; 7] = [
@@ -44,6 +44,7 @@ pub(super) fn parse_exiftool_json_batch(json: &str) -> Result<Vec<RawMetadataDat
                 device_name: DEVICE_NAME_TAGS
                     .iter()
                     .find_map(|key| read_tag(object, key)),
+                gps: read_gps(object),
             })
         })
         .collect()

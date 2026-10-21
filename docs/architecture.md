@@ -62,7 +62,7 @@ sequenceDiagram
 
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
-3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers.
+3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
 4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews.
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
@@ -135,7 +135,7 @@ Each layer may depend only on the layers below it.
 - `models/`: serde payloads shared with `src/lib/types/`, split by domain and re-exported as `crate::models::*`.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
-- `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing and capture-date selection.
+- `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.

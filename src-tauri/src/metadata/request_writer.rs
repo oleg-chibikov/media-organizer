@@ -6,7 +6,7 @@ use super::{argfile_path::exiftool_path_argument, worker::WorkerError};
 /// and can't find a file with Cyrillic or accented letters in its path.
 pub(super) const READ_OPTIONS: [&str; 3] = ["-charset", "filename=utf8", "-json"];
 
-pub(super) const EXIFTOOL_TAGS: [&str; 14] = [
+pub(super) const EXIFTOOL_TAGS: [&str; 17] = [
     "-SubSecDateTimeOriginal",
     "-DateTimeOriginal",
     "-CreateDate",
@@ -21,6 +21,10 @@ pub(super) const EXIFTOOL_TAGS: [&str; 14] = [
     "-SamsungModel",
     "-DeviceModelName",
     "-CameraModelName",
+    // `#` turns off print conversion, so ExifTool returns signed decimal degrees.
+    "-GPSLatitude#",
+    "-GPSLongitude#",
+    "-GPSCoordinates#",
 ];
 
 /// Writes one read-only `-stay_open` JSON request terminated by `-execute{request_id}`.

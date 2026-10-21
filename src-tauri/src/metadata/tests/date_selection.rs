@@ -14,6 +14,7 @@ fn empty_raw_dates() -> RawMetadataDates {
         track_create_date: None,
         file_modify_date: None,
         device_name: None,
+        gps: None,
     }
 }
 

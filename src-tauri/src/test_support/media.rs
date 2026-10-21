@@ -40,6 +40,7 @@ pub(crate) fn ready_metadata(file_id: &str, date_kind: DateKind) -> MetadataResu
         date_kind: Some(date_kind),
         raw_metadata_date: Some("2026:05:23 10:00:00".to_string()),
         device_name: None,
+        gps: None,
         metadata_status: MetadataStatus::Ready,
         error: None,
     }
@@ -62,6 +63,7 @@ pub(crate) fn dated_metadata(file_id: &str, chosen_date: &str) -> MetadataResult
         date_kind: None,
         raw_metadata_date: Some(chosen_date.to_string()),
         device_name: Some("iPhone 15 Pro".to_string()),
+        gps: None,
         metadata_status: MetadataStatus::Ready,
         error: None,
     }

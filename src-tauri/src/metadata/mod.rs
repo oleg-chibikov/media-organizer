@@ -4,6 +4,7 @@ mod argfile_path;
 mod date_selection;
 mod exiftool_json;
 mod exiftool_path;
+mod gps;
 mod output_reader;
 mod request_writer;
 mod result_alignment;
@@ -15,7 +16,7 @@ mod worker_manager;
 #[cfg(test)]
 mod tests;
 
-use crate::models::DateKind;
+use crate::models::{DateKind, GpsPoint};
 
 pub const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 20_000;
 
@@ -34,6 +35,7 @@ pub struct RawMetadataDates {
     pub track_create_date: Option<String>,
     pub file_modify_date: Option<String>,
     pub device_name: Option<String>,
+    pub gps: Option<GpsPoint>,
 }
 
 #[derive(Debug, Clone)]
