@@ -3,6 +3,7 @@
 rust = "1.99.1"
 node = "latest"
 pnpm = "latest"
+"github:Boshen/cargo-shear" = "1.14.0"
 
 [tasks.versions]
 description = "Show the active project tool versions"

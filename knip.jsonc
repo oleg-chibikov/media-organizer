@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // .husky/pre-commit runs lint-staged through `mise x --`, which knip can't follow.
+  "ignoreBinaries": ["mise"],
+  "ignoreDependencies": ["lint-staged"]
+}

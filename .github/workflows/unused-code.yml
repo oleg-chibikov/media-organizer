@@ -1,0 +1,29 @@
+name: Unused code
+
+# knip finds unused files, exports and packages in the frontend.
+# cargo-shear finds unused crates in src-tauri. rustc already warns about dead Rust code.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  knip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: node pnpm
+      - run: mise x -- pnpm install --frozen-lockfile
+      - run: mise x -- pnpm knip
+
+  cargo-shear:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: rust github:Boshen/cargo-shear
+      - run: mise x -- cargo shear --deny-warnings src-tauri

@@ -72,5 +72,7 @@
 - Prefer targeted checks first, then broader checks when practical:
   - `mise x -- pnpm test`
   - `mise x -- pnpm lint`
+  - `mise x -- pnpm knip`
+  - `mise x -- cargo shear src-tauri`
   - `mise x -- cargo test --manifest-path src-tauri/Cargo.toml`
   - `mise x -- pnpm build`

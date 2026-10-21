@@ -150,6 +150,13 @@ mise x -- cargo test --manifest-path src-tauri/Cargo.toml
 mise x -- pnpm build
 ```
 
+Find unused code, as the `Unused code` CI workflow does:
+
+```powershell
+mise x -- pnpm knip
+mise x -- cargo shear src-tauri
+```
+
 ## Docs
 
 - Architecture, and the commands and events between frontend and backend: `docs/architecture.md`

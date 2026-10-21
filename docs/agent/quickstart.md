@@ -57,6 +57,13 @@ mise x -- cargo test --manifest-path src-tauri/Cargo.toml
 mise x -- pnpm build
 ```
 
+Find unused code, as the `Unused code` CI workflow does:
+
+```powershell
+mise x -- pnpm knip
+mise x -- cargo shear src-tauri
+```
+
 ## Commit Quality
 
 - Use Conventional Commits when possible.
