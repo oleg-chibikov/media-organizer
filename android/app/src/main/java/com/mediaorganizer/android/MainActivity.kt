@@ -2,12 +2,9 @@ package com.mediaorganizer.android
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.view.WindowManager
 import android.widget.Toast
 import com.mediaorganizer.android.folders.FolderFields
@@ -59,11 +56,7 @@ class MainActivity : Activity() {
             active.cancel()
             return
         }
-        if (!Environment.isExternalStorageManager()) {
-            Toast.makeText(this, R.string.allow_all_files, Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:$packageName")))
-            return
-        }
+        if (!hasAllFilesAccessOrAsk()) return
         folders.save()
         when (val check = checkRequest(folders.source, folders.destination)) {
             is RequestCheck.Invalid -> Toast.makeText(this, check.message, Toast.LENGTH_LONG).show()

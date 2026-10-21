@@ -6,6 +6,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import com.mediaorganizer.android.R
+import com.mediaorganizer.android.hasAllFilesAccessOrAsk
 
 private const val PICK_SOURCE = 1
 private const val PICK_DESTINATION = 2
@@ -26,8 +27,9 @@ class FolderFields(
     init {
         sourceField.setText(saved.source)
         destinationField.setText(saved.destination)
-        pickSource.setOnClickListener { pick(PICK_SOURCE, source) }
-        pickDestination.setOnClickListener { pick(PICK_DESTINATION, destination) }
+        pickSource.setOnClickListener { pick(PICK_SOURCE, source, createMissing = false) }
+        // `Processed` often doesn't exist yet. Its parent is the gallery folder, an easy wrong pick.
+        pickDestination.setOnClickListener { pick(PICK_DESTINATION, destination, createMissing = true) }
     }
 
     fun save() = saved.save(source, destination)
@@ -51,6 +53,8 @@ class FolderFields(
         return true
     }
 
-    private fun pick(requestCode: Int, currentPath: String) =
-        activity.startActivityForResult(FolderPicker.intent(currentPath), requestCode)
+    private fun pick(requestCode: Int, currentPath: String, createMissing: Boolean) {
+        if (!activity.hasAllFilesAccessOrAsk()) return
+        activity.startActivityForResult(FolderPicker.intent(currentPath, createMissing), requestCode)
+    }
 }

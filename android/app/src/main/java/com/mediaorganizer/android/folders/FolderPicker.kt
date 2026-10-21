@@ -9,8 +9,10 @@ private const val EXTERNAL_STORAGE = "com.android.externalstorage.documents"
 
 /** Opens the system folder picker and reads the chosen folder back as a file path. */
 object FolderPicker {
-    fun intent(currentPath: String): Intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-        val start = nearestFolder(currentPath) ?: return@apply
+    fun intent(currentPath: String, createMissing: Boolean): Intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+        val path = currentPath.trim().takeIf { it.startsWith("/") } ?: return@apply
+        if (createMissing) File(path).mkdirs()
+        val start = nearestFolder(path) ?: return@apply
         val documentId = documentIdOfPath(start, primaryRoot()) ?: return@apply
         putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE, documentId))
     }
@@ -22,10 +24,9 @@ object FolderPicker {
         return pathOfDocumentId(DocumentsContract.getTreeDocumentId(tree), primaryRoot())
     }
 
-    /** `Processed` may not exist yet, so the picker opens at its parent. */
+    /** A typed path may not exist, so the picker opens at the closest folder above it. */
     private fun nearestFolder(path: String): String? =
-        path.trim().takeIf { it.startsWith("/") }
-            ?.let { generateSequence(File(it)) { file -> file.parentFile }.firstOrNull(File::isDirectory)?.path }
+        generateSequence(File(path)) { file -> file.parentFile }.firstOrNull(File::isDirectory)?.path
 
     private fun primaryRoot(): String = Environment.getExternalStorageDirectory().path
 }
