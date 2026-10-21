@@ -5,7 +5,7 @@ import { EMPTY_SCAN_PROGRESS, type ScanProgress } from "./scanProgress";
 import { useScanRows } from "./useScanRows";
 
 export function useScanSession(reportError: (message: string | null) => void) {
-  const { rows, rowByIdRef, addRow, resetRows } = useScanRows();
+  const { rows, rowByIdRef, addRow, flushRows, resetRows } = useScanRows();
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress>(EMPTY_SCAN_PROGRESS);
@@ -57,6 +57,8 @@ export function useScanSession(reportError: (message: string | null) => void) {
       setProgress((prev) => ({ ...prev, errors: prev.errors + 1 }));
     },
     onFinished: ({ cancelled }) => {
+      // Rows land before the finished flag so planning never looks complete with rows still pending.
+      flushRows();
       setIsScanning(false);
       setProgress((prev) => ({ ...prev, completed: !cancelled, cancelled }));
     }
