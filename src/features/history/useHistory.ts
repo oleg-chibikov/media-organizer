@@ -12,6 +12,7 @@ import {
   type ActiveHistoryAction,
   type HistoryActionKind
 } from "./historyActionProgress";
+import { confirmHistoryAction } from "./historyActionPrompt";
 import { useHistoryRunDetails } from "./useHistoryRunDetails";
 import { useHistoryRuns } from "./useHistoryRuns";
 
@@ -46,6 +47,9 @@ export function useHistory(reportError: (message: string | null) => void) {
   );
 
   const runAction = async (action: HistoryActionKind, runId: string) => {
+    if (!confirmHistoryAction(action)) {
+      return;
+    }
     try {
       activeActionRef.current = { runId, action, blockedOrFailed: 0 };
       await RUN_HISTORY_ACTION[action](runId);
@@ -59,6 +63,9 @@ export function useHistory(reportError: (message: string | null) => void) {
   };
 
   const deleteRun = async (runId: string) => {
+    if (!confirmHistoryAction("delete")) {
+      return;
+    }
     try {
       await deleteHistoryRun(runId);
       details.setDetails((previous) => (previous?.run.run_id === runId ? null : previous));
