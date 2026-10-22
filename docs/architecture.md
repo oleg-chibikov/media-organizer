@@ -80,6 +80,7 @@ flowchart LR
     planF -->|plans| movesF["moves"]
     histF["history"]
     destF["destination-settings"]
+    homeF["home-location"]
     tableF["file-table"]
   end
   subgraph be["Backend modules (src-tauri/src/)"]
@@ -97,6 +98,7 @@ flowchart LR
   metaF -->|read_metadata_for_files| metaQ
   metaQ -.->|"capture dates, as the result"| metaF
   planF -->|"create_move_plan,<br/>detect_place_suggestions"| planner
+  homeF -->|"search_home_cities,<br/>set_home_location"| settings
   planner -.->|"plan:* events"| planF
   movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan,<br/>remove_empty_source_folders"| mover
   mover -.->|"move:* events"| movesF
@@ -143,6 +145,7 @@ Each layer may depend only on the layers below it.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
+- `home_location/`: reads the saved home for place suggestions, learns it from large scans, and finds cities by name.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `geo/`: offline reverse geocoding. See Offline Places.
 - `trips/`: groups files into trip and outing suggestions. See Place Suggestions.
@@ -156,14 +159,17 @@ Each layer may depend only on the layers below it.
 - **Data** is `src-tauri/assets/geodata.tsv.gz`, a GeoNames extract (CC BY 4.0) built by `scripts/geodata/build_geodata.py`. It holds cities with 1000 people or more and points of interest such as gardens, museums, waterfalls and national parks. Small kinds need an English Wikipedia link to stay in.
 - **Loading** happens once, on the first lookup, through a `LazyLock`. Call lookups from a background thread.
 - **Search** uses a one-degree grid, so a lookup scans only nearby cells.
+- **City names** for `search_home_cities` load into a separate list on the first search. Matches ignore case and accents, and `ue` matches `u`, so "Zür" finds "Zuerich". Names that start with the text come first, then names that contain it. Bigger cities rank higher, up to 10 results.
 - **Matching** gives each kind a radius in `geo/radius.rs`, since GeoNames has points and no outlines. The most nested match wins: a garden beats the city and a waterfall beats the national park. With no match, the nearest city within 50 km wins, then any place within 150 km.
 - **Countries** come from the nearest place, so a point near a border can get the neighbour.
 
 ## Place Suggestions
 
-`detect_place_suggestions(files, metadata_results)` returns `PlaceSuggestion[]`. It is pure grouping in `trips/` on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
+`detect_place_suggestions(files, metadata_results)` returns `PlaceSuggestion[]`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
 
-- **Home** is the nearest city with the most distinct geotagged days. It needs 14 days and 30% of all geotagged days, else home is unknown.
+- **Home** is the saved home when settings hold one. The scan files don't change it.
+- **Learned home** with no saved home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`. A saved home stays until the person changes or clears it.
+- **One-off home** a scan under 60 days still uses that city for itself when it has 14 days and 30% of the days. It saves nothing. Below that, home is unknown.
 - **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them. Its title is the top country, the top two joined with " & ", or the top one and " & more".
 - **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
 - **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
@@ -188,7 +194,8 @@ Place folders are desktop only. The Android app keeps dated folders.
 - `app/useAppSession.ts`: composes the scan, metadata, planning, moves, history and destination hooks.
 - `app/useBackendBootstrap.ts`: loads health, processing limits and settings at startup.
 - `app/useDestinationChange.ts`: applies a destination change and replans before any move starts.
-- `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `toolbar`.
+- `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `home-location`, `toolbar`.
+- `features/home-location`: the Home section in the settings menu. It searches cities 200 ms after typing stops. Opening the menu reloads settings, so a learned home shows up. A new home makes `features/place-suggestions` detect again.
 - `lib/api/`: typed command wrappers, `listenAll` event subscriptions and `useBackendEvents`.
 - `lib/types/`: TypeScript copies of the Rust payloads.
 
@@ -206,7 +213,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 ## Data And Persistence
 
-- **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`.
+- **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`. `home` holds `name`, `country`, `latitude`, `longitude` and `source` (`learned` or `manual`). Files saved before `home` existed load with no home.
 - **History** is `<appData>/history/runs/*.jsonl` plus `index.json`, written by `HistoryStore`.
 - **App log** goes to stdout and the OS log folder through `tauri-plugin-log`, set up in `main.rs`. The emit helpers in `events.rs` and `events/log_lines.rs` write one line per event. Per-file scan and plan lines are `debug` and stay out of the default `info` level.
 - **Writes** to settings and the history index take a process lock and replace the file through a temp file.
