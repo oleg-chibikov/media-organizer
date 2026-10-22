@@ -8,6 +8,7 @@ use std::{
 use super::{
     exiftool_path::resolve_exiftool_path,
     output_reader::{spawn_stderr_drain, spawn_stdout_reader, ReaderEvent},
+    process_priority::lower_priority,
 };
 
 #[derive(Debug)]
@@ -29,11 +30,14 @@ impl ExifToolWorker {
     pub(super) fn start(resource_dir: Option<&Path>) -> Result<Self, String> {
         let exiftool_path = resolve_exiftool_path(resource_dir)?;
 
-        let mut child = Command::new(&exiftool_path)
+        let mut command = Command::new(&exiftool_path);
+        command
             .args(["-stay_open", "True", "-@", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+        lower_priority(&mut command);
+        let mut child = command
             .spawn()
             .map_err(|error| format!("Failed to start ExifTool at {:?}: {error}", exiftool_path))?;
 

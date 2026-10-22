@@ -43,11 +43,13 @@ impl QueueLimits {
     }
 }
 
+// Half the cores, so reading thousands of files leaves the rest to the desktop.
 fn default_metadata_concurrency() -> usize {
-    std::thread::available_parallelism()
+    (std::thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(4)
-        .clamp(MIN_METADATA_CONCURRENCY, MAX_METADATA_CONCURRENCY)
+        / 2)
+    .clamp(MIN_METADATA_CONCURRENCY, MAX_METADATA_CONCURRENCY)
 }
 
 fn read_env_usize(name: &str, default: usize, min: usize, max: usize) -> usize {

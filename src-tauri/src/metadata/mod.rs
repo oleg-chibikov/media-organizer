@@ -6,6 +6,7 @@ mod exiftool_json;
 mod exiftool_path;
 mod gps;
 mod output_reader;
+mod process_priority;
 mod request_writer;
 mod result_alignment;
 mod timestamp;
