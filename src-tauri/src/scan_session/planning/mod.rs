@@ -59,6 +59,7 @@ impl ScanSession {
             Ok(folders) => {
                 planning.places = Some(folders);
                 planning.layout = None;
+                self.reuse_existing_folders(&mut planning);
                 self.plan_files(sink, &mut planning, &file_ids);
             }
             Err(error) => {

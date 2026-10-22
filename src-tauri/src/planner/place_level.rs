@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use chrono::{Datelike, NaiveDate};
 
-/// The date folder a country or place folder sits in: the one its files span.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The date folder a country or place folder sits in. Higher levels sort first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum PlaceLevel {
     /// Files in more than one month: `<year>/<folder>/<month>/<day>`.
     Year,
@@ -11,6 +11,10 @@ pub(super) enum PlaceLevel {
     Month,
     /// Files on one day: `<year>/<month>/<day>/<folder>`.
     Day,
+}
+
+impl PlaceLevel {
+    pub(super) const ALL: [Self; 3] = [Self::Year, Self::Month, Self::Day];
 }
 
 /// The days a folder's files were taken on, within one year.
@@ -32,4 +36,37 @@ impl DaySpan {
             PlaceLevel::Day
         }
     }
+
+    pub(super) fn first_date(&self, year: i32) -> Option<NaiveDate> {
+        let &(month, day) = self.0.first()?;
+        NaiveDate::from_ymd_opt(year, month, day)
+    }
+}
+
+/// `<year>/<month>/<day>` with each folder after the date part of its level. With
+/// `to_last_folder` the path stops at the deepest folder.
+pub(super) fn dated_dir(
+    date: NaiveDate,
+    folders: &[(&str, PlaceLevel)],
+    to_last_folder: bool,
+) -> PathBuf {
+    let deepest = folders.iter().map(|(_, level)| *level).max();
+    let parts = [
+        date.year().to_string(),
+        date.month().to_string(),
+        date.day().to_string(),
+    ];
+    let mut dir = PathBuf::new();
+    for (level, part) in PlaceLevel::ALL.into_iter().zip(parts) {
+        dir.push(part);
+        for (name, folder_level) in folders {
+            if *folder_level == level {
+                dir.push(name);
+            }
+        }
+        if to_last_folder && Some(level) == deepest {
+            break;
+        }
+    }
+    dir
 }

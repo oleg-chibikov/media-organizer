@@ -195,6 +195,7 @@ The destination is the permanent library. Each photo and video goes to the folde
 
 - **Home parts** stay out of the path. A `city` file gets no place folders, as in `2024/3/15`. A `country` file gets the place folder only, as in `2024/Melbourne/3/15`. The table still shows both columns.
 - **Country and place** each get a level. The country spans all its places, so it sits at the same level or above.
+- **Existing folders** win when they sit higher. One day in Osaka goes to `2024/3/Osaka/15` when the destination has `2024/3/Osaka`, and to `2024/Osaka/3/15` when it has `2024/Osaka`. The country is checked first, then the place inside it. `PlaceFolders::reuse_existing` checks each folder once per set of places.
 - **Years** don't share a folder. A place on Dec 31 and Jan 1 gets one folder in each year.
 - **Month and day folders** have no leading zero, as in the dated layout.
 - **Other files** keep `<root>/<year>/<month>/<day>`.

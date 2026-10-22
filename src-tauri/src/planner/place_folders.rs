@@ -2,30 +2,32 @@ use std::{collections::HashMap, path::PathBuf};
 
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 
-use super::place_level::{DaySpan, PlaceLevel};
+use super::place_level::{dated_dir, DaySpan, PlaceLevel};
 use crate::{
     file_places::CHOSEN_DATE_FORMAT,
     filename::validated_folder_name,
     models::{FilePlace, HomeMatch, MetadataResult},
 };
 
-/// One folder of a file's place: its name and the date folder it sits in.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Leveled {
-    name: String,
-    level: PlaceLevel,
+/// The days a country or place folder's files span within one year, and its date level.
+#[derive(Debug)]
+pub(super) struct FolderSpan {
+    pub(super) days: DaySpan,
+    pub(super) level: PlaceLevel,
 }
+
+pub(super) type CountryKey = (i32, String);
+pub(super) type PlaceKey = (i32, Option<String>, String);
 
 /// The place folder of each file, under `<year>` and the date folders the country and the
 /// place span within that year. Spans count only the files of this scan. Files in home's
 /// city have no place folders.
 #[derive(Debug, Default)]
 pub(crate) struct PlaceFolders {
-    by_file: HashMap<String, (FilePlace, Option<Leveled>, Leveled)>,
+    by_file: HashMap<String, (FilePlace, PlaceKey)>,
+    pub(super) countries: HashMap<CountryKey, FolderSpan>,
+    pub(super) places: HashMap<PlaceKey, FolderSpan>,
 }
-
-type CountryKey = (i32, Option<String>);
-type PlaceKey = (i32, Option<String>, String);
 
 impl PlaceFolders {
     /// Fails on a folder name that isn't one plain name.
@@ -41,7 +43,7 @@ impl PlaceFolders {
                 Some((result.file_id.as_str(), taken.date()))
             })
             .collect();
-        let mut files = Vec::new();
+        let mut by_file = HashMap::new();
         let mut countries: HashMap<CountryKey, DaySpan> = HashMap::new();
         let mut places: HashMap<PlaceKey, DaySpan> = HashMap::new();
         for (file_id, found) in file_places {
@@ -56,32 +58,19 @@ impl PlaceFolders {
             let country = place.country_folder().map(str::to_owned);
             if let Some(country) = &country {
                 countries
-                    .entry((year, Some(country.clone())))
+                    .entry((year, country.clone()))
                     .or_default()
                     .add(date);
             }
-            places
-                .entry((year, country, place.place.clone()))
-                .or_default()
-                .add(date);
-            files.push((file_id.clone(), year, place));
+            let key = (year, country, place.place.clone());
+            places.entry(key.clone()).or_default().add(date);
+            by_file.insert(file_id.clone(), (place, key));
         }
-        let by_file = files
-            .into_iter()
-            .map(|(file_id, year, place)| {
-                let country_name = place.country_folder().map(str::to_owned);
-                let country = country_name.clone().map(|name| Leveled {
-                    level: countries[&(year, Some(name.clone()))].level(),
-                    name,
-                });
-                let leveled = Leveled {
-                    level: places[&(year, country_name, place.place.clone())].level(),
-                    name: place.place.clone(),
-                };
-                (file_id, (place, country, leveled))
-            })
-            .collect();
-        Ok(Self { by_file })
+        Ok(Self {
+            by_file,
+            countries: leveled(countries),
+            places: leveled(places),
+        })
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -90,37 +79,44 @@ impl PlaceFolders {
 
     /// The place of `file_id`, as the plan records it.
     pub(super) fn place(&self, file_id: &str) -> Option<&FilePlace> {
-        self.by_file.get(file_id).map(|(place, _, _)| place)
+        self.by_file.get(file_id).map(|(place, _)| place)
     }
 
     /// `<year>`, `<month>` and `<day>` with the country and place folders at their level.
     pub(super) fn relative_dir(&self, file_id: &str, date: &NaiveDateTime) -> Option<PathBuf> {
-        let (_, country, place) = self.by_file.get(file_id)?;
-        let parts = [
-            (PlaceLevel::Year, date.year().to_string()),
-            (PlaceLevel::Month, date.month().to_string()),
-            (PlaceLevel::Day, date.day().to_string()),
-        ];
-        let mut dir = PathBuf::new();
-        for (level, part) in parts {
-            dir.push(part);
-            for folder in country.iter().chain([place]) {
-                if folder.level == level {
-                    dir.push(&folder.name);
-                }
-            }
-        }
-        Some(dir)
+        Some(dated_dir(date.date(), &self.folders(file_id)?, false))
     }
 
     /// What decides a file's folder apart from its date, so a file is planned again only
     /// when it changes.
     pub(crate) fn key(&self, file_id: &str) -> String {
-        self.by_file
-            .get(file_id)
-            .map(|(_, country, place)| format!("{country:?}/{place:?}"))
+        self.folders(file_id)
+            .map(|folders| format!("{folders:?}"))
             .unwrap_or_default()
     }
+
+    /// The country folder, when there is one, then the place folder, each with its level.
+    fn folders(&self, file_id: &str) -> Option<Vec<(&str, PlaceLevel)>> {
+        let (_, key) = self.by_file.get(file_id)?;
+        let (year, country, place) = key;
+        let mut folders = Vec::with_capacity(2);
+        if let Some(country) = country {
+            let span = &self.countries[&(*year, country.clone())];
+            folders.push((country.as_str(), span.level));
+        }
+        folders.push((place.as_str(), self.places[key].level));
+        Some(folders)
+    }
+}
+
+fn leveled<K: std::hash::Hash + Eq>(spans: HashMap<K, DaySpan>) -> HashMap<K, FolderSpan> {
+    spans
+        .into_iter()
+        .map(|(key, days)| {
+            let level = days.level();
+            (key, FolderSpan { days, level })
+        })
+        .collect()
 }
 
 fn validated(place: &FilePlace) -> Result<FilePlace, String> {

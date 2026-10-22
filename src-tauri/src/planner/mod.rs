@@ -2,6 +2,7 @@
 
 mod destination_allocation;
 mod destination_layout;
+mod existing_folders;
 mod file_plan;
 mod place_folders;
 mod place_level;
