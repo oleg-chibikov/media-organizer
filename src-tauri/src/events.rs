@@ -12,12 +12,11 @@ use log_lines::{log_move_result, log_replay_step};
 use crate::models::{
     HistoryIndexUpdatedEvent, HistoryReplayProgressEvent, MoveFileEvent, MoveFinishedEvent,
     MoveProgressEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, ScanErrorEvent,
-    ScanFileEvent, ScanFinishedEvent, ScanStartedEvent,
+    ScanFilesEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
-pub const SCAN_FILE: &str = "scan:file";
-pub const SCAN_SKIPPED: &str = "scan:skipped";
+pub const SCAN_FILES: &str = "scan:files";
 pub const SCAN_ERROR: &str = "scan:error";
 pub const SCAN_FINISHED: &str = "scan:finished";
 pub const PLAN_FILE: &str = "plan:file";
@@ -47,14 +46,11 @@ pub(crate) fn scan_started(sink: &impl EventSink, payload: ScanStartedEvent) {
     sink.emit(SCAN_STARTED, payload);
 }
 
-pub(crate) fn scan_file(sink: &impl EventSink, payload: ScanFileEvent) {
-    log::debug!("Found {}", payload.record.source_path);
-    sink.emit(SCAN_FILE, payload);
-}
-
-pub(crate) fn scan_skipped(sink: &impl EventSink, payload: ScanFileEvent) {
-    log::debug!("Skipped {}", payload.record.source_path);
-    sink.emit(SCAN_SKIPPED, payload);
+pub(crate) fn scan_files(sink: &impl EventSink, payload: ScanFilesEvent) {
+    for record in &payload.records {
+        log::debug!("Scanned {} ({:?})", record.source_path, record.scan_status);
+    }
+    sink.emit(SCAN_FILES, payload);
 }
 
 pub(crate) fn scan_error(sink: &impl EventSink, payload: ScanErrorEvent) {

@@ -69,7 +69,7 @@ describe("App", () => {
 
     act(() => {
       listeners.scan?.onStarted({ root: "C:\\in" });
-      listeners.scan?.onFile({ record: RECORD });
+      listeners.scan?.onFiles({ records: [RECORD] });
       listeners.scan?.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
     });
     // Plans wait for place detection, so no file shows a date folder first.

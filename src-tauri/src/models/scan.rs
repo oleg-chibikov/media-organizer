@@ -35,8 +35,8 @@ pub struct ScanStartedEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ScanFileEvent {
-    pub record: FileRecord,
+pub struct ScanFilesEvent {
+    pub records: Vec<FileRecord>,
 }
 
 #[derive(Debug, Clone, Serialize)]

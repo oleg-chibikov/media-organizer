@@ -77,14 +77,19 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
         clearSession();
       }
     },
-    onFile: ({ record }) => {
-      if (!isReplaced() && addRow(record)) {
-        setProgress((prev) => ({ ...prev, discovered: prev.discovered + 1 }));
+    onFiles: ({ records }) => {
+      if (isReplaced()) {
+        return;
       }
-    },
-    onSkipped: ({ record }) => {
-      if (!isReplaced() && addRow(record)) {
-        setProgress((prev) => ({ ...prev, skipped: prev.skipped + 1 }));
+      const added = records.filter(addRow);
+      const discovered = added.filter((record) => record.scan_status === "discovered").length;
+      const skipped = added.length - discovered;
+      if (added.length > 0) {
+        setProgress((prev) => ({
+          ...prev,
+          discovered: prev.discovered + discovered,
+          skipped: prev.skipped + skipped
+        }));
       }
     },
     onError: () => {

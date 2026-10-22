@@ -25,7 +25,7 @@ async function choose(result: Session, folder: string) {
 function scanOneFile(result: Session, root: string) {
   act(() => {
     result.current.events.onStarted({ root });
-    result.current.events.onFile({ record: { ...RECORD, source_path: `${root}\\a.jpg` } });
+    result.current.events.onFiles({ records: [{ ...RECORD, source_path: `${root}\\a.jpg` }] });
     result.current.events.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
   });
 }
@@ -95,5 +95,18 @@ describe("useScanSession", () => {
 
     expect(result.current.isScanning).toBe(false);
     expect(result.current.progress.cancelled).toBe(true);
+  });
+
+  it("counts found and skipped files from one batch", async () => {
+    const { result } = renderSession();
+    await choose(result, "C:\\in");
+    const skipped = { ...RECORD, id: "b", scan_status: "skipped_unsupported" as const };
+
+    act(() => {
+      result.current.events.onStarted({ root: "C:\\in" });
+      result.current.events.onFiles({ records: [RECORD, skipped, RECORD] });
+    });
+
+    expect(result.current.progress).toMatchObject({ discovered: 1, skipped: 1 });
   });
 });

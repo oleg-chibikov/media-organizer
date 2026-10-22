@@ -15,8 +15,8 @@ export interface ScanStartedEvent {
   root: string;
 }
 
-export interface ScanFileEvent {
-  record: FileRecord;
+export interface ScanFilesEvent {
+  records: FileRecord[];
 }
 
 export interface ScanErrorEvent {

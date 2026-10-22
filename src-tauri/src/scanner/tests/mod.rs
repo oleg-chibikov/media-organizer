@@ -104,6 +104,9 @@ fn streams_discovered_and_skipped_files_then_totals() {
     let names = sink.names();
     assert_eq!(names.first(), Some(&crate::events::SCAN_STARTED));
     assert_eq!(names.last(), Some(&crate::events::SCAN_FINISHED));
+    let batches = sink.payloads(crate::events::SCAN_FILES);
+    assert_eq!(batches.len(), 1, "a small folder arrives in one batch");
+    assert_eq!(batches[0]["records"].as_array().map(Vec::len), Some(3));
     let finished = &sink.payloads(crate::events::SCAN_FINISHED)[0];
     assert_eq!(finished["discovered"], 1);
     assert_eq!(finished["skipped"], 2);

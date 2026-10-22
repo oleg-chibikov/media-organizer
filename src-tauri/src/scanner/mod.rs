@@ -4,6 +4,7 @@ mod active_scan;
 mod classification;
 mod file_signature;
 mod media_identity;
+mod record_batch;
 mod scanned_file;
 
 #[cfg(test)]
@@ -16,9 +17,10 @@ use walkdir::WalkDir;
 
 use crate::{
     events::{self, EventSink},
-    models::{ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
+    models::{ScanErrorEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
 };
 pub(crate) use active_scan::ActiveScan;
+use record_batch::RecordBatch;
 pub(crate) use scanned_file::record_for_path;
 
 pub(crate) fn scan_folder(
@@ -39,6 +41,7 @@ pub(crate) fn scan_folder(
         errors: 0,
         cancelled: false,
     };
+    let mut batch = RecordBatch::new();
 
     for entry in WalkDir::new(root) {
         if cancellation_token.is_cancelled() {
@@ -50,6 +53,7 @@ pub(crate) fn scan_folder(
             Ok(value) => value,
             Err(error) => {
                 totals.errors += 1;
+                batch.flush(sink);
                 let path = error
                     .path()
                     .map(|p| p.to_string_lossy().to_string())
@@ -72,12 +76,12 @@ pub(crate) fn scan_folder(
         let record = record_for_path(root, &entry.into_path());
         if matches!(record.scan_status, ScanStatus::Discovered) {
             totals.discovered += 1;
-            events::scan_file(sink, ScanFileEvent { record });
         } else {
             totals.skipped += 1;
-            events::scan_skipped(sink, ScanFileEvent { record });
         }
+        batch.push(sink, record);
     }
 
+    batch.flush(sink);
     events::scan_finished(sink, totals);
 }

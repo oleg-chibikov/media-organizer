@@ -1,4 +1,4 @@
-import type { ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent } from "../types";
+import type { ScanErrorEvent, ScanFilesEvent, ScanFinishedEvent, ScanStartedEvent } from "../types";
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
@@ -9,16 +9,14 @@ export const cancelScan = () => invokeCommand<void>("cancel_scan");
 
 export interface ScanListeners {
   onStarted: (payload: ScanStartedEvent) => void;
-  onFile: (payload: ScanFileEvent) => void;
-  onSkipped: (payload: ScanFileEvent) => void;
+  onFiles: (payload: ScanFilesEvent) => void;
   onError: (payload: ScanErrorEvent) => void;
   onFinished: (payload: ScanFinishedEvent) => void;
 }
 
 const SCAN_EVENTS = {
   onStarted: "scan:started",
-  onFile: "scan:file",
-  onSkipped: "scan:skipped",
+  onFiles: "scan:files",
   onError: "scan:error",
   onFinished: "scan:finished"
 } as const;

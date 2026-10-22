@@ -42,7 +42,7 @@ sequenceDiagram
   participant Disk as Folders and appData
   Person->>UI: Picks a TODO folder
   UI->>Rust: start_scan
-  Rust-->>UI: scan:file events
+  Rust-->>UI: scan:files batches
   UI->>Rust: read_metadata_for_files, in batches
   Rust->>Exif: reads tags
   Rust-->>UI: capture dates
