@@ -4,7 +4,7 @@ type DateKind = "timezone_aware" | "timezone_unknown" | "fallback";
 type MetadataStatus = "pending" | "ready" | "no_date" | "error" | "exiftool_restarted";
 
 /** Signed decimal degrees. South and west are negative. */
-interface GpsPoint {
+export interface GpsPoint {
   latitude: number;
   longitude: number;
 }

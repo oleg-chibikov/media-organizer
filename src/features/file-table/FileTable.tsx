@@ -8,9 +8,11 @@ import { FILE_COLUMN_DEFS } from "./fileColumnDefs";
 import { fileRowClassName } from "./fileRowClassName";
 import { FILE_TABLE_COLUMNS } from "./fileTableColumns";
 import { DEFAULT_COLUMN_SIZING, measureAutoSizedColumns } from "./measureColumnWidths";
-import { RevealOnDoubleClick } from "./RevealOnDoubleClick";
+import { PlaceMapDialog } from "../place-map";
+import { CellDoubleClick } from "./CellDoubleClick";
 import { sortFileRecords } from "./sortFileRecords";
 import { sortProblemsFirst } from "./sortProblemsFirst";
+import { usePlaceMapTarget } from "./usePlaceMapTarget";
 
 interface FileTableProps {
   rows: FileRecord[];
@@ -43,6 +45,7 @@ export function FileTable({
   locatingPlaces
 }: FileTableProps) {
   const [filter, setFilter] = useState<FileFilter>("all");
+  const { mapTarget, openMap, closeMap } = usePlaceMapTarget(filePlaces);
   const sortedRows = useMemo(() => sortFileRecords(rows), [rows]);
 
   const sorted = useMemo(
@@ -107,13 +110,18 @@ export function FileTable({
             }
             getRowTooltip={(row) => row.source.value}
             renderCellWrapper={(_, rowIndex, columnId, cell) => (
-              <RevealOnDoubleClick state={visibleStates[rowIndex]} columnId={columnId}>
+              <CellDoubleClick
+                state={visibleStates[rowIndex]}
+                columnId={columnId}
+                onOpenMap={openMap}
+              >
                 {cell}
-              </RevealOnDoubleClick>
+              </CellDoubleClick>
             )}
           />
         )}
       </div>
+      {mapTarget ? <PlaceMapDialog target={mapTarget} onClose={closeMap} /> : null}
     </div>
   );
 }
