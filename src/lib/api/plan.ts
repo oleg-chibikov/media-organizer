@@ -4,6 +4,7 @@ import type {
   MoveConfirmationSummary,
   MovePlan,
   PlaceSuggestion,
+  PlacedMove,
   PlanErrorEvent,
   PlanFileEvent,
   PlanFinishedEvent
@@ -23,6 +24,19 @@ export const createMovePlan = (
     files,
     metadataResults,
     placeSuggestions
+  });
+
+/** Files earlier runs placed in the folders the suggestions continue, planned into the
+ * new day folders those folders get. Files that stay where they are are left out. */
+export const planContinuedMoves = (
+  selectedPath: string,
+  placeSuggestions: PlaceSuggestion[],
+  metadataResults: MetadataResult[]
+) =>
+  invokeCommand<PlacedMove[]>("plan_continued_moves", {
+    selectedPath,
+    placeSuggestions,
+    metadataResults
   });
 
 export const getMoveConfirmationSummary = (

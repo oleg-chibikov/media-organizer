@@ -8,6 +8,8 @@ import { allMetadataRead } from "./allMetadataRead";
 const DETECTION_DELAY_MS = 1000;
 
 export interface PlaceDetectionOptions {
+  // Continued trips are matched under this folder's destination.
+  selectedFolder: string | null;
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   scanCompleted: boolean;
@@ -20,7 +22,8 @@ export interface PlaceDetectionOptions {
 
 // Asks the backend for place folders once per scan and home, after every file's metadata is read.
 export function usePlaceDetection(options: PlaceDetectionOptions) {
-  const { rows, metadataByFileId, scanCompleted, metadataBusy, enabled, home } = options;
+  const { selectedFolder, rows, metadataByFileId, scanCompleted, metadataBusy, enabled, home } =
+    options;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [generation, setGeneration] = useState(0);
   const generationRef = useRef(0);
@@ -34,7 +37,13 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     () => allMetadataRead(rows, metadataByFileId),
     [rows, metadataByFileId]
   );
-  const ready = enabled && scanCompleted && !metadataBusy && metadataRead && rows.length > 0;
+  const ready =
+    enabled &&
+    selectedFolder !== null &&
+    scanCompleted &&
+    !metadataBusy &&
+    metadataRead &&
+    rows.length > 0;
   const homeKey = home ? `${home.latitude},${home.longitude}` : "none";
   const key = `${generation}:${rows.length}:${homeKey}`;
 
@@ -49,7 +58,10 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
       // A reset or a new home while the backend works makes the answer out of date.
       const isCurrent = () =>
         detectedKeyRef.current === key && generationRef.current === generation;
-      detectPlaceSuggestions(latest.rows, results).then(
+      if (latest.selectedFolder === null) {
+        return;
+      }
+      detectPlaceSuggestions(latest.selectedFolder, latest.rows, results).then(
         (found) => {
           if (isCurrent()) {
             setSuggestions(found);

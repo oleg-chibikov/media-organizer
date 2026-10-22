@@ -25,8 +25,9 @@ function dayFolder(first: string, last: string, day: string): string | null {
     : `${Number(month)}/${Number(date)}`;
 }
 
-// Mirrors the backend: the span is the suggested one widened by the real file dates.
-function foldersFor(base: string, fileIds: string[], start: string, end: string, dateOf: DateOf) {
+// Mirrors the backend: the span is the suggested one widened by the real file dates,
+// and by the files already placed when the suggestion continues a folder.
+function foldersFor(base: string, fileIds: string[], spanDates: string[], dateOf: DateOf) {
   const countByDay = new Map<string, number>();
   for (const fileId of fileIds) {
     const date = dateOf(fileId);
@@ -36,7 +37,7 @@ function foldersFor(base: string, fileIds: string[], start: string, end: string,
     }
   }
   const days = [...countByDay.keys()].sort();
-  const span = [dayOf(start), dayOf(end), ...days].sort();
+  const span = [...spanDates.map(dayOf), ...days].sort();
   const [first, last] = [span[0], span[span.length - 1]];
   const countByPath = new Map<string, number>();
   for (const day of days) {
@@ -48,12 +49,25 @@ function foldersFor(base: string, fileIds: string[], start: string, end: string,
 }
 
 // The folders the files of one suggestion go to, relative to the destination root.
+// A continued suggestion keeps the placed year folder.
 export function placeFolderPreview(suggestion: PlaceSuggestion, dateOf: DateOf): PreviewFolder[] {
-  const year = suggestion.start.slice(0, 4);
+  const { continues } = suggestion;
+  const year = continues ? String(continues.year) : suggestion.start.slice(0, 4);
   const base = suggestion.kind === "trip" ? `${year}/${suggestion.title}` : year;
+  const placedSpan = (name: string) => {
+    const placed = continues?.places.find((place) => place.name === name);
+    return placed ? [placed.start, placed.end] : [];
+  };
   const places = suggestion.places.flatMap((place) =>
-    foldersFor(`${base}/${place.name}`, place.file_ids, place.start, place.end, dateOf)
+    foldersFor(
+      `${base}/${place.name}`,
+      place.file_ids,
+      [place.start, place.end, ...placedSpan(place.name)],
+      dateOf
+    )
   );
   const rootFiles = suggestion.kind === "trip" ? suggestion.root_file_ids : [];
-  return [...places, ...foldersFor(base, rootFiles, suggestion.start, suggestion.end, dateOf)];
+  const tripSpan = [suggestion.start, suggestion.end];
+  const rootSpan = continues ? [...tripSpan, continues.start, continues.end] : tripSpan;
+  return [...places, ...foldersFor(base, rootFiles, rootSpan, dateOf)];
 }

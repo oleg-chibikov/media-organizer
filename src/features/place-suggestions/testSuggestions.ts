@@ -26,7 +26,20 @@ export const TRIP: PlaceSuggestion = {
       file_ids: ["sf"]
     }
   ],
-  root_file_ids: ["r1"]
+  root_file_ids: ["r1"],
+  continues: null
+};
+
+// The trip above, continuing a placed trip whose San Francisco folder holds Oct 27.
+export const CONTINUED_TRIP: PlaceSuggestion = {
+  ...TRIP,
+  continues: {
+    title: "United States",
+    year: 2025,
+    start: "2025-10-20 10:00:00",
+    end: "2025-10-27 18:00:00",
+    places: [{ name: "San Francisco", start: "2025-10-27 10:00:00", end: "2025-10-27 18:00:00" }]
+  }
 };
 
 export const OUTING: PlaceSuggestion = {
@@ -47,7 +60,8 @@ export const OUTING: PlaceSuggestion = {
       file_ids: ["g1", "g2"]
     }
   ],
-  root_file_ids: []
+  root_file_ids: [],
+  continues: null
 };
 
 export const TRIP_DATES: Record<string, string> = {

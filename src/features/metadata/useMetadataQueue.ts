@@ -86,11 +86,27 @@ export function useMetadataQueue({
     pump();
   }, [metadataByFileId, queueCapacity, pump, rows]);
 
+  // Placed files come with the date their record kept, so they need no read.
+  const addResults = useCallback((results: MetadataResult[]) => {
+    if (results.length > 0) {
+      const byFileId = Object.fromEntries(results.map((result) => [result.file_id, result]));
+      setMetadataByFileId((prev) => ({ ...prev, ...byFileId }));
+    }
+  }, []);
+
+  const removeResults = useCallback((fileIds: string[]) => {
+    if (fileIds.length > 0) {
+      setMetadataByFileId((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([fileId]) => !fileIds.includes(fileId)))
+      );
+    }
+  }, []);
+
   const resetMetadata = useCallback(() => {
     queueRef.current = createMetadataQueue();
     setMetadataByFileId({});
     setActiveMetadataRequests(0);
   }, []);
 
-  return { metadataByFileId, activeMetadataRequests, resetMetadata };
+  return { metadataByFileId, activeMetadataRequests, addResults, removeResults, resetMetadata };
 }

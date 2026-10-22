@@ -2,6 +2,7 @@ import { useId, useMemo } from "react";
 import type { PlaceSuggestion } from "../../lib/types";
 import { FolderNameField } from "./FolderNameField";
 import { FolderPreviewList } from "./FolderPreviewList";
+import { continuedLabel } from "./continuedLabel";
 import { withChoiceNames, type PlaceChoice } from "./placeChoice";
 import { placeFolderPreview } from "./placeFolderPreview";
 import { suggestionHeading, suggestionSize } from "./placePromptLabel";
@@ -20,10 +21,8 @@ export function PlaceSuggestionSection({
   onChange
 }: PlaceSuggestionSectionProps) {
   const headingId = useId();
-  const preview = useMemo(
-    () => placeFolderPreview(withChoiceNames(suggestion, choice), dateOf),
-    [suggestion, choice, dateOf]
-  );
+  const edited = useMemo(() => withChoiceNames(suggestion, choice), [suggestion, choice]);
+  const preview = useMemo(() => placeFolderPreview(edited, dateOf), [edited, dateOf]);
   const renamePlace = (index: number, name: string) =>
     onChange({
       ...choice,
@@ -39,6 +38,9 @@ export function PlaceSuggestionSection({
         {suggestionHeading(suggestion)}
       </h3>
       <p className="text-xs text-slate-400">{suggestionSize(suggestion)}</p>
+      {choice.use && edited.continues ? (
+        <p className="text-xs text-sky-300">{continuedLabel(edited.continues)}</p>
+      ) : null}
       <label className="mt-2 flex cursor-pointer items-center gap-2 text-slate-200">
         <input
           type="checkbox"

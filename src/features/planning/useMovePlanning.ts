@@ -1,29 +1,40 @@
 import { useCallback, useRef, useState } from "react";
-import { attachPlanListeners, createMovePlan, useBackendEvents } from "../../lib/api";
-import type { FileRecord, MetadataResult, PlaceSuggestion } from "../../lib/types";
+import { createMovePlan } from "../../lib/api";
+import type { FileRecord, MetadataResult, PlaceSuggestion, PlacedMove } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
 import { acceptPlaces } from "./acceptedPlaces";
+import { useActiveRequests } from "./useActiveRequests";
+import { usePlacedMoves } from "./usePlacedMoves";
 import { usePlanBatches } from "./usePlanBatches";
+import { usePlanEvents } from "./usePlanEvents";
 import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
   selectedFolder: string | null;
   reportError: (message: string) => void;
+  onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
 }
 
-export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOptions) {
+export function useMovePlanning({
+  selectedFolder,
+  reportError,
+  onPlacedFiles
+}: MovePlanningOptions) {
   const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
-  const [activePlanRequests, setActivePlanRequests] = useState(0);
+  const { activePlanRequests, changeActiveRequests, resetActiveRequests } = useActiveRequests();
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   const signaturesRef = useRef<Map<string, string>>(new Map());
   // Accepted place suggestions go with every plan request.
   const placesRef = useRef(acceptPlaces([]));
-  const activeRequestsRef = useRef(0);
-
-  const changeActiveRequests = useCallback((delta: number) => {
-    activeRequestsRef.current = Math.max(0, activeRequestsRef.current + delta);
-    setActivePlanRequests(activeRequestsRef.current);
-  }, []);
+  const { planPlaced, dropPlaced, isPlaced, resetPlaced } = usePlacedMoves({
+    selectedFolder,
+    addPlan,
+    flushPlans,
+    dropPlansFor,
+    changeActiveRequests,
+    reportError,
+    onPlacedFiles
+  });
 
   const requestPlans = useCallback(
     (rows: FileRecord[], metadataResults: MetadataResult[]) => {
@@ -32,7 +43,7 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
       }
       const places = placesRef.current;
       const candidates = claimPlanCandidates(
-        rows,
+        rows.filter((row) => !isPlaced(row.id)),
         metadataResults,
         signaturesRef.current,
         places.keys
@@ -54,56 +65,44 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
         }
       );
     },
-    [changeActiveRequests, dropPlansFor, reportError, selectedFolder]
+    [changeActiveRequests, dropPlansFor, isPlaced, reportError, selectedFolder]
   );
 
-  // Plans again only the files whose place folder changed.
+  // Plans again only the files whose place folder changed, plus the placed files that move.
   const applyPlaceSuggestions = useCallback(
     (suggestions: PlaceSuggestion[], rows: FileRecord[], metadataResults: MetadataResult[]) => {
       placesRef.current = acceptPlaces(suggestions);
       requestPlans(rows, metadataResults);
+      planPlaced(suggestions, metadataResults);
     },
-    [requestPlans]
+    [planPlaced, requestPlans]
   );
 
   // Plan events carry no request id, so a file this session didn't ask for belongs to an older scan.
-  const isRequested = (fileId: string) => signaturesRef.current.has(fileId);
-
-  useBackendEvents(
-    attachPlanListeners,
-    {
-      onFile: ({ plan }) => {
-        if (isRequested(plan.file_id)) {
-          addPlan(plan);
-        }
-      },
-      onError: ({ file_id, error }) => {
-        if (isRequested(file_id)) {
-          setPlanErrorsByFileId((previous) => ({ ...previous, [file_id]: error }));
-        }
-      },
-      onFinished: () => {
-        // Plans land before the request count drops, so planning never looks done too early.
-        flushPlans();
-        changeActiveRequests(-1);
-      }
-    },
-    (error) => reportError(`Failed to attach plan listeners: ${String(error)}`)
-  );
+  usePlanEvents({
+    isRequested: (fileId) => signaturesRef.current.has(fileId),
+    addPlan,
+    addError: (fileId, error) =>
+      setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error })),
+    flushPlans,
+    changeActiveRequests,
+    reportError
+  });
 
   // A new destination or scan drops the place folders along with the plans.
   const clearPlans = useCallback(() => {
     signaturesRef.current = new Map();
     placesRef.current = acceptPlaces([]);
+    dropPlaced();
     dropPlans();
     setPlanErrorsByFileId({});
-  }, [dropPlans]);
+  }, [dropPlaced, dropPlans]);
 
   const resetPlanning = useCallback(() => {
     clearPlans();
-    activeRequestsRef.current = 0;
-    setActivePlanRequests(0);
-  }, [clearPlans]);
+    resetPlaced();
+    resetActiveRequests();
+  }, [clearPlans, resetActiveRequests, resetPlaced]);
 
   return {
     movePlansByFileId,

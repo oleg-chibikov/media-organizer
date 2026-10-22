@@ -28,7 +28,14 @@ export function useAppSession() {
   });
   const planning = useMovePlanning({
     selectedFolder: scan.selectedFolder,
-    reportError: setFolderError
+    reportError: setFolderError,
+    onPlacedFiles: (added, droppedIds) => {
+      // Dates go first, so the metadata queue doesn't read the new rows again.
+      metadata.removeResults(droppedIds);
+      metadata.addResults(added.map((move) => move.metadata));
+      scan.removeRows(droppedIds);
+      scan.addRows(added.map((move) => move.record));
+    }
   });
   const metadata = useMetadataQueue({
     rows: scan.rows,
@@ -56,6 +63,7 @@ export function useAppSession() {
     reportError: setFolderError
   });
   const places = usePlaceSuggestions({
+    selectedFolder: scan.selectedFolder,
     rows: scan.rows,
     metadataByFileId: metadata.metadataByFileId,
     scanCompleted: completed && !cancelled,

@@ -16,9 +16,14 @@ export function freshChoice(suggestion: PlaceSuggestion): PlaceChoice {
   };
 }
 
-// The suggestion with the edited names, as the backend plans it.
+// The folder a continued suggestion shares with the placed one: the trip, or the outing's place.
+const sharedFolder = (suggestion: PlaceSuggestion) =>
+  suggestion.kind === "trip" ? suggestion.title : suggestion.places[0]?.name;
+
+// The suggestion with the edited names, as the backend plans it. A renamed trip or outing
+// no longer continues the placed folder, so it starts a new one.
 export function withChoiceNames(suggestion: PlaceSuggestion, choice: PlaceChoice): PlaceSuggestion {
-  return {
+  const edited = {
     ...suggestion,
     title: suggestion.kind === "trip" ? choice.title.trim() : suggestion.title,
     places: suggestion.places.map((place, index) => ({
@@ -26,6 +31,8 @@ export function withChoiceNames(suggestion: PlaceSuggestion, choice: PlaceChoice
       name: (choice.placeNames[index] ?? place.name).trim()
     }))
   };
+  const renamed = sharedFolder(edited) !== sharedFolder(suggestion);
+  return renamed ? { ...edited, continues: null } : edited;
 }
 
 export function isChoiceValid(suggestion: PlaceSuggestion, choice: PlaceChoice): boolean {

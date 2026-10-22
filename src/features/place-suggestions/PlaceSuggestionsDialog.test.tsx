@@ -2,17 +2,17 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MetadataResult } from "../../lib/types";
 import { PlaceSuggestionsDialog } from "./PlaceSuggestionsDialog";
-import { OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
+import { CONTINUED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
 
 const metadataByFileId = Object.fromEntries(
   Object.entries(TRIP_DATES).map(([id, date]) => [id, { chosen_date: date } as MetadataResult])
 );
 
-function renderDialog() {
+function renderDialog(trip = TRIP) {
   const onApply = vi.fn();
   render(
     <PlaceSuggestionsDialog
-      suggestions={[TRIP, OUTING]}
+      suggestions={[trip, OUTING]}
       choices={{}}
       metadataByFileId={metadataByFileId}
       onApply={onApply}
@@ -58,5 +58,19 @@ describe("PlaceSuggestionsDialog", () => {
 
     fireEvent.change(title, { target: { value: "USA" } });
     expect(screen.getByRole("button", { name: "Apply" })).toBeEnabled();
+  });
+
+  it("shows the placed trip a suggestion continues until the trip is renamed", () => {
+    renderDialog(CONTINUED_TRIP);
+    const label = "Continues United States (Oct 20, 2025–Oct 27, 2025)";
+    const trip = screen.getByRole("region", { name: "Trip to United States" });
+    const preview = within(trip).getByRole("list", { name: "Folder preview" });
+    expect(within(trip).getByText(label)).toBeVisible();
+    expect(within(preview).getByText("2025/United States/San Francisco/10-29 (1)")).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Trip folder"), { target: { value: "USA" } });
+
+    expect(screen.queryByText(label)).toBeNull();
+    expect(within(preview).getByText("2025/USA/San Francisco (1)")).toBeVisible();
   });
 });

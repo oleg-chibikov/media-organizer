@@ -1,4 +1,5 @@
 import type { PlaceSuggestion } from "../../lib/types";
+import { continuedLabel } from "./continuedLabel";
 
 const DAY_MS = 86_400_000;
 // The backend titles a trip "Trip" when it finds no country.
@@ -27,7 +28,8 @@ export function suggestionSize(suggestion: PlaceSuggestion): string {
 export function placePromptLabel(suggestions: PlaceSuggestion[]): string {
   const [only] = suggestions;
   if (suggestions.length === 1 && only) {
-    return `${suggestionHeading(only)}: ${suggestionSize(only)}. Review folders`;
+    const heading = only.continues ? continuedLabel(only.continues) : suggestionHeading(only);
+    return `${heading}: ${suggestionSize(only)}. Review folders`;
   }
   return `${plural(suggestions.length, "place folder")} suggested. Review`;
 }

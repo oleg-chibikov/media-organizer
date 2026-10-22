@@ -15,7 +15,9 @@ vi.mock("../../lib/api", async (importOriginal) => ({
 
 function renderPlanning() {
   const reportError = vi.fn();
-  const hook = renderHook(() => useMovePlanning({ selectedFolder: "C:\\in", reportError }));
+  const hook = renderHook(() =>
+    useMovePlanning({ selectedFolder: "C:\\in", reportError, onPlacedFiles: vi.fn() })
+  );
   return { ...hook, reportError };
 }
 
@@ -69,7 +71,8 @@ describe("useMovePlanning place folders", () => {
     id: "o1",
     kind: "outing",
     places: [{ name: "Gardens", file_ids: ["f1"] }],
-    root_file_ids: []
+    root_file_ids: [],
+    continues: null
   } as unknown as PlaceSuggestion;
 
   it("plans again only the files whose place folder changed", async () => {

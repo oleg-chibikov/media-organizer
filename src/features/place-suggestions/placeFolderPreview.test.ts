@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { ContinuedPlacement } from "../../lib/types";
 import { placeFolderPreview } from "./placeFolderPreview";
-import { OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
+import { CONTINUED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
 
 const dateOf = (dates: Record<string, string>) => (fileId: string) => dates[fileId];
 
@@ -44,5 +45,16 @@ describe("placeFolderPreview", () => {
     const dates = { ...TRIP_DATES, r1: "2025-10-31 08:00:00" };
     const root = placeFolderPreview(TRIP, dateOf(dates))[3];
     expect(root).toEqual({ path: "2025/United States/10-31", count: 1 });
+  });
+
+  it("spans the placed files of a continued place and keeps the placed year", () => {
+    const placed = { ...CONTINUED_TRIP.continues, year: 2024 } as ContinuedPlacement;
+    const trip = { ...CONTINUED_TRIP, continues: placed };
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES)).map((row) => row.path)).toEqual([
+      "2024/United States/Yosemite/10-28",
+      "2024/United States/Yosemite/10-29",
+      "2024/United States/San Francisco/10-29",
+      "2024/United States/10-30"
+    ]);
   });
 });

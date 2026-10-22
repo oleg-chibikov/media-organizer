@@ -1,3 +1,7 @@
+import type { MetadataResult } from "./metadata";
+import type { Placement } from "./places";
+import type { FileRecord } from "./scan";
+
 type ConflictStatus = "none" | "suffix_applied" | "blocked";
 export type PlanStatus =
   | "ready"
@@ -14,6 +18,14 @@ export interface MovePlan {
   destination_path: string;
   conflict_status: ConflictStatus;
   plan_status: PlanStatus;
+  placement?: Placement | null;
+}
+
+/** A file an earlier run placed, planned into the new day layout of its folder. */
+export interface PlacedMove {
+  record: FileRecord;
+  metadata: MetadataResult;
+  plan: MovePlan;
 }
 
 export interface MoveConfirmationSummary {
