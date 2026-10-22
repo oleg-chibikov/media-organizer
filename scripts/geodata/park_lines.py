@@ -1,4 +1,4 @@
-"""Turns one Overture park into one asset line.
+"""Turns one Overture park into one asset line, in UTF-8.
 
 `kind name area_km2 lat lon rings`, tab separated. Rings are Google polyline
 strings at 1e-5 degrees, separated by spaces. Outer rings and holes are mixed,
@@ -6,17 +6,29 @@ since an even-odd test treats them the same.
 """
 
 import json
+import re
 
-from sources import _ascii
+from anyascii import anyascii
 
 KIND_BY_CLASS = {"national_park": "national_park", "state_park": "reserve",
                  "wilderness_area": "reserve"}
 
 
+# Chinese, Japanese and Korean. Transliteration joins their words and reads
+# Japanese as Chinese, so these names stay as written.
+CJK = re.compile(r"[\u1100-\u11ff\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
+QUOTES = str.maketrans("", "", "«»\"“”„")
+
+
+def folder_name(name: str) -> str:
+    """Latin letters for every script but CJK, as in `Ropotamo` for `Ропотамо`."""
+    name = name.translate(QUOTES)
+    return name if CJK.search(name) else anyascii(name)
+
+
 def park_line(name: str, park_class: str, km2: float, label: str, outline: str) -> str | None:
-    ascii_name = _ascii(name).strip()
-    # Names in other scripts lose every letter. Those parks stay out.
-    if len(ascii_name) < len(name) / 2 or not ascii_name:
+    name = " ".join(folder_name(name).split())
+    if not name:
         return None
     longitude, latitude = json.loads(label)["coordinates"]
     geometry = json.loads(outline)
@@ -26,7 +38,7 @@ def park_line(name: str, park_class: str, km2: float, label: str, outline: str) 
     rings = " ".join(_encode(ring) for polygon in polygons for ring in polygon if len(ring) >= 4)
     if not rings:
         return None
-    return (f"{KIND_BY_CLASS[park_class]}\t{ascii_name}\t{km2:.0f}"
+    return (f"{KIND_BY_CLASS[park_class]}\t{name}\t{km2:.0f}"
             f"\t{latitude:.5f}\t{longitude:.5f}\t{rings}")
 
 

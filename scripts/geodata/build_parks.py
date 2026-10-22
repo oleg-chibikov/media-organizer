@@ -1,8 +1,9 @@
 """Builds src-tauri/assets/parks.tsv.gz from Overture Maps park outlines (ODbL).
 
 Run from the repo root: python3 scripts/geodata/build_parks.py
-Needs DuckDB: pip install duckdb. The first run downloads about 650 MB from
-Overture's public S3 bucket into scripts/geodata/.cache and takes about 30 minutes.
+Needs DuckDB and anyascii: pip install duckdb anyascii. The first run
+downloads about 650 MB from Overture's public S3 bucket into
+scripts/geodata/.cache and takes about 30 minutes.
 """
 
 import gzip
@@ -54,7 +55,7 @@ def main() -> None:
     """).fetchall()
     lines = sorted(filter(None, (park_line(*row) for row in rows if row[2] >= MIN_AREA_KM2)))
     with open(ASSET, "wb") as out:
-        out.write(gzip.compress(("\n".join(lines) + "\n").encode("ascii"), 9, mtime=0))
+        out.write(gzip.compress(("\n".join(lines) + "\n").encode("utf-8"), 9, mtime=0))
     print(f"{len(lines)} parks, {ASSET.name}: {ASSET.stat().st_size / 1e6:.2f} MB")
 
 

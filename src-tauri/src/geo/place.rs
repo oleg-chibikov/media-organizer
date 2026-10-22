@@ -1,6 +1,7 @@
 use super::kind::PlaceKind;
 
-/// A named place from the GeoNames extract. Names are ASCII.
+/// A named place. GeoNames names are ASCII. Park names are Latin, or Chinese,
+/// Japanese and Korean as written.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Place {
     pub(crate) name: String,
