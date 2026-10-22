@@ -1,7 +1,9 @@
-use super::background::run_blocking;
+use tauri::AppHandle;
+
+use super::{app_dirs::settings_store, background::run_blocking};
 use crate::{
+    home_location,
     models::{FileRecord, MetadataResult, PlaceSuggestion},
-    trips,
 };
 
 /// Suggests trip and outing folders. Geocoding runs on the blocking pool.
@@ -9,13 +11,9 @@ use crate::{
 pub async fn detect_place_suggestions(
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
+    app: AppHandle,
 ) -> Result<Vec<PlaceSuggestion>, String> {
-    run_blocking(move || {
-        Ok(trips::detect_place_suggestions(
-            &files,
-            &metadata_results,
-            None,
-        ))
-    })
-    .await
+    let store = settings_store(&app)?;
+    run_blocking(move || home_location::detect_place_suggestions(&store, &files, &metadata_results))
+        .await
 }

@@ -12,7 +12,7 @@ use crate::{
     geo::Coordinates,
     models::{FileKind, FileRecord, GpsPoint, MetadataResult, PlaceSuggestion},
     test_support::media::{dated_metadata, file_record},
-    trips::{detect_place_suggestions, shots::CHOSEN_DATE_FORMAT},
+    trips::{shots::CHOSEN_DATE_FORMAT, PlaceScan},
 };
 
 /// Points that resolve to a city with no point of interest around them.
@@ -58,7 +58,9 @@ impl Media {
     }
 
     fn detect(&self, home: Option<Coordinates>) -> Vec<PlaceSuggestion> {
-        detect_place_suggestions(&self.files, &self.metadata, home)
+        let scan = PlaceScan::new(&self.files, &self.metadata);
+        let home = home.or_else(|| scan.home_city().map(|city| city.coordinates()));
+        scan.suggestions(home)
     }
 }
 

@@ -1,3 +1,5 @@
+import type { HomeLocation } from "./home";
+
 type DestinationRootMode = "custom_root" | "processed_folder" | "in_place";
 
 export interface EffectiveDestinationRoot {
@@ -13,5 +15,6 @@ export interface DestinationSettings {
   root_media_folder: string | null;
   force_processed_folder: boolean;
   rename_in_place: boolean;
+  home: HomeLocation | null;
   updated_at: string;
 }

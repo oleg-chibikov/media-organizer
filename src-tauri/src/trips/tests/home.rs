@@ -18,7 +18,7 @@ fn daily(media: &mut Media, prefix: &str, first_day: &str, days: usize, point: (
 fn home_of(media: &Media) -> Option<Coordinates> {
     let mut places = PlaceTable::default();
     let shots = collect_shots(&media.files, &media.metadata, &mut places);
-    infer_home(&shots, &places)
+    infer_home(&shots, &places).map(|city| city.coordinates())
 }
 
 #[test]

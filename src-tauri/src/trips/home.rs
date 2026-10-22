@@ -7,13 +7,31 @@ use chrono::NaiveDate;
 use super::{
     place_table::{PlaceId, PlaceTable},
     shots::Shot,
-    thresholds::{HOME_MIN_DAYS, HOME_MIN_DAY_SHARE_PERCENT},
+    thresholds::{HOME_MIN_DAYS, HOME_MIN_DAY_SHARE_PERCENT, LEARNED_HOME_MIN_DAYS},
 };
-use crate::geo::Coordinates;
+use crate::geo::{Coordinates, Place};
+
+/// The city with the most distinct geotagged days.
+#[derive(Debug, Clone)]
+pub(crate) struct HomeCity {
+    pub(crate) place: Place,
+    pub(crate) days: usize,
+}
+
+impl HomeCity {
+    pub(crate) fn coordinates(&self) -> Coordinates {
+        Coordinates::new(self.place.latitude, self.place.longitude)
+    }
+
+    /// Enough days to keep as home for later scans, such as one month folder.
+    pub(crate) fn worth_saving(&self) -> bool {
+        self.days >= LEARNED_HOME_MIN_DAYS
+    }
+}
 
 /// The city with the most distinct geotagged days, when it has enough of them.
 /// `shots` must be in time order.
-pub(super) fn infer_home(shots: &[Shot], places: &PlaceTable) -> Option<Coordinates> {
+pub(super) fn infer_home(shots: &[Shot], places: &PlaceTable) -> Option<HomeCity> {
     let mut all_days: HashSet<NaiveDate> = HashSet::new();
     // Per city: the last day counted and the number of distinct days.
     let mut city_days: HashMap<PlaceId, (NaiveDate, usize)> = HashMap::new();
@@ -40,6 +58,8 @@ pub(super) fn infer_home(shots: &[Shot], places: &PlaceTable) -> Option<Coordina
     if days < HOME_MIN_DAYS || !enough_share {
         return None;
     }
-    let home = places.get(city);
-    Some(Coordinates::new(home.latitude, home.longitude))
+    Some(HomeCity {
+        place: places.get(city).clone(),
+        days,
+    })
 }

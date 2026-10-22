@@ -8,6 +8,7 @@ mod folder_dialog;
 
 pub(crate) mod destination;
 pub(crate) mod history;
+pub(crate) mod home;
 pub(crate) mod metadata;
 pub(crate) mod move_execution;
 pub(crate) mod places;

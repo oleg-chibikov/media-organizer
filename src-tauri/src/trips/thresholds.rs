@@ -10,6 +10,9 @@ pub(super) const TRIP_MAX_GAP: TimeDelta = TimeDelta::days(3);
 pub(super) const MIN_GROUP_FILES: usize = 5;
 /// Home needs this many distinct days in one city.
 pub(super) const HOME_MIN_DAYS: usize = 14;
+/// A home learned from a scan and saved for later scans needs this many days,
+/// plus the same share as above.
+pub(super) const LEARNED_HOME_MIN_DAYS: usize = 60;
 /// Home also needs this share, in percent, of all geotagged days.
 pub(super) const HOME_MIN_DAY_SHARE_PERCENT: usize = 30;
 /// A file with no GPS joins the trip place of a geotagged file this close in time.

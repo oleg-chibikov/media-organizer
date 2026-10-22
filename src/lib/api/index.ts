@@ -1,6 +1,7 @@
 export * from "./backend";
 export * from "./destinationSettings";
 export * from "./history";
+export * from "./home";
 export * from "./metadata";
 export * from "./move";
 export * from "./places";

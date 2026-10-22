@@ -10,6 +10,7 @@ mod filename;
 // Used by the trips module next.
 mod geo;
 mod history;
+mod home_location;
 mod metadata;
 mod metadata_queue;
 mod models;
@@ -30,7 +31,7 @@ mod test_support;
 
 use app_state::AppState;
 use commands::{
-    destination, history as history_commands, metadata as metadata_commands, move_execution,
+    destination, history as history_commands, home, metadata as metadata_commands, move_execution,
     places, plan, scan, system, undo_redo as undo_redo_commands,
 };
 use tauri::Manager;
@@ -99,6 +100,8 @@ pub fn run() {
             plan::create_move_plan,
             plan::get_move_confirmation_summary,
             places::detect_place_suggestions,
+            home::search_home_cities,
+            home::set_home_location,
             history_commands::delete_history_run,
             history_commands::list_history_runs,
             history_commands::get_history_run,

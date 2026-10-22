@@ -87,3 +87,17 @@ fn loads_settings_saved_before_rename_in_place_existed() {
     assert!(loaded.force_processed_folder);
     assert!(!loaded.rename_in_place);
 }
+
+#[test]
+fn loads_settings_saved_before_home_existed() {
+    let temp = tempdir().expect("temp dir should be created");
+    let path = destination_settings_path(temp.path());
+    std::fs::create_dir_all(path.parent().expect("settings dir")).expect("dir should be created");
+    let saved = r#"{"version":1,"root_media_folder":null,"force_processed_folder":false,"rename_in_place":true,"updated_at":null}"#;
+    std::fs::write(&path, saved).expect("settings should be written");
+
+    let loaded = load_destination_settings(temp.path()).expect("old settings should load");
+
+    assert!(loaded.rename_in_place);
+    assert_eq!(loaded.home, None);
+}

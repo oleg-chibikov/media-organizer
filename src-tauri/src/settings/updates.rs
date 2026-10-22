@@ -1,7 +1,7 @@
 use chrono::Utc;
 
 use super::DESTINATION_SETTINGS_VERSION;
-use crate::models::DestinationSettings;
+use crate::models::{DestinationSettings, HomeLocation, HomeSource};
 
 /// Blank or whitespace-only roots clear the custom root.
 pub(crate) fn set_root_media_folder(
@@ -37,6 +37,38 @@ pub(crate) fn set_rename_in_place(
 ) -> DestinationSettings {
     stamped(DestinationSettings {
         rename_in_place,
+        ..settings.clone()
+    })
+}
+
+/// Saves the home the person picked, or clears it so a scan can learn one again.
+pub(crate) fn set_home_location(
+    settings: &DestinationSettings,
+    home: Option<HomeLocation>,
+) -> DestinationSettings {
+    let home = home.map(|home| HomeLocation {
+        source: HomeSource::Manual,
+        ..home
+    });
+    stamped(DestinationSettings {
+        home,
+        ..settings.clone()
+    })
+}
+
+/// Saves a learned home only while none is saved, so it overwrites no choice.
+pub(crate) fn learn_home_location(
+    settings: &DestinationSettings,
+    home: HomeLocation,
+) -> DestinationSettings {
+    if settings.home.is_some() {
+        return settings.clone();
+    }
+    stamped(DestinationSettings {
+        home: Some(HomeLocation {
+            source: HomeSource::Learned,
+            ..home
+        }),
         ..settings.clone()
     })
 }

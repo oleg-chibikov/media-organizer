@@ -23,6 +23,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     root_media_folder: null,
     force_processed_folder: false,
     rename_in_place: false,
+    home: null,
     updated_at: "2026-05-24T00:00:00Z"
   })),
   getEffectiveDestinationRoot: vi.fn(async () => ({ root_path: "C:\\in\\Processed" })),

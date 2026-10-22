@@ -1,7 +1,8 @@
 use std::time::Instant;
 
 use crate::geo::{
-    country_of, distance_km, nearest_city, nearest_place, Coordinates, Place, PlaceKind,
+    country_of, distance_km, nearest_city, nearest_place, search_cities, Coordinates, Place,
+    PlaceKind,
 };
 
 fn place_at(latitude: f64, longitude: f64) -> Place {
@@ -70,4 +71,49 @@ fn lookups_take_microseconds_once_loaded() {
     }
     let per_lookup = started.elapsed() / 1000;
     assert!(per_lookup.as_micros() < 1000, "{per_lookup:?} per lookup");
+}
+
+#[test]
+fn city_search_ignores_case_and_accents() {
+    for query in ["zur", "ZÜR", " Zürich ", "zuerich"] {
+        let first = search_cities(query, 10).into_iter().next().expect("a city");
+        assert_eq!(first.name, "Zuerich", "{query}");
+        assert_eq!(first.country_name, "Switzerland");
+    }
+}
+
+#[test]
+fn city_search_puts_the_biggest_prefix_match_first() {
+    let found = search_cities("sydney", 10);
+
+    let first_two: Vec<&str> = found[..2]
+        .iter()
+        .map(|place| place.country_name.as_str())
+        .collect();
+    assert_eq!(first_two, ["Australia", "Canada"], "{found:?}");
+    assert!(found.iter().all(|place| place.kind == PlaceKind::City));
+}
+
+#[test]
+fn city_search_lists_containing_names_after_prefixes() {
+    let names: Vec<String> = search_cities("sydney", 10)
+        .into_iter()
+        .map(|place| place.name)
+        .collect();
+
+    let expected = [
+        "Sydney",
+        "Sydney",
+        "Sydney Mines",
+        "Sydney Forks",
+        "North Sydney",
+        "Hampden Sydney",
+    ];
+    assert_eq!(names, expected);
+}
+
+#[test]
+fn city_search_returns_at_most_the_limit() {
+    assert_eq!(search_cities("san", 10).len(), 10);
+    assert!(search_cities("  ", 10).is_empty());
 }

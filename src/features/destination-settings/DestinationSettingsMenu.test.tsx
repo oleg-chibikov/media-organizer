@@ -8,6 +8,7 @@ const SETTINGS: DestinationSettings = {
   root_media_folder: "C:\\Media",
   force_processed_folder: false,
   rename_in_place: false,
+  home: null,
   updated_at: "2026-05-24T00:00:00Z"
 };
 

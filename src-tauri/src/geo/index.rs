@@ -86,12 +86,20 @@ impl GeoIndex {
             .filter(move |(_, distance)| *distance <= radius_km)
     }
 
+    pub(super) fn entries(&self) -> &[Entry] {
+        &self.tables.entries
+    }
+
+    pub(super) fn name(&self, entry: &Entry) -> &str {
+        let start = entry.name_start as usize;
+        &self.tables.names[start..start + usize::from(entry.name_len)]
+    }
+
     pub(super) fn place(&self, entry: &Entry) -> Place {
         let tables = &self.tables;
-        let start = entry.name_start as usize;
         let (country_code, country_name) = &tables.countries[usize::from(entry.country)];
         Place {
-            name: tables.names[start..start + usize::from(entry.name_len)].to_owned(),
+            name: self.name(entry).to_owned(),
             kind: entry.kind,
             admin1: tables.admin1.get(entry.admin1 as usize).cloned(),
             country_code: country_code.clone(),

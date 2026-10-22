@@ -4,7 +4,9 @@
 //! table loads on the first lookup. Call lookups from a background thread.
 
 mod asset;
+mod city_search;
 mod distance;
+mod fold;
 mod grid;
 mod index;
 mod kind;
@@ -15,6 +17,7 @@ mod radius;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use city_search::search_cities;
 pub(crate) use distance::{distance_km, Coordinates};
 pub(crate) use kind::PlaceKind;
 #[cfg(test)]
