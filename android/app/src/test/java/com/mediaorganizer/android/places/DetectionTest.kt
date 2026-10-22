@@ -73,6 +73,20 @@ class DetectionTest {
         assertEquals("Sydney", detection.home?.name)
     }
 
+    @Test fun placesThatShareANameGetTheirRegion() {
+        val newYork = Place("Central Park", PlaceKind.PARK, "New York", "US", "United States", 40.78, -73.97, 0)
+        val portland = Place("Central Park", PlaceKind.PARK, "Oregon", "US", "United States", 45.52, -122.68, 0)
+        val geocode = { point: Coordinates -> listOf(newYork, portland).first { it.latitude == point.latitude }.let { Resolution(it, null) } }
+        val files = listOf(newYork, portland).mapIndexed { index, park ->
+            PlaceInput(Path.of("p$index"), LocalDateTime.parse("2024-05-0${index + 1}T10:00"), null, Coordinates(park.latitude, park.longitude))
+        }
+
+        val places = detectFilePlaces(PlaceScan(files, geocode), MemoryHomes(null)).filePlaces
+
+        assertEquals("Central Park (New York)", places.getValue(Path.of("p0")).place)
+        assertEquals("Central Park (Oregon)", places.getValue(Path.of("p1")).place)
+    }
+
     @Test fun strongerSourcesWin() {
         val manual = home(kyoto, HomeSource.MANUAL)
         assertEquals(manual, outranking(manual, home(sydney, HomeSource.DEVICE)))

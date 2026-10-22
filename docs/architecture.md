@@ -156,6 +156,8 @@ Each layer may depend only on the layers below it.
 
 ## Offline Places
 
+`docs/places.md` explains the place rules with diagrams and every use case. This section and the next hold the code side.
+
 `geo/` turns a GPS point into a place name without a network call.
 
 - **Data** is `src-tauri/assets/geodata.tsv.gz`, a GeoNames extract (CC BY 4.0) built by `scripts/geodata/build_geodata.py`. It holds cities with 1000 people or more and points of interest such as gardens, museums, waterfalls and national parks. Small kinds need an English Wikipedia link to stay in.

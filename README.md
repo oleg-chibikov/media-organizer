@@ -186,6 +186,7 @@ Place names come from [GeoNames](https://www.geonames.org/), licensed under [CC 
 ## Docs
 
 - Architecture, and the commands and events between frontend and backend: `docs/architecture.md`
+- Place folders, home and how a trip lifts its folder, every use case with diagrams: `docs/places.md`
 - Frontend overview, flows and diagrams: `src/README.md`
 - Backend overview, flows and diagrams: `src-tauri/README.md`
 - ExifTool sidecar setup: `docs/exiftool-sidecar.md`

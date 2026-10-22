@@ -14,6 +14,8 @@ The Android app in `android/` copies desktop rules into Kotlin. A change to one 
 
 ## How to carry a change over
 
+`docs/places.md` lists every place use case with the desktop and Android tests that prove it. A changed rule changes its row there too.
+
 1. Change the desktop rule and its Rust test.
 2. Find the twin through `scripts/android-parity.map`, and make the same change in Kotlin.
 3. Port the new or changed Rust test case. The parity tests keep the desktop names and points: `FilePlacesParityTest`, `HomeParityTest`, `NearbyFoldersTest`, `PlaceFoldersTest`, `GeocoderTest`.

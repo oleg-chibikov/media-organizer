@@ -18,6 +18,7 @@
 - Check `git status --short` before editing and before committing.
 - Do not revert user changes unless explicitly requested.
 - If explicitly asked to complete a task from `specs/**/tasks.md`, mark the corresponding task complete in that file.
+- A change to a place, home or trip rule updates its row and diagram in `docs/places.md`, with the tests that prove it.
 - Read `CONTRIBUTING.md` when making code changes or validating project workflow.
 
 ## Code Quality Bar

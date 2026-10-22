@@ -74,6 +74,8 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 
 ## What matches the desktop app
 
+`docs/places.md` shows every place rule with diagrams and examples. It holds for both apps.
+
 - **Folders** `<root>/<year>/<month>/<day>/<date> (<original>) - <device>.<ext>`.
 - **Places** a file with GPS goes to the folder of its city, park or sight, as in `2024/Japan/3/Kyoto/15`. Home's city gets no place folder, and home's country no country folder. A file with no GPS joins a file from the same device taken within 3 hours.
 - **Home** picked by you beats your location, which beats one learned from 60 days of photos, which beats the time zone. A weaker source doesn't replace a stronger one.
