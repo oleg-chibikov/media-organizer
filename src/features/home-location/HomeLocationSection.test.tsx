@@ -60,7 +60,7 @@ describe("HomeLocationSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use current location" }));
 
     expect(onLocate).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Locating…" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Locating..." })).toBeInTheDocument();
     await act(async () => finish());
     expect(screen.getByRole("button", { name: "Use current location" })).toBeInTheDocument();
   });

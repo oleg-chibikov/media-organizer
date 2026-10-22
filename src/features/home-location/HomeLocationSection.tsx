@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/design-system/Button";
+import { LoadingText } from "../../components/design-system/LoadingText";
 import type { HomeLocation } from "../../lib/types";
 import { HomeCitySearch } from "./HomeCitySearch";
 import { homeFromCandidate, homeSourceLabel, homeStatus } from "./homeLabels";
@@ -64,7 +65,7 @@ export function HomeLocationSection({
         disabled={disabled}
         onClick={() => void locate()}
       >
-        {locating ? "Locating…" : "Use current location"}
+        {locating ? <LoadingText>Locating</LoadingText> : "Use current location"}
       </Button>
       <HomeCitySearch disabled={disabled} onPick={(city) => onChange(homeFromCandidate(city))} />
     </section>

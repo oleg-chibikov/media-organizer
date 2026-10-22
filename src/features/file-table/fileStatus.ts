@@ -23,33 +23,41 @@ const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   error: "Can't plan"
 };
 
-export function fileStatusLabel(
+export interface FileStatus {
+  label: string;
+  // The file is still being read, planned or moved.
+  busy?: boolean;
+}
+
+const busy = (label: string): FileStatus => ({ label, busy: true });
+
+export function fileStatus(
   { record, metadata, movePlan, moveResult, planError }: FileRowState,
   activeMoveFileId: string | null
-): string {
+): FileStatus {
   if (moveResult) {
-    return MOVE_RESULT_LABELS[moveResult.result_status] ?? "Processed";
+    return { label: MOVE_RESULT_LABELS[moveResult.result_status] ?? "Processed" };
   }
   if (record.scan_status !== "discovered") {
-    return SCAN_STATUS_LABELS[record.scan_status];
+    return { label: SCAN_STATUS_LABELS[record.scan_status] };
   }
   if (activeMoveFileId === record.id) {
-    return "Moving";
+    return busy("Moving");
   }
   if (metadata?.metadata_status === "error") {
-    return "Can't read metadata";
+    return { label: "Can't read metadata" };
   }
   if (planError && !movePlan) {
-    return "Can't plan";
+    return { label: "Can't plan" };
   }
   if (metadata?.date_kind === "fallback") {
-    return "Ready (file date)";
+    return { label: "Ready (file date)" };
   }
   if (!movePlan) {
-    return metadata?.metadata_status === "ready" ? "Planning" : "Reading metadata";
+    return busy(metadata?.metadata_status === "ready" ? "Planning" : "Reading metadata");
   }
   if (movePlan.plan_status === "ready" && movePlan.conflict_status === "suffix_applied") {
-    return "Ready (renamed)";
+    return { label: "Ready (renamed)" };
   }
-  return PLAN_STATUS_LABELS[movePlan.plan_status] ?? "Pending Plan";
+  return { label: PLAN_STATUS_LABELS[movePlan.plan_status] ?? "Pending Plan" };
 }

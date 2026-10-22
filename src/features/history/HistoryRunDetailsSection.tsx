@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { LoadingText } from "../../components/design-system/LoadingText";
 import type { HistoryRunDetails } from "../../lib/types";
 import { HistoryOperationsTable } from "./HistoryOperationsTable";
 import { buildOperationRows } from "./operationRows";
@@ -28,7 +29,9 @@ export function HistoryRunDetailsSection({ details, loading }: HistoryRunDetails
         ) : null}
       </div>
       {loading ? (
-        <p className="text-[11px] text-slate-400">Loading history details...</p>
+        <p className="text-[11px]">
+          <LoadingText>Loading history details</LoadingText>
+        </p>
       ) : details ? (
         rows.length > 0 ? (
           <HistoryOperationsTable rows={rows} />

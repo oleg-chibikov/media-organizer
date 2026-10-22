@@ -17,6 +17,8 @@ export interface FileCell {
   className: string;
   // Shows a spinner before the text while the value is still on its way.
   loading?: boolean;
+  // A house or a plane before a place, by whether it matches home.
+  icon?: "home" | "away";
 }
 
 export type FileTableRow = { id: string } & Record<FileColumnKey, FileCell>;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { fileNotesLabel } from "./fileNotesLabel";
 import type { FileRowState } from "./fileRowState";
-import { fileStatusLabel } from "./fileStatusLabel";
+import { fileStatus } from "./fileStatus";
 
 const RECORD = { id: "f1", scan_status: "discovered" } as FileRecord;
 const READY = {
@@ -21,17 +21,18 @@ function state(overrides: Partial<FileRowState> = {}): FileRowState {
   };
 }
 
-describe("fileStatusLabel", () => {
+describe("fileStatus", () => {
   it("follows the file from planning to the move result", () => {
-    expect(fileStatusLabel(state({ metadata: undefined }), null)).toBe("Reading metadata");
-    expect(fileStatusLabel(state(), null)).toBe("Planning");
-    expect(fileStatusLabel(state(), "f1")).toBe("Moving");
+    const busy = (label: string) => ({ label, busy: true });
+    expect(fileStatus(state({ metadata: undefined }), null)).toEqual(busy("Reading metadata"));
+    expect(fileStatus(state(), null)).toEqual(busy("Planning"));
+    expect(fileStatus(state(), "f1")).toEqual(busy("Moving"));
     const suffixed = { plan_status: "ready", conflict_status: "suffix_applied" } as MovePlan;
-    expect(fileStatusLabel(state({ movePlan: suffixed }), null)).toBe("Ready (renamed)");
+    expect(fileStatus(state({ movePlan: suffixed }), null).label).toBe("Ready (renamed)");
     const named = { plan_status: "already_named" } as MovePlan;
-    expect(fileStatusLabel(state({ movePlan: named }), null)).toBe("Already named");
+    expect(fileStatus(state({ movePlan: named }), null).label).toBe("Already named");
     const copied = { result_status: "copied" } as MoveResult;
-    expect(fileStatusLabel(state({ moveResult: copied }), null)).toBe("Copied, original kept");
+    expect(fileStatus(state({ moveResult: copied }), null).label).toBe("Copied, original kept");
   });
 });
 

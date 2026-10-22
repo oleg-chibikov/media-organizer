@@ -1,4 +1,5 @@
 import { Button } from "../../components/design-system/Button";
+import { LoadingText } from "../../components/design-system/LoadingText";
 import { Pane } from "../../components/design-system/Pane";
 import type { HistoryIndexEntry, HistoryRunDetails } from "../../lib/types";
 import { HistoryRunDetailsSection } from "./HistoryRunDetailsSection";
@@ -47,7 +48,9 @@ export function HistoryMenu({
       ) : null}
       <div className="max-h-56 overflow-y-auto">
         {loading ? (
-          <p className="px-2 py-1 text-xs text-slate-400">Loading history...</p>
+          <p className="px-2 py-1 text-xs">
+            <LoadingText>Loading history</LoadingText>
+          </p>
         ) : runs.length === 0 ? (
           <p className="px-2 py-1 text-xs text-slate-400">No history runs</p>
         ) : (
