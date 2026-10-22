@@ -43,7 +43,7 @@ fn plan_rescan(
         &files,
     ));
     let sink = RecordingSink::default();
-    stream_move_plan(&sink, layout, &files, &metadata, &folders);
+    stream_move_plan(&sink, 0, layout, &files, &metadata, &folders);
     sink.payloads(events::PLAN_FILE)
         .iter()
         .map(|payload| {

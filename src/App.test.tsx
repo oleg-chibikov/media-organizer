@@ -72,12 +72,19 @@ describe("App", () => {
       listeners.scan?.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
     });
     await waitFor(() =>
-      expect(api.createMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA], [])
+      expect(api.createMovePlan).toHaveBeenCalledWith(
+        expect.any(Number),
+        "C:\\in",
+        [RECORD],
+        [METADATA],
+        []
+      )
     );
 
+    const request_id = vi.mocked(api.createMovePlan).mock.lastCall?.[0] ?? 0;
     act(() => {
-      listeners.plan?.onFile({ plan: PLAN });
-      listeners.plan?.onFinished({ planned: 1, errors: 0 });
+      listeners.plan?.onFile({ request_id, plan: PLAN });
+      listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 });
     });
     const statusBar = within(screen.getByRole("contentinfo"));
     expect(statusBar.getByRole("status")).toHaveTextContent("Ready to move");

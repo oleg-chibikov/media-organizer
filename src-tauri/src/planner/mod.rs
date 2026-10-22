@@ -31,11 +31,13 @@ use file_plan::create_plan_for_file;
 pub(crate) use place_folders::PlaceFolders;
 pub(crate) use placed_under::placed_files_under;
 
-/// Plans every photo/video into `layout`, streaming one event per file. Files
+/// Plans every photo/video into `layout`, streaming one event per file tagged with
+/// `request_id`, so the frontend can drop the events of a request it replaced. Files
 /// in `place_folders` go to their place folder instead of a date folder.
 /// Planning is a dry run: it doesn't create folders or files.
 pub(crate) fn stream_move_plan(
     sink: &impl EventSink,
+    request_id: u64,
     layout: &DestinationLayout,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
@@ -58,13 +60,14 @@ pub(crate) fn stream_move_plan(
         match create_plan_for_file(layout, file, metadata, place_folders, &mut reserved_paths) {
             Ok(plan) => {
                 planned += 1;
-                events::plan_file(sink, PlanFileEvent { plan });
+                events::plan_file(sink, PlanFileEvent { request_id, plan });
             }
             Err(error) => {
                 errors += 1;
                 events::plan_error(
                     sink,
                     PlanErrorEvent {
+                        request_id,
                         file_id: file.id.clone(),
                         error,
                     },
@@ -73,5 +76,12 @@ pub(crate) fn stream_move_plan(
         }
     }
 
-    events::plan_finished(sink, PlanFinishedEvent { planned, errors });
+    events::plan_finished(
+        sink,
+        PlanFinishedEvent {
+            request_id,
+            planned,
+            errors,
+        },
+    );
 }

@@ -66,4 +66,18 @@ describe("useMovePlanning placed files", () => {
     expect(onPlacedFiles).toHaveBeenLastCalledWith([], [PLACED_RECORD.id]);
     expect(result.current.movePlansByFileId[PLACED_RECORD.id]).toBeUndefined();
   });
+
+  it("drops placed files that arrive after a reset", async () => {
+    let answer: (moves: PlacedMove[]) => void = () => undefined;
+    vi.mocked(planContinuedMoves).mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { result, onPlacedFiles } = await renderPlanning();
+    act(() => result.current.applyPlaceSuggestions([CONTINUED], [RECORD], [METADATA]));
+
+    act(() => result.current.resetPlanning());
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    await act(async () => answer([PLACED]));
+
+    expect(onPlacedFiles).not.toHaveBeenCalledWith([PLACED], []);
+    expect(result.current.activePlanRequests).toBe(1);
+  });
 });

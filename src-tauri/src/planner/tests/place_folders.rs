@@ -24,7 +24,7 @@ fn planned_dirs(suggestions: &[PlaceSuggestion], files: &[(&str, &str)]) -> Vec<
     let layout = dated(Path::new("Root"));
     let folders = PlaceFolders::new(suggestions, &metadata).expect("valid suggestions");
     let sink = RecordingSink::default();
-    stream_move_plan(&sink, &layout, &records, &metadata, &folders);
+    stream_move_plan(&sink, 0, &layout, &records, &metadata, &folders);
     sink.payloads(events::PLAN_FILE)
         .iter()
         .map(|payload| PathBuf::from(payload["plan"]["destination_dir"].as_str().expect("a dir")))

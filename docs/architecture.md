@@ -63,7 +63,7 @@ sequenceDiagram
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
-4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews. The call also takes the place suggestions the person accepted, see Place Suggestions.
+4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews. Each event carries the call's `request_id`, so `features/planning` drops events of requests made before a reset. The call also takes the place suggestions the person accepted, see Place Suggestions.
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 

@@ -13,6 +13,8 @@ vi.mock("../../lib/api", async (importOriginal) => ({
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), []))
 }));
 
+const lastRequestId = () => vi.mocked(createMovePlan).mock.lastCall?.[0] ?? 0;
+
 function renderPlanning() {
   const reportError = vi.fn();
   const hook = renderHook(() =>
@@ -27,22 +29,23 @@ describe("useMovePlanning", () => {
     await waitFor(() => expect(listeners.plan).not.toBeNull());
 
     act(() => result.current.requestPlans([RECORD], [METADATA]));
-    act(() => listeners.plan?.onFile({ plan: PLAN }));
+    const request_id = lastRequestId();
+    act(() => listeners.plan?.onFile({ request_id, plan: PLAN }));
     expect(result.current.movePlansByFileId).toEqual({});
-    act(() => listeners.plan?.onFinished({ planned: 1, errors: 0 }));
+    act(() => listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 }));
 
     expect(result.current.movePlansByFileId).toEqual({ f1: PLAN });
     expect(result.current.activePlanRequests).toBe(0);
   });
 
-  it("ignores plans and errors for files it did not request", async () => {
+  it("ignores plans and errors of requests it did not make", async () => {
     const { result, reportError } = renderPlanning();
     await waitFor(() => expect(listeners.plan).not.toBeNull());
 
     act(() => {
-      listeners.plan?.onFile({ plan: { ...PLAN, file_id: "old" } });
-      listeners.plan?.onError({ file_id: "old", error: "gone" });
-      listeners.plan?.onFinished({ planned: 1, errors: 1 });
+      listeners.plan?.onFile({ request_id: -1, plan: { ...PLAN, file_id: "old" } });
+      listeners.plan?.onError({ request_id: -1, file_id: "old", error: "gone" });
+      listeners.plan?.onFinished({ request_id: -1, planned: 1, errors: 1 });
     });
 
     expect(result.current.movePlansByFileId).toEqual({});
@@ -55,12 +58,37 @@ describe("useMovePlanning", () => {
     await waitFor(() => expect(listeners.plan).not.toBeNull());
 
     act(() => result.current.requestPlans([RECORD], [METADATA]));
-    act(() => listeners.plan?.onError({ file_id: RECORD.id, error: "Bad date" }));
+    act(() =>
+      listeners.plan?.onError({
+        request_id: lastRequestId(),
+        file_id: RECORD.id,
+        error: "Bad date"
+      })
+    );
     expect(result.current.planErrorsByFileId).toEqual({ f1: "Bad date" });
     expect(reportError).not.toHaveBeenCalled();
 
     act(() => result.current.requestPlans([RECORD], [{ ...METADATA, chosen_date: "2026-05-25" }]));
     expect(result.current.planErrorsByFileId).toEqual({});
+  });
+});
+
+describe("useMovePlanning reset", () => {
+  it("drops the answers to requests made before a reset", async () => {
+    const { result } = renderPlanning();
+    await waitFor(() => expect(listeners.plan).not.toBeNull());
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    const old = lastRequestId();
+
+    act(() => result.current.resetPlanning());
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    act(() => {
+      listeners.plan?.onFile({ request_id: old, plan: { ...PLAN, destination_path: "old" } });
+      listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
+    });
+
+    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.activePlanRequests).toBe(1);
   });
 });
 
@@ -81,15 +109,17 @@ describe("useMovePlanning place folders", () => {
     const rows = [RECORD, other];
     const metadata = [METADATA, otherMetadata];
     act(() => result.current.requestPlans(rows, metadata));
+    const request_id = lastRequestId();
     act(() => {
-      listeners.plan?.onFile({ plan: PLAN });
-      listeners.plan?.onFinished({ planned: 1, errors: 0 });
+      listeners.plan?.onFile({ request_id, plan: PLAN });
+      listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 });
     });
     vi.mocked(createMovePlan).mockClear();
 
     act(() => result.current.applyPlaceSuggestions([outing], rows, metadata));
 
     expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
+      expect.any(Number),
       "C:\\in",
       [RECORD],
       [METADATA],
@@ -100,6 +130,12 @@ describe("useMovePlanning place folders", () => {
 
     vi.mocked(createMovePlan).mockClear();
     act(() => result.current.applyPlaceSuggestions([], rows, metadata));
-    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith("C:\\in", [RECORD], [METADATA], []);
+    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
+      expect.any(Number),
+      "C:\\in",
+      [RECORD],
+      [METADATA],
+      []
+    );
   });
 });

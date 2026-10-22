@@ -29,6 +29,7 @@ fn plan_of(found: PlaceSuggestion) -> Value {
     let layout = dated(Path::new("Root"));
     stream_move_plan(
         &sink,
+        0,
         &layout,
         &[photo_record("a", "jpg")],
         &metadata,

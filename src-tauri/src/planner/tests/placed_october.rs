@@ -121,6 +121,7 @@ pub(super) fn planned_dir(root: &Path, trip: &PlaceSuggestion, id: &str, date: &
     let sink = RecordingSink::default();
     stream_move_plan(
         &sink,
+        0,
         &layout,
         &[photo_record(id, "jpg")],
         &metadata,

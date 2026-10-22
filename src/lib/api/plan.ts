@@ -12,14 +12,17 @@ import type {
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
-/** Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders. */
+/** Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders.
+ * Every `plan:*` event of the request carries `requestId`. */
 export const createMovePlan = (
+  requestId: number,
   selectedPath: string,
   files: FileRecord[],
   metadataResults: MetadataResult[],
   placeSuggestions: PlaceSuggestion[]
 ) =>
   invokeCommand<void>("create_move_plan", {
+    requestId,
     selectedPath,
     files,
     metadataResults,

@@ -3,10 +3,10 @@ import { createMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, PlaceSuggestion, PlacedMove } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
 import { acceptPlaces } from "./acceptedPlaces";
-import { useActiveRequests } from "./useActiveRequests";
 import { usePlacedMoves } from "./usePlacedMoves";
 import { usePlanBatches } from "./usePlanBatches";
 import { usePlanEvents } from "./usePlanEvents";
+import { usePlanRequests } from "./usePlanRequests";
 import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
@@ -21,7 +21,8 @@ export function useMovePlanning({
   onPlacedFiles
 }: MovePlanningOptions) {
   const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
-  const { activePlanRequests, changeActiveRequests, resetActiveRequests } = useActiveRequests();
+  const { activePlanRequests, startRequest, finishRequest, isActive, resetRequests } =
+    usePlanRequests();
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   const signaturesRef = useRef<Map<string, string>>(new Map());
   // Accepted place suggestions go with every plan request.
@@ -31,7 +32,8 @@ export function useMovePlanning({
     addPlan,
     flushPlans,
     dropPlansFor,
-    changeActiveRequests,
+    startRequest,
+    finishRequest,
     reportError,
     onPlacedFiles
   });
@@ -55,17 +57,21 @@ export function useMovePlanning({
       const fileIds = candidates.files.map((file) => file.id);
       dropPlansFor(fileIds);
       setPlanErrorsByFileId((previous) => withoutFileIds(previous, fileIds));
-      changeActiveRequests(1);
+      const requestId = startRequest();
       const { files, metadata } = candidates;
-      void createMovePlan(selectedFolder, files, metadata, places.suggestions).catch(
+      void createMovePlan(requestId, selectedFolder, files, metadata, places.suggestions).catch(
         (error: unknown) => {
-          changeActiveRequests(-1);
+          // After a reset the signatures belong to the new folder.
+          if (!isActive(requestId)) {
+            return;
+          }
+          finishRequest(requestId);
           restorePlanSignatures(signaturesRef.current, candidates.previousSignatures);
           reportError(`Failed to create move plan: ${String(error)}`);
         }
       );
     },
-    [changeActiveRequests, dropPlansFor, isPlaced, reportError, selectedFolder]
+    [dropPlansFor, finishRequest, isActive, isPlaced, reportError, selectedFolder, startRequest]
   );
 
   // Plans again only the files whose place folder changed, plus the placed files that move.
@@ -78,14 +84,13 @@ export function useMovePlanning({
     [planPlaced, requestPlans]
   );
 
-  // Plan events carry no request id, so a file this session didn't ask for belongs to an older scan.
   usePlanEvents({
-    isRequested: (fileId) => signaturesRef.current.has(fileId),
+    isActive,
     addPlan,
     addError: (fileId, error) =>
       setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error })),
     flushPlans,
-    changeActiveRequests,
+    finishRequest,
     reportError
   });
 
@@ -101,8 +106,8 @@ export function useMovePlanning({
   const resetPlanning = useCallback(() => {
     clearPlans();
     resetPlaced();
-    resetActiveRequests();
-  }, [clearPlans, resetActiveRequests, resetPlaced]);
+    resetRequests();
+  }, [clearPlans, resetRequests, resetPlaced]);
 
   return {
     movePlansByFileId,

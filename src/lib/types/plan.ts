@@ -42,15 +42,18 @@ export interface MoveConfirmationSummary {
 }
 
 export interface PlanFileEvent {
+  request_id: number;
   plan: MovePlan;
 }
 
 export interface PlanErrorEvent {
+  request_id: number;
   file_id: string;
   error: string;
 }
 
 export interface PlanFinishedEvent {
+  request_id: number;
   planned: number;
   errors: number;
 }

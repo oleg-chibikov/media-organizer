@@ -7,7 +7,8 @@ export interface PlacedMovesOptions {
   addPlan: (plan: MovePlan) => void;
   flushPlans: () => void;
   dropPlansFor: (fileIds: string[]) => void;
-  changeActiveRequests: (delta: number) => void;
+  startRequest: () => number;
+  finishRequest: (requestId: number) => void;
   reportError: (message: string) => void;
   // Placed files that move to new day folders join the rows, and leave them when dropped.
   onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
@@ -37,13 +38,13 @@ export function usePlacedMoves(options: PlacedMovesOptions) {
   const planPlaced = useCallback(
     (suggestions: PlaceSuggestion[], metadataResults: MetadataResult[]) => {
       dropPlaced();
-      const { selectedFolder, changeActiveRequests } = optionsRef.current;
+      const { selectedFolder, startRequest } = optionsRef.current;
       if (!selectedFolder || !suggestions.some((suggestion) => suggestion.continues)) {
         return;
       }
       const request = requestRef.current;
       const isCurrent = () => request === requestRef.current;
-      changeActiveRequests(1);
+      const requestId = startRequest();
       planContinuedMoves(selectedFolder, suggestions, metadataResults)
         .then((moves) => {
           if (!isCurrent()) {
@@ -61,7 +62,7 @@ export function usePlacedMoves(options: PlacedMovesOptions) {
             optionsRef.current.reportError(`Failed to plan placed files: ${String(error)}`);
           }
         })
-        .finally(() => optionsRef.current.changeActiveRequests(-1));
+        .finally(() => optionsRef.current.finishRequest(requestId));
     },
     [dropPlaced]
   );

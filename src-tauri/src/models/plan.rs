@@ -44,17 +44,20 @@ pub struct PlacedMove {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanFileEvent {
+    pub request_id: u64,
     pub plan: MovePlan,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanErrorEvent {
+    pub request_id: u64,
     pub file_id: String,
     pub error: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanFinishedEvent {
+    pub request_id: u64,
     pub planned: u64,
     pub errors: u64,
 }

@@ -15,6 +15,7 @@ use crate::{
 
 #[tauri::command]
 pub async fn create_move_plan(
+    request_id: u64,
     selected_path: String,
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
@@ -37,7 +38,14 @@ pub async fn create_move_plan(
         planner::PlaceFolders::new(&place_suggestions, &metadata_results)?.with_placed(placed);
 
     spawn_job(move || {
-        planner::stream_move_plan(&app, &layout, &files, &metadata_results, &place_folders);
+        planner::stream_move_plan(
+            &app,
+            request_id,
+            &layout,
+            &files,
+            &metadata_results,
+            &place_folders,
+        );
     });
     Ok(())
 }
