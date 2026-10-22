@@ -7,6 +7,7 @@ mod background;
 mod folder_dialog;
 mod session;
 
+pub(crate) mod app_update;
 pub(crate) mod destination;
 pub(crate) mod history;
 pub(crate) mod home;

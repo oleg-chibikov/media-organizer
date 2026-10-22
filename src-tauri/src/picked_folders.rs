@@ -20,6 +20,13 @@ impl PickedFolders {
             .insert(normalized_path_string(folder));
     }
 
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_empty()
+    }
+
     pub(crate) fn ensure_picked(&self, folder: &Path) -> Result<(), String> {
         let picked = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         if picked.contains(&normalized_path_string(folder)) {

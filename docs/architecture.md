@@ -244,6 +244,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 - **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`. `home` holds `name`, `country`, `latitude`, `longitude` and `source` (`manual`, `device`, `learned` or `time_zone`). Files saved before `home` existed load with no home.
 - **History** is `<appData>/history/runs/*.jsonl` plus `index.json`, written by `HistoryStore`.
 - **App log** goes to stdout and the OS log folder through `tauri-plugin-log`, set up in `main.rs`. The emit helpers in `events.rs` and `events/log_lines.rs` write one line per event. Per-file scan and plan lines are `debug` and stay out of the default `info` level.
+- **Self update** `commands/app_update.rs` asks `tauri-plugin-updater` for `latest.json` from the latest release on start. It installs the signed build and restarts, unless a folder was picked this session. Debug builds skip it.
 - **Writes** to settings and the history index take a process lock and replace the file through a temp file.
 - **ExifTool** ships as a sidecar under `src-tauri/binaries/`. On macOS the sidecar is a launcher that runs the Perl script with the system Perl. Details are in `docs/exiftool-sidecar.md`.
 - **Specs** with feature intent and acceptance criteria live in `specs/`.

@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "app"],
+    "createUpdaterArtifacts": true,
     "publisher": "Media Organizer",
     "shortDescription": "Organize NAS media TODO folder.",
     "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"],
@@ -39,6 +40,17 @@
         "installMode": "currentUser",
         "languages": ["English"],
         "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxREVDRkVCMTA2QUUxM0IKUldRNzRXb1E2OC9lOGFoanlBWHJQNHhnQ3k1aUI2amRySTcxbTgzaTBESU9JQ3ZGSU9OZGRNbmgK",
+      "endpoints": [
+        "https://github.com/oleg-chibikov/media-organizer/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
       }
     }
   }

@@ -32,8 +32,8 @@ mod test_support;
 
 use app_state::AppState;
 use commands::{
-    destination, history as history_commands, home, move_execution, places, plan, scan, system,
-    undo_redo as undo_redo_commands,
+    app_update, destination, history as history_commands, home, move_execution, places, plan, scan,
+    system, undo_redo as undo_redo_commands,
 };
 use tauri::Manager;
 
@@ -82,9 +82,11 @@ pub fn run() {
             log_startup(app);
             show_version(app);
             home::find_home_on_start(app.handle());
+            app_update::update_on_start(app.handle());
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             system::health_check,

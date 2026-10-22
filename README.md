@@ -27,7 +27,9 @@ curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/
 - **Windows** installs for the current user, no admin rights needed.
 - **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
 - **Version** each script prints the version it installs. Release files carry it in their names.
-- **Update** by running the same command again.
+- **Update** the app checks the latest release on start. It downloads it, installs it and restarts with no prompt.
+- **During work** once a folder is picked the update waits for the next start, so a restart can't cut a move short.
+- **Versions before the updater** need the install command once more.
 
 ## Logs
 
@@ -89,6 +91,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - **Version** the `Release` workflow raises the patch of the latest `vX.Y.Z` tag, for example `v0.2.0` to `v0.2.1`, and tags the commit.
 - **Minor or major** run `gh workflow run release.yml -f bump=minor`, or `major`.
 - **Assets** the Windows installer, a macOS DMG for each chip, and the signed Android APK.
+- **Self update** each desktop build also ships a signed update file. `latest.json` points the app at them. The signing key sits in the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets, and the public half in `tauri.conf.json`.
 - **Early downloads** the release shows up as a pre-release right away. Each asset appears once its build ends. The release becomes latest when all builds pass.
 - **Version in files** `package.json`, `Cargo.toml` and `tauri.conf.json` stay as they are. The build takes the version from the tag.
 

@@ -3,6 +3,7 @@ name: Release
 # Each push to main publishes the next patch version as the latest release.
 # Run the workflow by hand to bump the minor or major version instead.
 # Asset names carry the version. install.sh and install.ps1 read the latest tag to build them.
+# The desktop app reads latest.json from the latest release and updates itself on start.
 on:
   push:
     branches: [main]
@@ -64,14 +65,17 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundle: nsis
             suffix: windows-x64-setup.exe
+            update: windows-x64-setup.exe
           - os: macos-latest
             target: aarch64-apple-darwin
-            bundle: dmg
+            bundle: app,dmg
             suffix: macos-aarch64.dmg
+            update: macos-aarch64.app.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
-            bundle: dmg
+            bundle: app,dmg
             suffix: macos-x86_64.dmg
+            update: macos-x86_64.app.tar.gz
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -88,18 +92,30 @@ jobs:
           key: ${{ matrix.target }}-${{ hashFiles('mise.toml', 'src-tauri/Cargo.lock') }}
           add-rust-environment-hash-key: false
       - run: mise x -- pnpm install --frozen-lockfile
-      - run: echo "ASSET=MediaOrganizer-${TAG#v}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
-      - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config "{\"version\":\"${TAG#v}\"}"
+      - run: |
+          echo "ASSET=MediaOrganizer-${TAG#v}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
+          echo "UPDATE=MediaOrganizer-${TAG#v}-${{ matrix.update }}" >> "$GITHUB_ENV"
+      # The key signs the update files. The app installs only files that match its public key.
+      - env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config "{\"version\":\"${TAG#v}\"}"
 
       - name: Package the Windows installer
         if: runner.os == 'Windows'
-        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "$ASSET"
+        run: |
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "$ASSET"
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe.sig "$UPDATE.sig"
 
       - name: Package the macOS disk image
         if: runner.os == 'macOS'
-        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "$ASSET"
+        run: |
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "$ASSET"
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz "$UPDATE"
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig "$UPDATE.sig"
 
-      - run: gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+      # On Windows the installer is the update file, so the upload skips the duplicate.
+      - run: gh release upload "$TAG" $(printf '%s\n' "$ASSET" "$UPDATE" "$UPDATE.sig" | sort -u) --repo "$GITHUB_REPOSITORY" --clobber
 
   android:
     needs: create-release
@@ -131,5 +147,12 @@ jobs:
       TAG: ${{ needs.create-release.outputs.tag }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+      - name: Publish the update manifest
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.sig'
+          .github/scripts/update-manifest.sh "$TAG" "$GITHUB_REPOSITORY" > latest.json
+          gh release upload "$TAG" latest.json --repo "$GITHUB_REPOSITORY" --clobber
+
       - name: Mark the release as latest
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
