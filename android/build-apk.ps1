@@ -8,10 +8,10 @@ $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $jdkMajor = 17
-$gradleVersion = "8.10.2"
+$gradleVersion = "9.6.0"
 $cmdlineToolsBuild = "15641748"
 $platform = "android-35"
-$buildTools = "35.0.0"
+$buildTools = "36.0.0"
 
 $projectDir = $PSScriptRoot
 $toolsDir = Join-Path $projectDir ".tools"

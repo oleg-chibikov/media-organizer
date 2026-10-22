@@ -10,10 +10,10 @@ project_dir=$PWD
 tools_dir="$project_dir/.tools"
 
 jdk_major=17
-gradle_version=8.10.2
+gradle_version=9.6.0
 cmdline_tools_build=15641748
 platform=android-35
-build_tools=35.0.0
+build_tools=36.0.0
 
 case "$(uname -s)" in
   Darwin) jdk_os=mac; sdk_os=mac ;;
