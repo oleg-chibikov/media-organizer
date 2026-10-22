@@ -6,7 +6,12 @@ import type { PlaceDetectionOptions } from "./usePlaceDetection";
 import { usePlaceSuggestions } from "./usePlaceSuggestions";
 
 vi.mock("./usePlaceDetection", () => ({
-  usePlaceDetection: () => ({ suggestions: [TRIP, OUTING], reset: vi.fn() })
+  usePlaceDetection: () => ({
+    detection: { suggestions: [TRIP, OUTING], file_places: {}, status: { kind: "found" } },
+    locating: false,
+    progress: { read: 1, total: 1 },
+    reset: vi.fn()
+  })
 }));
 
 function renderSuggestions(locked = false) {
@@ -17,15 +22,20 @@ function renderSuggestions(locked = false) {
 }
 
 describe("usePlaceSuggestions", () => {
-  it("hides dismissed suggestions", () => {
+  it("hides the banner once dismissed and keeps the suggestions for the review", () => {
     const { result } = renderSuggestions();
-    expect(result.current.pending).toEqual([TRIP, OUTING]);
+    expect(result.current.bannerVisible).toBe(true);
     act(() => result.current.dismiss());
-    expect(result.current.pending).toEqual([]);
+    expect(result.current.bannerVisible).toBe(false);
+    act(() => result.current.openReview());
+    expect(result.current.reviewOpen).toBe(true);
+    expect(result.current.suggestions).toEqual([TRIP, OUTING]);
   });
 
   it("hides suggestions once moves are confirmed", () => {
-    expect(renderSuggestions(true).result.current.pending).toEqual([]);
+    const { result } = renderSuggestions(true);
+    expect(result.current.suggestions).toEqual([]);
+    expect(result.current.bannerVisible).toBe(false);
   });
 
   it("applies the used suggestions and remembers every choice", () => {

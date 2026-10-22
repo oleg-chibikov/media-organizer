@@ -62,7 +62,9 @@ fn a_saved_home_finds_the_trip_in_one_month_folder() {
     let (_temp, store) = store_with_home("Sydney", (-33.8679, 151.2073));
     let (files, metadata) = daily("2025-10-01", 20, HOUSTON);
 
-    let found = detect_place_suggestions(&store, &files, &metadata).expect("suggestions");
+    let found = detect_place_suggestions(&store, &files, &metadata)
+        .expect("suggestions")
+        .suggestions;
 
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].kind, SuggestionKind::Trip);
@@ -96,7 +98,9 @@ fn a_smaller_scan_infers_home_for_itself_and_saves_none() {
     files.extend(trip_files);
     metadata.extend(trip_metadata);
 
-    let found = detect_place_suggestions(&store, &files, &metadata).expect("suggestions");
+    let found = detect_place_suggestions(&store, &files, &metadata)
+        .expect("suggestions")
+        .suggestions;
 
     let trips: Vec<&str> = found
         .iter()

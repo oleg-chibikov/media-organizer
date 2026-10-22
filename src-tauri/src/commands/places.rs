@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     home_location,
-    models::{FileRecord, MetadataResult, PlaceSuggestion},
+    models::{FileRecord, MetadataResult, PlaceDetection},
     placements,
 };
 
@@ -20,13 +20,20 @@ pub async fn detect_place_suggestions(
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
     app: AppHandle,
-) -> Result<Vec<PlaceSuggestion>, String> {
+) -> Result<PlaceDetection, String> {
     let settings = settings_store(&app)?;
     let placements = placement_store(&app)?;
     run_blocking(move || {
-        let found = home_location::detect_place_suggestions(&settings, &files, &metadata_results)?;
+        let mut detection =
+            home_location::detect_place_suggestions(&settings, &files, &metadata_results)?;
         let selected_folder = PathBuf::from(selected_path);
-        placements::continue_placed_suggestions(&placements, &settings, &selected_folder, found)
+        detection.suggestions = placements::continue_placed_suggestions(
+            &placements,
+            &settings,
+            &selected_folder,
+            detection.suggestions,
+        )?;
+        Ok(detection)
     })
     .await
 }

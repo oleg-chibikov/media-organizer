@@ -9,20 +9,31 @@ interface PlaceSuggestionsOptions extends PlaceDetectionOptions {
   onApply: (accepted: PlaceSuggestion[]) => void;
 }
 
+const NO_SUGGESTIONS: PlaceSuggestion[] = [];
+const NO_FILE_PLACES: Record<string, string> = {};
+
 export function usePlaceSuggestions({
   locked,
   onApply,
   ...detectionOptions
 }: PlaceSuggestionsOptions) {
-  const { suggestions, reset: resetDetection } = usePlaceDetection(detectionOptions);
+  const {
+    detection,
+    locating,
+    progress,
+    reset: resetDetection
+  } = usePlaceDetection(detectionOptions);
   // Kept across scans: a suggestion id stays the same for the same files.
   const [dismissedIds, setDismissedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [choices, setChoices] = useState<Record<string, PlaceChoice>>({});
   const [reviewOpen, setReviewOpen] = useState(false);
 
-  const pending = useMemo(
-    () => (locked ? [] : suggestions.filter((suggestion) => !dismissedIds.has(suggestion.id))),
-    [dismissedIds, locked, suggestions]
+  const found = detection?.suggestions ?? NO_SUGGESTIONS;
+  const suggestions = locked ? NO_SUGGESTIONS : found;
+  // Dismissing hides the banner only. The toolbar button still opens the review.
+  const bannerVisible = useMemo(
+    () => suggestions.some((suggestion) => !dismissedIds.has(suggestion.id)),
+    [dismissedIds, suggestions]
   );
 
   const reset = useCallback(() => {
@@ -32,18 +43,23 @@ export function usePlaceSuggestions({
   }, [resetDetection]);
 
   return {
-    pending,
+    suggestions,
+    bannerVisible,
+    locating,
+    progress,
+    status: detection?.status ?? null,
+    filePlaces: detection?.file_places ?? NO_FILE_PLACES,
     choices,
-    reviewOpen: reviewOpen && pending.length > 0,
+    reviewOpen: reviewOpen && suggestions.length > 0,
     openReview: () => setReviewOpen(true),
     closeReview: () => setReviewOpen(false),
     dismiss: () =>
-      setDismissedIds((previous) => new Set([...previous, ...pending.map((s) => s.id)])),
+      setDismissedIds((previous) => new Set([...previous, ...suggestions.map((s) => s.id)])),
     apply: (edited: Record<string, PlaceChoice>) => {
       const next = { ...choices, ...edited };
       setChoices(next);
       setReviewOpen(false);
-      onApply(acceptedSuggestions(suggestions, next));
+      onApply(acceptedSuggestions(found, next));
     },
     reset
   };

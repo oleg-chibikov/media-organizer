@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { detectPlaceSuggestions } from "../../lib/api";
-import type { HomeLocation, PlaceSuggestion } from "../../lib/types";
+import type { HomeLocation, PlaceDetection, PlaceSuggestion } from "../../lib/types";
 import { METADATA, RECORD } from "../../test/pipelineFixtures";
 import { usePlaceDetection } from "./usePlaceDetection";
 
@@ -9,6 +9,11 @@ vi.mock("../../lib/api", () => ({ detectPlaceSuggestions: vi.fn() }));
 
 const detect = vi.mocked(detectPlaceSuggestions);
 const SUGGESTION = { id: "s1" } as PlaceSuggestion;
+const found = (suggestions: PlaceSuggestion[]): PlaceDetection => ({
+  suggestions,
+  file_places: {},
+  status: { kind: suggestions.length > 0 ? "found" : "no_gps" }
+});
 const SYDNEY = { latitude: -33.87, longitude: 151.21 } as HomeLocation;
 
 interface DetectionProps {
@@ -25,6 +30,7 @@ function renderDetection(initial: DetectionProps) {
         rows: [RECORD],
         metadataByFileId: metadataBusy ? {} : { f1: METADATA },
         scanCompleted: true,
+        scanCancelled: false,
         metadataBusy,
         home,
         reportError
@@ -41,7 +47,7 @@ afterEach(() => {
 
 describe("usePlaceDetection", () => {
   it("runs once, a second after metadata finishes", async () => {
-    detect.mockResolvedValue([SUGGESTION]);
+    detect.mockResolvedValue(found([SUGGESTION]));
     const { result, rerender } = renderDetection({ metadataBusy: true });
     act(() => vi.advanceTimersByTime(2000));
     expect(detect).not.toHaveBeenCalled();
@@ -52,39 +58,53 @@ describe("usePlaceDetection", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1));
 
     expect(detect).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA]);
-    expect(result.current.suggestions).toEqual([SUGGESTION]);
+    expect(result.current.detection?.suggestions).toEqual([SUGGESTION]);
     rerender({ metadataBusy: false });
     act(() => vi.advanceTimersByTime(2000));
     expect(detect).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a late answer from before a reset", async () => {
-    let answer: (found: PlaceSuggestion[]) => void = () => undefined;
+    let answer: (detection: PlaceDetection) => void = () => undefined;
     detect.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
-    detect.mockResolvedValueOnce([]);
+    detect.mockResolvedValueOnce(found([]));
     const { result } = renderDetection({ metadataBusy: false });
     act(() => vi.advanceTimersByTime(1000));
 
     act(() => result.current.reset());
-    await act(async () => answer([SUGGESTION]));
+    await act(async () => answer(found([SUGGESTION])));
 
-    expect(result.current.suggestions).toEqual([]);
+    expect(result.current.detection).toBeNull();
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(detect).toHaveBeenCalledTimes(2);
   });
 
   it("asks again when home changes and drops the answer for the old home", async () => {
-    let answer: (found: PlaceSuggestion[]) => void = () => undefined;
+    let answer: (detection: PlaceDetection) => void = () => undefined;
     detect.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
-    detect.mockResolvedValueOnce([SUGGESTION]);
+    detect.mockResolvedValueOnce(found([SUGGESTION]));
     const { result, rerender } = renderDetection({ metadataBusy: false });
     act(() => vi.advanceTimersByTime(1000));
 
     rerender({ metadataBusy: false, home: SYDNEY });
     await act(async () => vi.advanceTimersByTimeAsync(1000));
-    await act(async () => answer([]));
+    await act(async () => answer(found([])));
 
     expect(detect).toHaveBeenCalledTimes(2);
-    expect(result.current.suggestions).toEqual([SUGGESTION]);
+    expect(result.current.detection?.suggestions).toEqual([SUGGESTION]);
+  });
+
+  it("reports locating with metadata progress until the answer lands", async () => {
+    detect.mockResolvedValue(found([]));
+    const { result, rerender } = renderDetection({ metadataBusy: true });
+    expect(result.current.locating).toBe(true);
+    expect(result.current.progress).toEqual({ read: 0, total: 1 });
+
+    rerender({ metadataBusy: false });
+    expect(result.current.progress).toEqual({ read: 1, total: 1 });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+
+    expect(result.current.locating).toBe(false);
+    expect(result.current.detection?.status).toEqual({ kind: "no_gps" });
   });
 });

@@ -72,6 +72,7 @@ export function useAppSession() {
     rows: scan.rows,
     metadataByFileId: metadata.metadataByFileId,
     scanCompleted: completed && !cancelled,
+    scanCancelled: cancelled,
     metadataBusy: metadata.activeMetadataRequests > 0,
     home: destination.settings?.home ?? null,
     locked: moves.execution.confirmed || moves.execution.executing,

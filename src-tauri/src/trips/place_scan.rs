@@ -1,10 +1,10 @@
 //! One scan's files geocoded once, ready for home inference and grouping.
 
 use super::{
-    country_split::split_by_country, home, outings, place_table::PlaceTable, shots,
-    suggestion_build, trip_runs, untagged,
+    country_split::split_by_country, detection_status::detection_status, file_places::file_places,
+    home, outings, place_table::PlaceTable, shots, suggestion_build, trip_runs, untagged,
 };
-use crate::models::{FileRecord, MetadataResult, PlaceSuggestion};
+use crate::models::{FileRecord, MetadataResult, PlaceDetection, PlaceSuggestion};
 
 pub(crate) struct PlaceScan<'a> {
     shots: Vec<shots::Shot<'a>>,
@@ -21,6 +21,17 @@ impl<'a> PlaceScan<'a> {
     /// The city with the most days, when it has enough of them to be home.
     pub(crate) fn home_city(&self) -> Option<home::HomeCity> {
         home::infer_home(&self.shots, &self.places)
+    }
+
+    /// The suggestions, a place label per geotagged file, and why nothing was found.
+    pub(crate) fn detect(&self, home: Option<&home::Home>) -> PlaceDetection {
+        let suggestions = self.suggestions(home);
+        let home_country = home.map(|home| home.country.as_str());
+        PlaceDetection {
+            status: detection_status(&self.shots, home, !suggestions.is_empty()),
+            file_places: file_places(&self.shots, &self.places, home_country),
+            suggestions,
+        }
     }
 
     /// Trips and outings in time order, one per country folder. With no `home` there

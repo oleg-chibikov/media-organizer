@@ -1,21 +1,22 @@
 use crate::{
     geo::{Coordinates, Place},
-    models::{FileRecord, HomeLocation, HomeSource, MetadataResult, PlaceSuggestion},
+    models::{FileRecord, HomeLocation, HomeSource, MetadataResult, PlaceDetection},
     settings::{self, SettingsStore},
     trips::{Home, PlaceScan},
 };
 
-/// Trips and outings measured from the saved home. With no saved home, home is
+/// Trips and outings measured from the saved home, with file place labels and a status. With no saved home, home is
 /// inferred from the files, and saved when the scan covers enough days.
 pub(crate) fn detect_place_suggestions(
     store: &SettingsStore,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
-) -> Result<Vec<PlaceSuggestion>, String> {
+) -> Result<PlaceDetection, String> {
     let saved = store.load()?.home;
     let scan = PlaceScan::new(files, metadata_results);
     let home = match saved {
         Some(home) => Some(Home {
+            name: home.name,
             point: Coordinates::new(home.latitude, home.longitude),
             country: home.country,
         }),
@@ -26,7 +27,7 @@ pub(crate) fn detect_place_suggestions(
             city.home()
         }),
     };
-    Ok(scan.suggestions(home.as_ref()))
+    Ok(scan.detect(home.as_ref()))
 }
 
 fn learned_home(city: &Place) -> HomeLocation {

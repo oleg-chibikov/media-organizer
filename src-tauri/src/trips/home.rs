@@ -14,6 +14,7 @@ use crate::geo::{Coordinates, Place};
 /// Where trips are measured from. Places in its country get no country folder.
 #[derive(Debug, Clone)]
 pub(crate) struct Home {
+    pub(crate) name: String,
     pub(crate) point: Coordinates,
     pub(crate) country: String,
 }
@@ -28,6 +29,7 @@ pub(crate) struct HomeCity {
 impl HomeCity {
     pub(crate) fn home(&self) -> Home {
         Home {
+            name: self.place.name.clone(),
             point: Coordinates::new(self.place.latitude, self.place.longitude),
             country: self.place.country_name.clone(),
         }

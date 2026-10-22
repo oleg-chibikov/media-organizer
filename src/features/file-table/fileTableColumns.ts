@@ -3,6 +3,7 @@ export const FILE_TABLE_COLUMNS = [
   { key: "status", label: "Status" },
   { key: "destination", label: "Destination" },
   { key: "date", label: "Date" },
+  { key: "place", label: "Place" },
   { key: "kind", label: "Kind" },
   { key: "notes", label: "Notes" }
 ] as const;

@@ -64,6 +64,7 @@ function renderTable(props: Partial<FileTableProps>) {
       moveResultsByFileId={{}}
       activeMoveFileId={null}
       destinationRoot={null}
+      filePlaces={{}}
       {...props}
     />
   );
@@ -118,5 +119,12 @@ describe("FileTable", () => {
       "aria-pressed",
       "true"
     );
+  });
+
+  it("shows each file's place from the lookup", () => {
+    renderTable({ rows: [createRow("a"), createRow("b")], filePlaces: { a: "Louvre, France" } });
+
+    expect(screen.getByRole("columnheader", { name: "Place" })).toBeInTheDocument();
+    expect(screen.getByText("Louvre, France")).toBeInTheDocument();
   });
 });

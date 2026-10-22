@@ -90,6 +90,7 @@ export default function App() {
             moveResultsByFileId={moves.moveResultsByFileId}
             activeMoveFileId={execution.activeFileId}
             destinationRoot={effectiveDestination.rootPath}
+            filePlaces={places.filePlaces}
           />
         )}
       </main>
@@ -107,7 +108,7 @@ export default function App() {
         onOpenDestination={session.openDestination}
         placePrompt={
           <PlaceSuggestionPrompt
-            suggestions={places.pending}
+            suggestions={places.bannerVisible ? places.suggestions : []}
             onReview={places.openReview}
             onDismiss={places.dismiss}
           />
@@ -116,7 +117,7 @@ export default function App() {
 
       {places.reviewOpen ? (
         <PlaceSuggestionsDialog
-          suggestions={places.pending}
+          suggestions={places.suggestions}
           choices={places.choices}
           metadataByFileId={session.metadataByFileId}
           onApply={places.apply}

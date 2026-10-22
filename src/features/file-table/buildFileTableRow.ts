@@ -13,7 +13,8 @@ function textCell(value: string) {
 export function buildFileTableRow(
   state: FileRowState,
   activeMoveFileId: string | null,
-  destinationRoot: string | null
+  destinationRoot: string | null,
+  place: string | undefined
 ): FileTableRow {
   const { record, metadata, movePlan } = state;
   const metadataDate =
@@ -39,6 +40,7 @@ export function buildFileTableRow(
     },
     status: textCell(fileStatusLabel(state, activeMoveFileId)),
     date: textCell(metadataDate),
+    place: textCell(place ?? ""),
     kind: textCell(record.kind),
     notes: textCell(fileNotesLabel(state))
   };

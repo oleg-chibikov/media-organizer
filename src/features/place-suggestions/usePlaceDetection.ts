@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
-import type { FileRecord, HomeLocation, MetadataResult, PlaceSuggestion } from "../../lib/types";
+import type { FileRecord, HomeLocation, MetadataResult, PlaceDetection } from "../../lib/types";
 import { metadataResultsFor } from "../metadata";
-import { allMetadataRead } from "./allMetadataRead";
+import { metadataProgress } from "./metadataProgress";
 
 // Lets the last metadata batches land before the backend looks at every file.
 const DETECTION_DELAY_MS = 1000;
@@ -13,6 +13,8 @@ export interface PlaceDetectionOptions {
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   scanCompleted: boolean;
+  // A stopped scan is never detected, so it shows no progress either.
+  scanCancelled: boolean;
   metadataBusy: boolean;
   // Trips are measured from home, so a new home asks again.
   home: HomeLocation | null;
@@ -22,7 +24,9 @@ export interface PlaceDetectionOptions {
 // Asks the backend for place folders once per scan and home, after every file's metadata is read.
 export function usePlaceDetection(options: PlaceDetectionOptions) {
   const { selectedFolder, rows, metadataByFileId, scanCompleted, metadataBusy, home } = options;
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [detection, setDetection] = useState<PlaceDetection | null>(null);
+  // The key the last answer, or failure, belongs to.
+  const [answeredKey, setAnsweredKey] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const generationRef = useRef(0);
   const detectedKeyRef = useRef<string | null>(null);
@@ -31,12 +35,12 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     latestRef.current = options;
   });
 
-  const metadataRead = useMemo(
-    () => allMetadataRead(rows, metadataByFileId),
+  const progress = useMemo(
+    () => metadataProgress(rows, metadataByFileId),
     [rows, metadataByFileId]
   );
-  const ready =
-    selectedFolder !== null && scanCompleted && !metadataBusy && metadataRead && rows.length > 0;
+  const hasMedia = selectedFolder !== null && progress.total > 0;
+  const ready = hasMedia && scanCompleted && !metadataBusy && progress.read === progress.total;
   const homeKey = home ? `${home.latitude},${home.longitude}` : "none";
   const key = `${generation}:${rows.length}:${homeKey}`;
 
@@ -57,11 +61,13 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
       detectPlaceSuggestions(latest.selectedFolder, latest.rows, results).then(
         (found) => {
           if (isCurrent()) {
-            setSuggestions(found);
+            setDetection(found);
+            setAnsweredKey(key);
           }
         },
         (error: unknown) => {
           if (isCurrent()) {
+            setAnsweredKey(key);
             latestRef.current.reportError(`Failed to suggest place folders: ${String(error)}`);
           }
         }
@@ -73,8 +79,13 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
   const reset = useCallback(() => {
     generationRef.current += 1;
     setGeneration(generationRef.current);
-    setSuggestions([]);
+    setDetection(null);
   }, []);
 
-  return { suggestions, reset };
+  return {
+    detection,
+    locating: hasMedia && !options.scanCancelled && answeredKey !== key,
+    progress,
+    reset
+  };
 }

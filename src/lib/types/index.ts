@@ -4,6 +4,7 @@ export type * from "./historyEvents";
 export type * from "./home";
 export type * from "./metadata";
 export type * from "./move";
+export type * from "./placeDetection";
 export type * from "./places";
 export type * from "./plan";
 export type * from "./scan";

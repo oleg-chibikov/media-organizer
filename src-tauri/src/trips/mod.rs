@@ -5,7 +5,9 @@
 
 mod country_split;
 mod day_layout;
+mod detection_status;
 mod draft;
+mod file_places;
 mod home;
 mod outings;
 mod place_names;

@@ -166,7 +166,7 @@ Each layer may depend only on the layers below it.
 
 ## Place Suggestions
 
-`detect_place_suggestions(selected_path, files, metadata_results)` returns `PlaceSuggestion[]`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
+`detect_place_suggestions(selected_path, files, metadata_results)` returns `PlaceDetection`: `suggestions`, `file_places` and `status`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
 
 - **Home** is the saved home when settings hold one. The scan files don't change it.
 - **Learned home** with no saved home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`. A saved home stays until the person changes or clears it.
@@ -176,6 +176,9 @@ Each layer may depend only on the layers below it.
 - **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
 - **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
 - **Files with no GPS** join the trip place of a geotagged file within 3 hours, else the trip root. Outside trips they join an outing with a file within 1 hour on the same day.
+
+- **File places** `file_places` maps each geotagged photo or video id to a short label from the same lookups: the matched place, else the city. A country other than home's is added, as in `Louvre, France`. The file table shows it in the Place column.
+- **Status** says why nothing was found, checked in this order: `no_gps`, `home_unknown`, `all_near_home` (with the `home` city name), `too_few_geotagged`. It is `found` when there are suggestions.
 
 `PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids`, `country` and `continues`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
 

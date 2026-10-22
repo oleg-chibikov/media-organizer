@@ -1,5 +1,6 @@
 mod country_folders;
 mod day_layout;
+mod detection;
 mod home;
 mod names;
 mod outings;
@@ -11,7 +12,7 @@ use chrono::{NaiveDateTime, TimeDelta};
 
 use crate::{
     geo::Coordinates,
-    models::{FileKind, FileRecord, GpsPoint, MetadataResult, PlaceSuggestion},
+    models::{FileKind, FileRecord, GpsPoint, MetadataResult, PlaceDetection, PlaceSuggestion},
     test_support::media::{dated_metadata, file_record},
     trips::{shots::CHOSEN_DATE_FORMAT, Home, PlaceScan},
 };
@@ -58,16 +59,21 @@ impl Media {
         self
     }
 
-    /// Every home the tests pass is in Australia.
     fn detect(&self, home: Option<Coordinates>) -> Vec<PlaceSuggestion> {
+        self.detection(home).suggestions
+    }
+
+    /// Every home the tests pass is in Australia.
+    fn detection(&self, home: Option<Coordinates>) -> PlaceDetection {
         let scan = PlaceScan::new(&self.files, &self.metadata);
         let home = home
             .map(|point| Home {
+                name: "Sydney".to_owned(),
                 point,
                 country: "Australia".to_owned(),
             })
             .or_else(|| scan.home_city().map(|city| city.home()));
-        scan.suggestions(home.as_ref())
+        scan.detect(home.as_ref())
     }
 }
 
