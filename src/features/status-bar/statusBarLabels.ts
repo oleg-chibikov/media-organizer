@@ -10,7 +10,8 @@ export interface PlanningStatus {
 export function pipelineStatusLabel(
   scan: ScanProgress,
   planning: PlanningStatus,
-  execution: MoveExecutionState
+  execution: MoveExecutionState,
+  readyOperations: number
 ): string {
   if (scan.discovered === 0) {
     return "No files";
@@ -30,7 +31,11 @@ export function pipelineStatusLabel(
   if ((scan.completed && !planning.planCompleted) || planning.isPlanning) {
     return "Checking files";
   }
-  return scan.completed ? "Ready to move" : "Scanning";
+  if (!scan.completed) {
+    return "Scanning";
+  }
+  // A folder sorted earlier plans every file in place, so no file is left to move.
+  return readyOperations > 0 ? "Ready to move" : "Nothing to move";
 }
 
 export function executionActionLabel(execution: MoveExecutionState): string {

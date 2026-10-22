@@ -36,7 +36,7 @@ export function StatusBar({
     <footer className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span role="status" className="font-semibold text-slate-100">
-          {pipelineStatusLabel(scan, planning, execution)}
+          {pipelineStatusLabel(scan, planning, execution, summary.ready_operations)}
         </span>
         <StatusCounts
           scan={scan}
