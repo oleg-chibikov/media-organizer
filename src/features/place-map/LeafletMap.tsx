@@ -28,7 +28,11 @@ export function LeafletMap({ point, label }: LeafletMapProps) {
     circleMarker(center, { radius: 9, color: "#0284c7", fillOpacity: 0.6 })
       .bindTooltip(label)
       .addTo(leafletMap);
+    // The map can mount before its dialog opens, while the container still has no size.
+    const resizeObserver = new ResizeObserver(() => leafletMap.invalidateSize());
+    resizeObserver.observe(container);
     return () => {
+      resizeObserver.disconnect();
       leafletMap.remove();
     };
   }, [point.latitude, point.longitude, label]);
