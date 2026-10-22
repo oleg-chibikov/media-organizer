@@ -71,7 +71,13 @@ fn parses_timezone_aware_dates() {
 
     assert_eq!(selected.chosen_date_source, "SubSecDateTimeOriginal");
     assert!(matches!(selected.date_kind, DateKind::TimezoneAware));
-    assert!(selected.chosen_date.starts_with("2026-03-05 07:20:17"));
+    // The date is shown in the computer's time zone, so the expected text depends on it.
+    let local = chrono::DateTime::parse_from_rfc3339("2026-03-05T07:20:17.616+11:00")
+        .expect("valid date")
+        .with_timezone(&chrono::Local)
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    assert!(selected.chosen_date.starts_with(&local));
 }
 
 #[test]
