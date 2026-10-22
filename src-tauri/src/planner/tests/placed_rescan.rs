@@ -40,6 +40,7 @@ fn plan_rescan(
         &library.settings,
         &library.store,
         &may,
+        &files,
     ));
     let sink = RecordingSink::default();
     stream_move_plan(&sink, layout, &files, &metadata, &folders);

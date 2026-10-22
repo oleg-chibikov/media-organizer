@@ -28,7 +28,8 @@ pub(crate) fn continue_placed_suggestions(
     }
     let root = settings.place_folder_root(selected_folder)?;
     let records = store.load_existing()?;
-    let placed = placed_files(&records, &root);
+    let sources = files.iter().map(|file| Path::new(&file.source_path));
+    let placed = placed_files(&records, &root, sources);
     let mut suggestions = without_placed_files(suggestions, &placed, files, metadata_results);
     let month = MonthFolder::of(&root, selected_folder);
     for suggestion in &mut suggestions {

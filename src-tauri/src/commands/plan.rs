@@ -24,13 +24,13 @@ pub async fn create_move_plan(
     let settings = settings_store(&app)?;
     let placements = placement_store(&app)?;
     let with_places = !place_suggestions.is_empty();
-    let (layout, placed) = run_blocking(move || {
+    let (layout, placed, files) = run_blocking(move || {
         let selected_folder = PathBuf::from(selected_path);
         path_safety::validate_selected_folder(&selected_folder)?;
         let layout =
             planner::DestinationLayout::for_folder(&settings, &selected_folder, with_places)?;
-        let placed = planner::placed_files_under(&settings, &placements, &selected_folder);
-        Ok::<_, String>((layout, placed))
+        let placed = planner::placed_files_under(&settings, &placements, &selected_folder, &files);
+        Ok::<_, String>((layout, placed, files))
     })
     .await?;
     let place_folders =

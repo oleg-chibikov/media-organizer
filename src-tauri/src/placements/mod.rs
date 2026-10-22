@@ -24,7 +24,7 @@ pub(crate) use continuation::continue_placed_suggestions;
 pub(crate) use folders::place_folder;
 pub(crate) use month_folder::MonthFolder;
 pub(crate) use placed::{PlacedFile, PlacedSuggestion};
-pub(crate) use placed_files::placed_files;
+pub(crate) use placed_files::{placed_files, relative_to};
 pub(crate) use recording::{record_moves, MovedIntoPlace};
 pub(crate) use restoring::{restore_files, UndoneMove};
 pub(crate) use store::PlacementStore;
