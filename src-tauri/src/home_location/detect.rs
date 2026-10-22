@@ -5,7 +5,7 @@ use crate::{
     settings::{self, SettingsStore},
 };
 
-/// The place folder of each file, with a country folder outside the saved home's country. A scan
+/// The place of each file and how much of it is home. A scan
 /// that covers enough days learns home from the files and saves it over a time zone guess. Without a
 /// saved home, a smaller scan infers home for itself.
 pub(crate) fn detect_file_places(
@@ -31,6 +31,7 @@ pub(crate) fn detect_file_places(
 
 fn home_of(home: HomeLocation) -> Home {
     Home {
+        city: home.name,
         country: home.country,
     }
 }

@@ -124,7 +124,7 @@ describe("FileTable", () => {
   });
 
   it("shows each file's place from the lookup", () => {
-    const louvre = { place: "Louvre", country: "France" };
+    const louvre = { place: "Louvre", country: "France", home: "away" as const };
     renderTable({ rows: [createRow("a"), createRow("b")], filePlaces: { a: louvre } });
 
     expect(screen.getByRole("columnheader", { name: "Country" })).toBeInTheDocument();

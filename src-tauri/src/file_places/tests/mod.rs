@@ -60,10 +60,11 @@ impl Media {
         self
     }
 
-    /// Detection with an Australian home, or none.
+    /// Detection with home in Liverpool, Australia, or none.
     fn detection(&self, home_in_australia: bool) -> PlaceDetection {
         let scan = PlaceScan::new(&self.files, &self.metadata);
         let home = home_in_australia.then(|| Home {
+            city: "Liverpool".to_owned(),
             country: "Australia".to_owned(),
         });
         scan.detect(home.as_ref())

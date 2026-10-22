@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     history::HistoryStore,
-    models::{FileKind, FilePlace, FileRecord, MovePlan},
+    models::{FileKind, FilePlace, FileRecord, HomeMatch, MovePlan},
     move_run::{start_move_run, MoveBatch},
     settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
     test_support::{
@@ -26,7 +26,8 @@ fn plan(id: &str, destination: &Path, placed: bool) -> MovePlan {
     MovePlan {
         place: placed.then(|| FilePlace {
             place: "Zoo".to_owned(),
-            country: None,
+            country: "Australia".to_owned(),
+            home: HomeMatch::Country,
         }),
         ..ready_plan(id, &destination.to_string_lossy())
     }

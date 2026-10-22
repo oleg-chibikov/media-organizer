@@ -33,9 +33,14 @@ describe("buildFileTableRow", () => {
   });
 
   it("shows the place and its country, or empty cells for a file with no place", () => {
-    const louvre = row(RECORD, undefined, { place: "Louvre", country: "France" });
+    const louvre = row(RECORD, undefined, {
+      place: "Louvre",
+      country: "France",
+      home: "away" as const
+    });
     expect([louvre.country.value, louvre.place.value]).toEqual(["France", "Louvre"]);
-    expect(row(RECORD, undefined, { place: "Sydney", country: null }).country.value).toBe("");
+    const sydney = row(RECORD, undefined, { place: "Sydney", country: "Australia", home: "city" });
+    expect([sydney.country.value, sydney.place.value]).toEqual(["Australia", "Sydney"]);
     expect(row(RECORD).place.value).toBe("");
   });
 

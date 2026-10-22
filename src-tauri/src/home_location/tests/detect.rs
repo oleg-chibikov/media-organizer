@@ -12,7 +12,7 @@ fn a_saved_home_puts_a_trip_abroad_in_its_country() {
 
     assert!(found
         .values()
-        .all(|place| place.country.as_deref() == Some("United States")));
+        .all(|place| place.country_folder() == Some("United States")));
     assert_eq!(
         saved_home(&store).map(|home| home.name),
         Some("Sydney".to_owned())
@@ -44,10 +44,8 @@ fn a_smaller_scan_infers_home_for_itself_and_saves_none() {
         .expect("places")
         .file_places;
 
-    let countries: std::collections::HashSet<Option<&str>> = found
-        .values()
-        .map(|place| place.country.as_deref())
-        .collect();
+    let countries: std::collections::HashSet<Option<&str>> =
+        found.values().map(|place| place.country_folder()).collect();
     assert_eq!(countries, [None, Some("United States")].into(), "{found:?}");
     assert_eq!(saved_home(&store), None);
 }

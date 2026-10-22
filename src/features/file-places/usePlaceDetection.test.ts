@@ -9,7 +9,7 @@ import { usePlaceDetection } from "./usePlaceDetection";
 vi.mock("../../lib/api", () => ({ detectFilePlaces: vi.fn() }));
 
 const detect = vi.mocked(detectFilePlaces);
-const KYOTO: Record<string, FilePlace> = { f1: { place: "Kyoto", country: "Japan" } };
+const KYOTO: Record<string, FilePlace> = { f1: { place: "Kyoto", country: "Japan", home: "away" } };
 const found = (filePlaces: Record<string, FilePlace>): PlaceDetection => ({
   file_places: filePlaces,
   status: { kind: Object.keys(filePlaces).length > 0 ? "found" : "no_gps" }

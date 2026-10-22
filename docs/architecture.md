@@ -147,7 +147,7 @@ Each layer may depend only on the layers below it.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes. `group_by_place` (default on) turns place folders on. The toolbar treats `rename_in_place` as turning it off.
-- `home_location/`: reads the saved home for country folders, finds it on the device, learns it from large scans, and finds cities by name. `device/` holds the `DeviceLocator` trait. `SystemLocator` asks CoreLocation on macOS and reads the time zone with `iana-time-zone`. Tests use a fake locator.
+- `home_location/`: reads the saved home to keep home's city and country out of the path, finds it on the device, learns it from large scans, and finds cities by name. `device/` holds the `DeviceLocator` trait. `SystemLocator` asks CoreLocation on macOS and reads the time zone with `iana-time-zone`. Tests use a fake locator.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `geo/`: offline reverse geocoding. See Offline Places.
 - `file_places/`: finds the place folder of each file. See Place Folders.
@@ -175,7 +175,8 @@ The destination is the permanent library. Each photo and video goes to the folde
 `detect_file_places(scan_id, file_ids)` returns `PlaceDetection`: `file_places` and `status`. `home_location::detect_file_places` reads the saved home, then `file_places::PlaceScan` looks up each file on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup.
 
 - **Place** of a file is the matched place, else the city, from `geo::resolve`. Different places that share a name get their region, as in `Central Park (New York)`.
-- **Country** is set for a place outside home's country, and for every place with no known home.
+- **Country** is the place's country. The file table shows it in its own column.
+- **Home match** is `city` in home's city, `country` elsewhere in home's country, else `away`. With no known home every place is `away`.
 - **Files with no GPS** take the place of the closest geotagged file from the same device within 3 hours. A file from another device, or with no device name, keeps date folders.
 - **Home** is the saved home when settings hold one. The scan files only replace a `time_zone` home.
 - **Source ranking** `manual` beats `device`, `device` beats `learned`, `learned` beats `time_zone`. `settings::offer_home_location` saves a found home only over a weaker source. Use current location and picking a city replace any home.
@@ -192,6 +193,7 @@ The destination is the permanent library. Each photo and video goes to the folde
 | more than one day of one month | month | `2024/Japan/3/Kyoto/15` |
 | one day                        | day   | `2024/Japan/3/15/Kyoto` |
 
+- **Home parts** stay out of the path. A `city` file gets no place folders, as in `2024/3/15`. A `country` file gets the place folder only, as in `2024/Melbourne/3/15`. The table still shows both columns.
 - **Country and place** each get a level. The country spans all its places, so it sits at the same level or above.
 - **Years** don't share a folder. A place on Dec 31 and Jan 1 gets one folder in each year.
 - **Month and day folders** have no leading zero, as in the dated layout.

@@ -85,18 +85,18 @@ fn a_place_over_days_of_one_month_sits_in_the_month() {
 }
 
 #[test]
-fn a_home_place_has_no_country_and_files_with_no_place_keep_date_folders() {
+fn a_place_in_home_country_has_no_country_and_files_with_no_place_keep_date_folders() {
     let dirs = plan(&[
-        ("a", "2024-03-15 10:00:00", Some(place("Sydney", None))),
-        ("b", "2024-06-01 10:00:00", Some(place("Sydney", None))),
+        ("a", "2024-03-15 10:00:00", Some(place("Melbourne", None))),
+        ("b", "2024-06-01 10:00:00", Some(place("Melbourne", None))),
         ("c", "2024-03-15 11:00:00", None),
     ]);
 
     assert_eq!(
         dirs,
         [
-            path("2024/Sydney/3/15"),
-            path("2024/Sydney/6/1"),
+            path("2024/Melbourne/3/15"),
+            path("2024/Melbourne/6/1"),
             path("2024/3/15")
         ]
     );

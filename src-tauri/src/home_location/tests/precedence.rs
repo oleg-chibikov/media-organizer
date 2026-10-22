@@ -42,7 +42,7 @@ fn a_time_zone_guess_puts_a_trip_abroad_in_its_country() {
 
     assert!(found
         .values()
-        .all(|place| place.country.as_deref() == Some("United States")));
+        .all(|place| place.country_folder() == Some("United States")));
     assert_eq!(
         saved_home(&store).map(|home| home.source),
         Some(HomeSource::TimeZone)

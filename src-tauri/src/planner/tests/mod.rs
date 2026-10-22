@@ -1,5 +1,6 @@
 mod conflicts;
 mod file_plan;
+mod home_city;
 mod in_place;
 mod in_place_places;
 mod place_levels;
@@ -13,7 +14,7 @@ use std::{
 use super::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations};
 use crate::{
     events,
-    models::{FileKind, FilePlace, FileRecord},
+    models::{FileKind, FilePlace, FileRecord, HomeMatch},
     test_support::{
         events::RecordingSink,
         media::{dated_metadata, file_record},
@@ -28,10 +29,16 @@ fn photo_record(id: &str, extension: &str) -> FileRecord {
     file_record(id, extension, FileKind::Photo)
 }
 
+/// A place abroad in `country`, or in home's country with none.
 fn place(name: &str, country: Option<&str>) -> FilePlace {
     FilePlace {
         place: name.to_owned(),
-        country: country.map(str::to_owned),
+        country: country.unwrap_or("Australia").to_owned(),
+        home: if country.is_some() {
+            HomeMatch::Away
+        } else {
+            HomeMatch::Country
+        },
     }
 }
 

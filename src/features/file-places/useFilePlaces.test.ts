@@ -4,7 +4,7 @@ import type { FilePlace } from "../../lib/types";
 import type { PlaceDetectionOptions } from "./usePlaceDetection";
 import { useFilePlaces } from "./useFilePlaces";
 
-const KYOTO: Record<string, FilePlace> = { f1: { place: "Kyoto", country: "Japan" } };
+const KYOTO: Record<string, FilePlace> = { f1: { place: "Kyoto", country: "Japan", home: "away" } };
 const detection = vi.hoisted(() => ({ settled: false, places: {} as Record<string, FilePlace> }));
 
 vi.mock("./usePlaceDetection", () => ({

@@ -11,9 +11,10 @@ use super::{
 };
 use crate::geo::Place;
 
-/// Places in home's country get no country folder.
+/// Files in home's city get no place folders, and places in its country no country folder.
 #[derive(Debug, Clone)]
 pub(crate) struct Home {
+    pub(crate) city: String,
     pub(crate) country: String,
 }
 
@@ -27,6 +28,7 @@ pub(crate) struct HomeCity {
 impl HomeCity {
     pub(crate) fn home(&self) -> Home {
         Home {
+            city: self.place.name.clone(),
             country: self.place.country_name.clone(),
         }
     }

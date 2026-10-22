@@ -6,7 +6,7 @@ use super::place_level::{DaySpan, PlaceLevel};
 use crate::{
     file_places::CHOSEN_DATE_FORMAT,
     filename::validated_folder_name,
-    models::{FilePlace, MetadataResult},
+    models::{FilePlace, HomeMatch, MetadataResult},
 };
 
 /// One folder of a file's place: its name and the date folder it sits in.
@@ -17,7 +17,8 @@ struct Leveled {
 }
 
 /// The place folder of each file, under `<year>` and the date folders the country and the
-/// place span within that year. Spans count only the files of this scan.
+/// place span within that year. Spans count only the files of this scan. Files in home's
+/// city have no place folders.
 #[derive(Debug, Default)]
 pub(crate) struct PlaceFolders {
     by_file: HashMap<String, (FilePlace, Option<Leveled>, Leveled)>,
@@ -47,16 +48,20 @@ impl PlaceFolders {
             let Some(&date) = dates.get(file_id.as_str()) else {
                 continue;
             };
+            if found.home == HomeMatch::City {
+                continue;
+            }
             let place = validated(found)?;
             let year = date.year();
-            if let Some(country) = &place.country {
+            let country = place.country_folder().map(str::to_owned);
+            if let Some(country) = &country {
                 countries
                     .entry((year, Some(country.clone())))
                     .or_default()
                     .add(date);
             }
             places
-                .entry((year, place.country.clone(), place.place.clone()))
+                .entry((year, country, place.place.clone()))
                 .or_default()
                 .add(date);
             files.push((file_id.clone(), year, place));
@@ -64,12 +69,13 @@ impl PlaceFolders {
         let by_file = files
             .into_iter()
             .map(|(file_id, year, place)| {
-                let country = place.country.clone().map(|name| Leveled {
+                let country_name = place.country_folder().map(str::to_owned);
+                let country = country_name.clone().map(|name| Leveled {
                     level: countries[&(year, Some(name.clone()))].level(),
                     name,
                 });
                 let leveled = Leveled {
-                    level: places[&(year, place.country.clone(), place.place.clone())].level(),
+                    level: places[&(year, country_name, place.place.clone())].level(),
                     name: place.place.clone(),
                 };
                 (file_id, (place, country, leveled))
@@ -120,10 +126,7 @@ impl PlaceFolders {
 fn validated(place: &FilePlace) -> Result<FilePlace, String> {
     Ok(FilePlace {
         place: validated_folder_name(&place.place)?,
-        country: place
-            .country
-            .as_deref()
-            .map(validated_folder_name)
-            .transpose()?,
+        country: validated_folder_name(&place.country)?,
+        home: place.home,
     })
 }

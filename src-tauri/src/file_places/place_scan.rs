@@ -22,11 +22,10 @@ impl<'a> PlaceScan<'a> {
         home::infer_home(&self.shots, &self.places)
     }
 
-    /// The place folder of each geotagged file, and of each file with no GPS taken by the
+    /// The place of each geotagged file, and of each file with no GPS taken by the
     /// same device close in time.
     pub(crate) fn detect(&self, home: Option<&home::Home>) -> PlaceDetection {
-        let home_country = home.map(|home| home.country.as_str());
-        let mut file_places = folder_places(&self.shots, &self.places, home_country);
+        let mut file_places = folder_places(&self.shots, &self.places, home);
         let status = if file_places.is_empty() {
             DetectionStatus::NoGps
         } else {
