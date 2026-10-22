@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::placed_october::planned_dir;
+use super::planned_dir;
 use crate::{
     models::{PlaceSuggestion, PlacedMove, SuggestionKind},
     planner::plan_continued_moves,

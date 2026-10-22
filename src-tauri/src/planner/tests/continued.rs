@@ -1,13 +1,16 @@
 use std::{fs, path::PathBuf};
 
-use super::placed_october::{january_trip, planned_dir, PlacedOctober, USA};
+use super::{
+    placed_october::{PlacedOctober, USA},
+    planned_dir,
+};
 use crate::models::PlanStatus;
 
 #[test]
 fn a_continued_place_moves_its_single_day_files_into_day_folders() {
     let october = PlacedOctober::new();
     let trip = october.november_trip();
-    let vancouver = october.root().join("2025").join(USA).join("Vancouver");
+    let vancouver = october.placed("Vancouver");
 
     assert_eq!(
         planned_dir(&october.root(), &trip, "v1", "2025-11-01 09:00:00"),
@@ -41,15 +44,7 @@ fn a_continued_place_moves_its_single_day_files_into_day_folders() {
 #[test]
 fn a_placed_file_gone_from_disk_is_left_out() {
     let october = PlacedOctober::new();
-    fs::remove_file(
-        october
-            .root()
-            .join("2025")
-            .join(USA)
-            .join("Vancouver")
-            .join("c.jpg"),
-    )
-    .expect("delete");
+    fs::remove_file(october.placed("Vancouver").join("c.jpg")).expect("delete");
 
     assert!(october.placed_moves(&october.november_trip()).is_empty());
 }
@@ -57,7 +52,7 @@ fn a_placed_file_gone_from_disk_is_left_out() {
 #[test]
 fn a_renamed_continued_trip_is_a_new_trip() {
     let october = PlacedOctober::new();
-    let mut trip = january_trip(&october, "Vancouver");
+    let mut trip = october.january_trip("Vancouver");
     trip.title = "Canada".to_owned();
 
     let dir = planned_dir(&october.root(), &trip, "v1", "2026-01-02 09:00:00");
@@ -72,9 +67,9 @@ fn a_renamed_continued_trip_is_a_new_trip() {
 #[test]
 fn a_new_year_part_goes_under_the_placed_year() {
     let october = PlacedOctober::new();
-    let trip = january_trip(&october, "Whistler");
+    let trip = october.january_trip("Whistler");
 
     let dir = planned_dir(&october.root(), &trip, "v1", "2026-01-02 09:00:00");
 
-    assert_eq!(dir, october.root().join("2025").join(USA).join("Whistler"));
+    assert_eq!(dir, october.placed("Whistler"));
 }
