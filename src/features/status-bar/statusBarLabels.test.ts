@@ -30,7 +30,7 @@ describe("pipelineStatusLabel", () => {
 
 describe("executionActionLabel", () => {
   it("offers confirm, then pause and resume", () => {
-    expect(executionActionLabel(IDLE_MOVE_EXECUTION, 1)).toBe("Move Files...");
+    expect(executionActionLabel(IDLE_MOVE_EXECUTION)).toBe("Move Files...");
     const running = { ...IDLE_MOVE_EXECUTION, confirmed: true };
     expect(executionActionLabel(running)).toBe("Pause");
     expect(executionActionLabel({ ...running, paused: true })).toBe("Resume");
