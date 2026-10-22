@@ -1,6 +1,7 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PlaceSuggestion } from "../../lib/types";
+import { freshChoice } from "./placeChoice";
 import { OUTING, TRIP } from "./testSuggestions";
 import type { PlaceDetectionOptions } from "./usePlaceDetection";
 import { usePlaceSuggestions } from "./usePlaceSuggestions";
@@ -50,5 +51,17 @@ describe("usePlaceSuggestions", () => {
     const { onApply } = renderSuggestions(false);
 
     expect(onApply).toHaveBeenCalledExactlyOnceWith([]);
+  });
+
+  it("updates the plans with edited choices and closes the dialog", () => {
+    detection.settled = true;
+    detection.suggestions = [TRIP, OUTING];
+    const { result, onApply } = renderSuggestions(true);
+    act(() => result.current.openReview());
+
+    act(() => result.current.applyChoices({ [OUTING.id]: { ...freshChoice(OUTING), use: false } }));
+
+    expect(onApply).toHaveBeenLastCalledWith([TRIP]);
+    expect(result.current.reviewOpen).toBe(false);
   });
 });

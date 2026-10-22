@@ -191,7 +191,7 @@ Each layer may depend only on the layers below it.
 `create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
 - **Trip place** `<root>/<year>/<title>/<place>/<days>`. Trip files in no place go to `<root>/<year>/<title>/<days>`.
-- **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so a trip abroad keeps the country name.
+- **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so the edit dialog only lets the person rename places.
 - **Outing** `<root>/<year>/<place>/<days>`, or `<root>/<year>/<country>/<place>/<days>` abroad.
 - **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
@@ -202,6 +202,7 @@ Each layer may depend only on the layers below it.
 `features/place-suggestions` calls `detect_place_suggestions` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
 
 - **Group by place** is a toolbar checkbox saved as `group_by_place` through `set_group_by_place`. Its tooltip lists the places found, or the reason from `status`, and credits GeoNames and OpenStreetMap. With **Rename only** on it shows unchecked and disabled. Both lock once moves are confirmed.
+- **Edit places (N)…** sits next to the box while it is on and detection found places. The dialog renames folders or sends a trip to date folders, with a preview of the folders. Update folders saves the choices by suggestion id and replans the changed files. It moves no file: Move Files does that. A suggestion with no saved choice goes to its place folders as found.
 - **Waiting for places** with the box on, `features/planning` holds every `create_move_plan` call until detection answers, fails, or the scan stops. So no file shows a date folder first, and the status bar says `Checking files` until then.
 - **Place column** in the file table reads `file_places` by file id. Photos and videos show a spinner and `Locating...` until the answer lands. Files with no GPS get an empty cell.
 
@@ -217,7 +218,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
 - **Undo** drops the undone files, and records left empty. A placed file that goes back to its old place folder is recorded there again. Redo doesn't add them back.
 - **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind and `country` at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name. Records from before `country` count as home's country.
-- **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. A renamed suggestion drops `continues` and starts a new folder.
+- **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the edit dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
 - **Emptied day folders** a run removes the folders placed files moved out of once they are empty, walking up parent by parent. It stops below the place folder, or the trip or outing folder for files in no place (`safe_fs::remove_empty_parents`).

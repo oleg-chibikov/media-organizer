@@ -1,0 +1,90 @@
+import { describe, expect, it } from "vitest";
+import type { ContinuedPlacement } from "../../lib/types";
+import { placeFolderPreview } from "./placeFolderPreview";
+import { CONTINUED_TRIP, LIFTED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
+
+const dateOf = (dates: Record<string, string>) => (fileId: string) => dates[fileId];
+
+describe("placeFolderPreview", () => {
+  it("lists trip places with day folders, then the trip root", () => {
+    expect(placeFolderPreview(TRIP, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/United States/Yosemite/10-28", count: 1 },
+      { path: "2025/United States/Yosemite/10-29", count: 1 },
+      { path: "2025/United States/San Francisco", count: 1 },
+      { path: "2025/United States/10-30", count: 1 }
+    ]);
+  });
+
+  it("puts a one day outing straight into its place folder", () => {
+    expect(placeFolderPreview(OUTING, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/Royal Botanic Gardens", count: 2 }
+    ]);
+  });
+
+  it("keeps MM-DD across a month boundary", () => {
+    const dates = { ...TRIP_DATES, y1: "2025-10-31 09:00:00", y2: "2025-11-02 09:00:00" };
+    const trip = { ...TRIP, places: [{ ...TRIP.places[0], start: dates.y1, end: dates.y2 }] };
+    expect(
+      placeFolderPreview(trip, dateOf(dates))
+        .slice(0, 2)
+        .map((row) => row.path)
+    ).toEqual(["2025/United States/Yosemite/10-31", "2025/United States/Yosemite/11-02"]);
+  });
+
+  it("uses month and day folders past 31 days", () => {
+    const dates = { ...TRIP_DATES, y1: "2025-09-03 09:00:00", y2: "2025-10-29 09:00:00" };
+    const trip = { ...TRIP, places: [{ ...TRIP.places[0], start: dates.y1, end: dates.y2 }] };
+    expect(
+      placeFolderPreview(trip, dateOf(dates))
+        .slice(0, 2)
+        .map((row) => row.path)
+    ).toEqual(["2025/United States/Yosemite/9/3", "2025/United States/Yosemite/10/29"]);
+  });
+
+  it("widens the span by a root file outside the suggested dates", () => {
+    const dates = { ...TRIP_DATES, r1: "2025-10-31 08:00:00" };
+    const root = placeFolderPreview(TRIP, dateOf(dates))[3];
+    expect(root).toEqual({ path: "2025/United States/10-31", count: 1 });
+  });
+
+  it("spans the placed files of a continued place and keeps the placed year", () => {
+    const placed = { ...CONTINUED_TRIP.continues, year: 2024 } as ContinuedPlacement;
+    const trip = { ...CONTINUED_TRIP, continues: placed };
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES)).map((row) => row.path)).toEqual([
+      "2024/United States/Yosemite/10-28",
+      "2024/United States/Yosemite/10-29",
+      "2024/United States/San Francisco/10-29",
+      "2024/United States/10-30"
+    ]);
+  });
+
+  it("files a trip abroad under its country and an outing abroad inside it", () => {
+    const trip = { ...TRIP, title: "Holiday", country: "USA" };
+    const outing = { ...OUTING, country: "Australia" };
+
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES))[0]?.path).toBe("2025/USA/Yosemite/10-28");
+    expect(placeFolderPreview(outing, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/Australia/Royal Botanic Gardens", count: 2 }
+    ]);
+  });
+
+  it("files a suggestion of a month folder scan inside that month", () => {
+    const outing = { ...OUTING, month_folder: "03" };
+    const trip = { ...TRIP, country: "USA", month_folder: "10" };
+
+    expect(placeFolderPreview(outing, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/03/Royal Botanic Gardens", count: 2 }
+    ]);
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES))[0]?.path).toBe(
+      "2025/10/USA/Yosemite/10-28"
+    );
+  });
+
+  it("files a lifted country at year level over the span of every month", () => {
+    const dates = { y1: "2026-04-01 10:00:00", y2: "2026-04-01 12:00:00" };
+
+    expect(placeFolderPreview(LIFTED_TRIP, dateOf(dates))).toEqual([
+      { path: "2026/USA/Yosemite/4/1", count: 2 }
+    ]);
+  });
+});
