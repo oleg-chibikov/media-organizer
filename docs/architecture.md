@@ -63,7 +63,7 @@ sequenceDiagram
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
-4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews.
+4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews. The call also takes the place suggestions the person accepted, see Place Suggestions.
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
@@ -96,7 +96,7 @@ flowchart LR
   scanner -.->|"scan:* events"| scanF
   metaF -->|read_metadata_for_files| metaQ
   metaQ -.->|"capture dates, as the result"| metaF
-  planF -->|create_move_plan| planner
+  planF -->|"create_move_plan,<br/>detect_place_suggestions"| planner
   planner -.->|"plan:* events"| planF
   movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan,<br/>remove_empty_source_folders"| mover
   mover -.->|"move:* events"| movesF
@@ -145,6 +145,7 @@ Each layer may depend only on the layers below it.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `geo/`: offline reverse geocoding. See Offline Places.
+- `trips/`: groups files into trip and outing suggestions. See Place Suggestions.
 - `picked_folders.rs`: folders the user chose in the native picker this session.
 - `filename/`, `system_explorer/`, `path_safety.rs`, `file_ops/`: focused helpers named after what they decide.
 
@@ -157,6 +158,28 @@ Each layer may depend only on the layers below it.
 - **Search** uses a one-degree grid, so a lookup scans only nearby cells.
 - **Matching** gives each kind a radius in `geo/radius.rs`, since GeoNames has points and no outlines. The most nested match wins: a garden beats the city and a waterfall beats the national park. With no match, the nearest city within 50 km wins, then any place within 150 km.
 - **Countries** come from the nearest place, so a point near a border can get the neighbour.
+
+## Place Suggestions
+
+`detect_place_suggestions(files, metadata_results)` returns `PlaceSuggestion[]`. It is pure grouping in `trips/` on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
+
+- **Home** is the nearest city with the most distinct geotagged days. It needs 14 days and 30% of all geotagged days, else home is unknown.
+- **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them. Its title is the top country, the top two joined with " & ", or the top one and " & more".
+- **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
+- **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
+- **Files with no GPS** join the trip place of a geotagged file within 3 hours, else the trip root. Outside trips they join an outing with a file within 1 hour on the same day.
+
+`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places` and `root_file_ids`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
+
+`create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
+
+- **Trip place** `<root>/<year>/<title>/<place>/<days>`. Trip files in no place go to `<root>/<year>/<title>/<days>`.
+- **Outing** `<root>/<year>/<place>/<days>`.
+- **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
+- **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
+- **Other files** keep `<root>/<year>/<month>/<day>`. Same folder mode ignores suggestions.
+
+Place folders are desktop only. The Android app keeps dated folders.
 
 ## Frontend Modules
 
