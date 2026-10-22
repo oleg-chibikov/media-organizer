@@ -52,6 +52,7 @@ pub(super) fn create_plan_for_file(
         destination_path: destination_path.to_string_lossy().to_string(),
         conflict_status,
         plan_status,
+        placement: place.map(|place| place.placement.clone()),
     })
 }
 
@@ -91,5 +92,6 @@ fn empty_plan(file: &FileRecord, plan_status: PlanStatus) -> MovePlan {
         destination_path: String::new(),
         conflict_status: ConflictStatus::Blocked,
         plan_status,
+        placement: None,
     }
 }

@@ -25,3 +25,4 @@ mod tests;
 pub(crate) use day_layout::day_layout_for_span;
 pub(crate) use place_scan::PlaceScan;
 pub(crate) use shots::CHOSEN_DATE_FORMAT;
+pub(crate) use thresholds::TRIP_MAX_GAP;

@@ -36,8 +36,8 @@ impl RecordedRoots {
             Some("recorded paths contain parent-directory traversal")
         } else if paths_equal_case_insensitive(original, processed) {
             Some("recorded source and destination are the same path")
-        } else if !path_is_within_case_insensitive(original, &self.selected_folder) {
-            Some("recorded source is outside the run's selected folder")
+        } else if !self.holds_original(original) {
+            Some("recorded source is outside the run's folders")
         } else if self
             .destination_root
             .as_deref()
@@ -54,5 +54,15 @@ impl RecordedRoots {
             ))),
             None => Ok(()),
         }
+    }
+
+    /// A source sits in the selected folder, or in the destination root when the run
+    /// moved a placed file to a new day folder.
+    fn holds_original(&self, original: &Path) -> bool {
+        path_is_within_case_insensitive(original, &self.selected_folder)
+            || self
+                .destination_root
+                .as_deref()
+                .is_some_and(|root| path_is_within_case_insensitive(original, root))
     }
 }

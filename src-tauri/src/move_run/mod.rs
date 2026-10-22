@@ -3,6 +3,7 @@
 mod execution;
 mod file_step;
 mod history_entry;
+mod placement_record;
 mod progress;
 mod recorder;
 mod request;

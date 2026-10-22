@@ -29,5 +29,6 @@ pub(super) fn suggestion(
         file_count: 0,
         places,
         root_file_ids: Vec::new(),
+        continues: None,
     }
 }

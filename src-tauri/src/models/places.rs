@@ -44,4 +44,36 @@ pub struct PlaceSuggestion {
     pub places: Vec<PlaceGroup>,
     /// Trip files that belong to no place folder.
     pub root_file_ids: Vec<String>,
+    /// The placed trip or outing this one continues. Its title and year win.
+    #[serde(default)]
+    pub continues: Option<ContinuedPlacement>,
+}
+
+/// A trip or outing folder an earlier run filled, as a later suggestion continues it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContinuedPlacement {
+    pub title: String,
+    pub year: i32,
+    pub start: String,
+    pub end: String,
+    /// The placed place folders. A place of the same name widens its day layout by them.
+    pub places: Vec<ContinuedPlace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContinuedPlace {
+    pub name: String,
+    pub start: String,
+    pub end: String,
+}
+
+/// The place folder a planned file goes to, so a finished run can record it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Placement {
+    pub kind: SuggestionKind,
+    pub year: i32,
+    /// The trip folder, or the outing's place folder.
+    pub title: String,
+    /// The place folder inside a trip, or the outing's place. `None` for trip root files.
+    pub place: Option<String>,
 }

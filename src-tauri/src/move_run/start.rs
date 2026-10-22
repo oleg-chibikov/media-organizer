@@ -10,6 +10,7 @@ use crate::{
     history::{ActiveHistoryRun, HistoryStore},
     models::MoveProgressPhase,
     path_safety,
+    placements::PlacementStore,
     settings::SettingsStore,
 };
 
@@ -24,6 +25,7 @@ pub(crate) fn start_move_run(
     sink: &impl EventSink,
     settings: &SettingsStore,
     history: &HistoryStore,
+    placements: &PlacementStore,
     selected_folder: &Path,
     batch: MoveBatch,
 ) -> Result<StartedMoveRun, String> {
@@ -45,6 +47,7 @@ pub(crate) fn start_move_run(
             selected_folder: selected_folder.to_path_buf(),
             destination_root: PathBuf::from(&effective_root.root_path),
             batch,
+            placements: placements.clone(),
         },
         history_run,
     })

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 use super::{
-    app_dirs::{history_store, settings_store},
+    app_dirs::{history_store, placement_store, settings_store},
     background::{run_blocking, spawn_job},
 };
 use crate::{
@@ -26,6 +26,7 @@ pub async fn execute_move_plan(
         .ensure_picked(&selected_folder)?;
     let settings = settings_store(&app)?;
     let history = history_store(&app)?;
+    let placements = placement_store(&app)?;
     let batch = MoveBatch {
         files,
         metadata_results,
@@ -33,7 +34,14 @@ pub async fn execute_move_plan(
     };
     let sink = app.clone();
     let run = run_blocking(move || {
-        move_run::start_move_run(&sink, &settings, &history, &selected_folder, batch)
+        move_run::start_move_run(
+            &sink,
+            &settings,
+            &history,
+            &placements,
+            &selected_folder,
+            batch,
+        )
     })
     .await?;
 

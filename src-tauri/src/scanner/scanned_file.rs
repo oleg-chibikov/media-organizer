@@ -4,7 +4,7 @@ use super::{classification::is_in_processed, media_identity::MediaIdentity};
 use crate::models::{FileKind, FileRecord, ScanStatus};
 
 /// Classifies one scanned file as discovered media or a skipped item.
-pub(super) fn record_for_path(root: &Path, absolute_path: &Path) -> FileRecord {
+pub(crate) fn record_for_path(root: &Path, absolute_path: &Path) -> FileRecord {
     if is_in_processed(root, absolute_path) {
         let identity = MediaIdentity {
             kind: FileKind::Unsupported,

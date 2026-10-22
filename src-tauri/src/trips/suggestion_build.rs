@@ -63,6 +63,7 @@ pub(super) fn build_suggestion(
         file_count: u32::try_from(members.len()).unwrap_or(u32::MAX),
         places: groups,
         root_file_ids: file_ids(&draft.root, shots),
+        continues: None,
     })
 }
 

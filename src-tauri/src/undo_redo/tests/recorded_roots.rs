@@ -38,6 +38,23 @@ fn accepts_recorded_paths_inside_the_run_folders_in_either_direction() {
 }
 
 #[test]
+fn accepts_a_placed_file_moved_inside_the_destination_root() {
+    let placed = "C:/todo/Processed/2025/Japan/Tokyo/photo.jpg";
+    let day_folder = "C:/todo/Processed/2025/Japan/Tokyo/10-31/photo.jpg";
+
+    assert!(roots()
+        .check(&operation(
+            HistoryOperationKind::Process,
+            placed,
+            day_folder
+        ))
+        .is_ok());
+    assert!(roots()
+        .check(&operation(HistoryOperationKind::Undo, day_folder, placed))
+        .is_ok());
+}
+
+#[test]
 fn blocks_recorded_paths_that_leave_the_run_folders() {
     let processed = "C:/todo/Processed/photo.jpg";
     let escapes = [

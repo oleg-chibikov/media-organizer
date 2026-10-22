@@ -97,3 +97,25 @@ fn safety_check_with_custom_root_allows_source_inside_effective_root() {
     assert_eq!(checked.skipped.len(), 0);
     assert!(source.exists());
 }
+
+#[test]
+fn safety_check_allows_a_placed_file_to_move_inside_the_destination_root() {
+    let temp = tempdir().expect("temp dir");
+    let selected = temp.path().join("2025").join("11");
+    let destination_root = temp.path().to_path_buf();
+    let place = destination_root.join("2025").join("Japan").join("Tokyo");
+    let source = place.join("placed.jpg");
+    fs::create_dir_all(&place).expect("create place folder");
+    fs::write(&source, b"placed").expect("write placed file");
+
+    let checked = validate_move_safety_with_roots(
+        &selected,
+        &destination_root,
+        vec![photo_move_operation(
+            &source,
+            &place.join("10-31").join("placed.jpg"),
+        )],
+    );
+
+    assert_eq!(checked.ready.len(), 1);
+}

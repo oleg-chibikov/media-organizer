@@ -1,10 +1,14 @@
 //! Destination planning: dated, place or same folders, original-name filenames and conflict suffixes.
 
+mod continued_moves;
 mod destination_allocation;
 mod destination_layout;
 mod file_plan;
+mod place_dates;
 mod place_folder;
 mod place_folders;
+mod placed_moves;
+mod suggestion_folders;
 
 #[cfg(test)]
 mod tests;
@@ -17,6 +21,7 @@ use crate::{
         FileKind, FileRecord, MetadataResult, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
     },
 };
+pub(crate) use continued_moves::plan_continued_moves;
 pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
 pub(crate) use place_folders::PlaceFolders;

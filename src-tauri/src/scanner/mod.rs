@@ -19,7 +19,7 @@ use crate::{
     models::{ScanErrorEvent, ScanFileEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
 };
 pub(crate) use active_scan::ActiveScan;
-use scanned_file::record_for_path;
+pub(crate) use scanned_file::record_for_path;
 
 pub(crate) fn scan_folder(
     sink: &impl EventSink,

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, NaiveDateTime};
 
-use crate::models::DayLayout;
+use crate::models::{DayLayout, Placement};
 
 /// The accepted place folder of one file: `<year>/<trip or place>[/<place>]`
 /// under the root, then day folders by `day_layout`.
@@ -10,6 +10,7 @@ use crate::models::DayLayout;
 pub(crate) struct PlaceFolder {
     pub(super) parts: Vec<String>,
     pub(super) day_layout: DayLayout,
+    pub(super) placement: Placement,
 }
 
 impl PlaceFolder {

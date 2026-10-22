@@ -1,5 +1,6 @@
 use super::{
     file_step::{move_file, recheck_operation},
+    placement_record::record_placements,
     progress::emit_move_progress_message,
     recorder::MoveRunRecorder,
     request::{MoveRunRequest, RunLookups},
@@ -61,5 +62,6 @@ pub(super) fn run_move_plan(
         "Finalizing history.",
         recorder.completed_operations(),
     );
+    record_placements(&request, recorder.results());
     recorder.finish();
 }

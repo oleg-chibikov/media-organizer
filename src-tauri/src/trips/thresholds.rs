@@ -5,7 +5,7 @@ use chrono::TimeDelta;
 /// Farther than this from home counts as away.
 pub(super) const TRIP_MIN_DISTANCE_KM: f64 = 100.0;
 /// A longer pause between away files starts a new trip.
-pub(super) const TRIP_MAX_GAP: TimeDelta = TimeDelta::days(3);
+pub(crate) const TRIP_MAX_GAP: TimeDelta = TimeDelta::days(3);
 /// Fewer files make no trip, place folder or outing.
 pub(super) const MIN_GROUP_FILES: usize = 5;
 /// Home needs this many distinct days in one city.

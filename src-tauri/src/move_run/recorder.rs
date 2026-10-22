@@ -39,6 +39,10 @@ impl<'a, S: EventSink> MoveRunRecorder<'a, S> {
         }
     }
 
+    pub(super) fn results(&self) -> &[MoveResult] {
+        &self.finished.results
+    }
+
     pub(super) fn completed_operations(&self) -> u64 {
         self.finished.results.len() as u64
     }

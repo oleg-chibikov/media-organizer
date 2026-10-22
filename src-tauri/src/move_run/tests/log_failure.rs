@@ -10,6 +10,7 @@ use crate::{
         execution::run_move_plan,
         request::{MoveBatch, MoveRunRequest},
     },
+    placements::PlacementStore,
     test_support::{
         events::RecordingSink,
         media::{file_record, ready_metadata, ready_plan},
@@ -59,6 +60,7 @@ fn stops_moving_files_once_the_history_log_fails() {
                 ready_plan("b", &second_target.to_string_lossy()),
             ],
         },
+        placements: PlacementStore::in_app_data(&temp.path().join("app-data")),
     };
     let sink = RecordingSink::default();
 

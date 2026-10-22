@@ -18,6 +18,7 @@ mod move_run;
 mod mover;
 mod path_safety;
 mod picked_folders;
+mod placements;
 mod planner;
 mod safe_fs;
 mod scanner;
@@ -98,6 +99,7 @@ pub fn run() {
             scan::cancel_scan,
             metadata_commands::read_metadata_for_files,
             plan::create_move_plan,
+            plan::plan_continued_moves,
             plan::get_move_confirmation_summary,
             places::detect_place_suggestions,
             home::search_home_cities,

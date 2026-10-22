@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::{FileRecord, MetadataResult, Placement};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConflictStatus {
@@ -28,6 +30,16 @@ pub struct MovePlan {
     pub destination_path: String,
     pub conflict_status: ConflictStatus,
     pub plan_status: PlanStatus,
+    #[serde(default)]
+    pub placement: Option<Placement>,
+}
+
+/// A file an earlier run placed, planned into the new day layout of its folder.
+#[derive(Debug, Clone, Serialize)]
+pub struct PlacedMove {
+    pub record: FileRecord,
+    pub metadata: MetadataResult,
+    pub plan: MovePlan,
 }
 
 #[derive(Debug, Clone, Serialize)]
