@@ -17,6 +17,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.invariantSeparatorsPathString
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -102,7 +103,7 @@ class TripTest {
         organize(OrganizeRequest(gallery, sorted), readMetadata, RunProgress(), places) { false }
     }
 
-    private fun sortedFiles(): Set<String> = files(sorted).map { sorted.relativize(it).toString() }.toSet()
+    private fun sortedFiles(): Set<String> = files(sorted).map { sorted.relativize(it).invariantSeparatorsPathString }.toSet()
 
     /** The content of every file in the gallery and the sorted folder, to show none went missing. */
     private fun everyFile(): List<String> = (files(gallery) + files(sorted)).map { it.readText() }.sorted()

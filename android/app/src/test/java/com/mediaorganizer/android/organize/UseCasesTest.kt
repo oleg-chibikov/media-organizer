@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
+import kotlin.io.path.invariantSeparatorsPathString
 import kotlin.io.path.name
 import kotlin.io.path.writeText
 
@@ -97,7 +98,7 @@ class UseCasesTest {
     private fun folders(): Set<String> = Files.walk(sorted).use { paths ->
         paths.filter(Files::isRegularFile).map { file ->
             val original = file.name.substringAfter("(").substringBefore(")") + ".jpg"
-            "${sorted.relativize(file.parent)}/$original"
+            "${sorted.relativize(file.parent).invariantSeparatorsPathString}/$original"
         }.toList().toSet()
     }
 }

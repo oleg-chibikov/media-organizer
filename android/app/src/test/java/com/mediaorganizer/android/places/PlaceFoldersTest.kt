@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.nio.file.Path
 import java.time.LocalDate
+import kotlin.io.path.invariantSeparatorsPathString
 
 /** The desktop cases of `src-tauri/src/planner/tests/place_levels.rs`. */
 class PlaceFoldersTest {
@@ -15,7 +16,7 @@ class PlaceFoldersTest {
         val folders = PlaceFolders.of(places, dates)
         return files.map { (date, _) ->
             val day = LocalDate.parse(date.take(10))
-            (folders.relativeDir(Path.of(date), day) ?: datedDir(day, emptyList(), false)).toString()
+            (folders.relativeDir(Path.of(date), day) ?: datedDir(day, emptyList(), false)).invariantSeparatorsPathString
         }
     }
 

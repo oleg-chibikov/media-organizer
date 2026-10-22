@@ -8,6 +8,7 @@ import org.junit.rules.TemporaryFolder
 import java.nio.file.Path
 import java.time.LocalDate
 import kotlin.io.path.createDirectories
+import kotlin.io.path.invariantSeparatorsPathString
 import kotlin.io.path.writeText
 
 /**
@@ -35,8 +36,8 @@ class NearbyFoldersTest {
         val nearby = if (gather) folders.gatherNearby(root) else emptyList()
         folders.reuseExisting(root)
         val moves = folders.libraryMoves(root, nearby) { it.toString().endsWith(".jpg") && !isScanned(it, selected, root) }
-        val dirs = paths.map { folders.relativeDir(it, dates.getValue(it)).toString() }
-        return dirs to moves.map { "${root.relativize(it.from)} -> ${root.relativize(it.toDirectory.resolve(it.from.fileName))}" }
+        val dirs = paths.map { folders.relativeDir(it, dates.getValue(it))?.invariantSeparatorsPathString.orEmpty() }
+        return dirs to moves.map { "${root.relativize(it.from).invariantSeparatorsPathString} -> ${root.relativize(it.toDirectory.resolve(it.from.fileName)).invariantSeparatorsPathString}" }
     }
 
     private fun photoAt(relative: String) = root.resolve(relative).also {
