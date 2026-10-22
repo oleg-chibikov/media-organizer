@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "../../components/design-system/Button";
 import { Pane } from "../../components/design-system/Pane";
 import type { DestinationSettings } from "../../lib/types";
@@ -13,6 +14,9 @@ interface DestinationSettingsMenuProps {
   onChooseRoot: () => void;
   onClearRoot: () => void;
   onSetForceProcessed: (nextValue: boolean) => void;
+  // Called as the menu opens, so it shows settings the backend changed on its own.
+  onOpen?: () => void;
+  homeSection?: ReactNode;
 }
 
 export function DestinationSettingsMenu({
@@ -23,7 +27,9 @@ export function DestinationSettingsMenu({
   error,
   onChooseRoot,
   onClearRoot,
-  onSetForceProcessed
+  onSetForceProcessed,
+  onOpen,
+  homeSection
 }: DestinationSettingsMenuProps) {
   const controlsDisabled = loading || pending || locked;
   const rootPath = settings?.root_media_folder ?? null;
@@ -38,7 +44,12 @@ export function DestinationSettingsMenu({
           aria-expanded={open}
           aria-label="Settings"
           className="p-1.5"
-          onClick={toggle}
+          onClick={() => {
+            if (!open) {
+              onOpen?.();
+            }
+            toggle();
+          }}
         >
           <SettingsIcon />
         </Button>
@@ -95,6 +106,7 @@ export function DestinationSettingsMenu({
           The library folder is kept but not used while this is on.
         </p>
       </section>
+      {homeSection}
     </Pane>
   );
 }

@@ -92,4 +92,46 @@ describe("DestinationSettingsMenu", () => {
       screen.getByRole("checkbox", { name: "Use a Processed folder inside the scanned folder" })
     ).toBeDisabled();
   });
+
+  it("refreshes settings only as it opens", () => {
+    const onOpen = vi.fn();
+    render(
+      <DestinationSettingsMenu
+        settings={SETTINGS}
+        loading={false}
+        pending={false}
+        locked={false}
+        error={null}
+        onChooseRoot={vi.fn()}
+        onClearRoot={vi.fn()}
+        onSetForceProcessed={vi.fn()}
+        onOpen={onOpen}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the home section while open", () => {
+    render(
+      <DestinationSettingsMenu
+        settings={SETTINGS}
+        loading={false}
+        pending={false}
+        locked={false}
+        error={null}
+        onChooseRoot={vi.fn()}
+        onClearRoot={vi.fn()}
+        onSetForceProcessed={vi.fn()}
+        homeSection={<p>Home: not set</p>}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(screen.getByText("Home: not set")).toBeInTheDocument();
+  });
 });

@@ -11,9 +11,10 @@ import {
   chooseRootMediaFolder,
   clearRootMediaFolder,
   setForceProcessedFolder,
+  setHomeLocation,
   setRenameInPlace
 } from "../lib/api";
-import type { MetadataResult } from "../lib/types";
+import type { HomeLocation, MetadataResult } from "../lib/types";
 
 interface DestinationChangeOptions {
   destination: ReturnType<typeof useDestinationSettings>;
@@ -60,6 +61,12 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     chooseRoot: () => change(chooseRootMediaFolder),
     clearRoot: () => change(clearRootMediaFolder),
     setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue)),
-    setRenameInPlace: (nextValue: boolean) => change(() => setRenameInPlace(nextValue))
+    setRenameInPlace: (nextValue: boolean) => change(() => setRenameInPlace(nextValue)),
+    // Home moves no file, so it stays editable during moves. Place detection reruns on its own.
+    setHome: (home: HomeLocation | null) =>
+      void destination.applyChange(() => setHomeLocation(home), {
+        locked: false,
+        onChanged: () => undefined
+      })
   };
 }

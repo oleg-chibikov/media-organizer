@@ -2,6 +2,7 @@ import { useAppSession } from "./app/useAppSession";
 import { DestinationSettingsMenu, RenameInPlaceToggle } from "./features/destination-settings";
 import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
+import { HomeLocationSection } from "./features/home-location";
 import { MoveConfirmationDialog } from "./features/moves";
 import { PlaceSuggestionPrompt, PlaceSuggestionsDialog } from "./features/place-suggestions";
 import { StatusBar } from "./features/status-bar";
@@ -57,6 +58,14 @@ export default function App() {
             onChooseRoot={destinationActions.chooseRoot}
             onClearRoot={destinationActions.clearRoot}
             onSetForceProcessed={destinationActions.setForceProcessed}
+            onOpen={destination.refresh}
+            homeSection={
+              <HomeLocationSection
+                home={destination.settings?.home ?? null}
+                disabled={destination.loading || destination.pending}
+                onChange={destinationActions.setHome}
+              />
+            }
           />
         }
         onChooseFolder={chooseFolder}

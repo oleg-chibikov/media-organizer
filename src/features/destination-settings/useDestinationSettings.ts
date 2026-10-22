@@ -26,6 +26,15 @@ export function useDestinationSettings() {
     setLoading(false);
   }, []);
 
+  // A refresh with nothing new keeps the same object, so nothing that depends on it runs again.
+  const refresh = useCallback(() => {
+    getDestinationSettings().then(
+      (loaded) =>
+        setSettings((current) => (current?.updated_at === loaded.updated_at ? current : loaded)),
+      (loadError: unknown) => setError(`Failed to load destination settings: ${String(loadError)}`)
+    );
+  }, []);
+
   const applyChange = async (
     operation: DestinationSettingsOperation,
     { locked, onChanged }: ChangeContext
@@ -45,5 +54,14 @@ export function useDestinationSettings() {
     }
   };
 
-  return { settings, loading, pending, error, settingsLoaded, settingsFailed, applyChange };
+  return {
+    settings,
+    loading,
+    pending,
+    error,
+    settingsLoaded,
+    settingsFailed,
+    refresh,
+    applyChange
+  };
 }

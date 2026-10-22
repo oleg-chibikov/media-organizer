@@ -1,4 +1,4 @@
-export type HomeSource = "learned" | "manual";
+type HomeSource = "learned" | "manual";
 
 export interface HomeLocation {
   name: string;
