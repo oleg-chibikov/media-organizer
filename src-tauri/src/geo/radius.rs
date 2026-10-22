@@ -14,10 +14,6 @@ const NATURE_SPOT_RADIUS_KM: f64 = 3.0;
 const LANDFORM_RADIUS_KM: f64 = 5.0;
 const ISLAND_RADIUS_KM: f64 = 10.0;
 const RESERVE_RADIUS_KM: f64 = 15.0;
-const NATIONAL_PARK_RADIUS_KM: f64 = 40.0;
-
-/// The widest radius below. Searches for points of interest start here.
-pub(super) const MAX_POI_RADIUS_KM: f64 = NATIONAL_PARK_RADIUS_KM;
 
 // Gives San Francisco about 18 km and a town of 5,000 about 1.4 km.
 const CITY_REACH_KM_PER_SQRT_PERSON: f64 = 0.02;
@@ -31,10 +27,11 @@ pub(super) fn city_reach_km(population: u32) -> f64 {
 impl PlaceKind {
     /// How far from its point a visit still counts as inside the place.
     /// Cities return `None`: they are the fallback, matched by distance alone.
+    /// National parks too: their outlines come from `geo/parks`.
     pub(super) fn match_radius_km(self) -> Option<f64> {
         use PlaceKind::*;
         Some(match self {
-            City => return None,
+            City | NationalPark => return None,
             Garden | Zoo | Museum | Castle | Palace | Monument | HistoricSite | Ruin | Temple => {
                 SMALL_SITE_RADIUS_KM
             }
@@ -44,7 +41,6 @@ impl PlaceKind {
             Volcano | Canyon | Glacier => LANDFORM_RADIUS_KM,
             Island => ISLAND_RADIUS_KM,
             Reserve => RESERVE_RADIUS_KM,
-            NationalPark => NATIONAL_PARK_RADIUS_KM,
         })
     }
 

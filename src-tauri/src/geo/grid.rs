@@ -6,8 +6,9 @@ use std::ops::Range;
 use super::distance::Coordinates;
 
 const LAT_CELLS: usize = 180;
-const LON_CELLS: usize = 360;
-const KM_PER_DEGREE: f64 = 111.2;
+pub(super) const LON_CELLS: usize = 360;
+pub(super) const CELL_COUNT: usize = LAT_CELLS * LON_CELLS;
+pub(super) const KM_PER_DEGREE: f64 = 111.2;
 // Above this latitude a search circle spans every longitude.
 const POLAR_LATITUDE: f64 = 89.0;
 
@@ -25,7 +26,7 @@ pub(super) struct Grid {
 impl Grid {
     /// Takes the cell of every entry, in the sorted order of the entries.
     pub(super) fn from_sorted_cells(cells: impl Iterator<Item = usize>) -> Self {
-        let mut starts = vec![0u32; LAT_CELLS * LON_CELLS + 1];
+        let mut starts = vec![0u32; CELL_COUNT + 1];
         for cell in cells {
             starts[cell + 1] += 1;
         }

@@ -158,12 +158,14 @@ Each layer may depend only on the layers below it.
 `geo/` turns a GPS point into a place name without a network call.
 
 - **Data** is `src-tauri/assets/geodata.tsv.gz`, a GeoNames extract (CC BY 4.0) built by `scripts/geodata/build_geodata.py`. It holds cities with 1000 people or more and points of interest such as gardens, museums, waterfalls and national parks. Small kinds need an English Wikipedia link to stay in.
+- **Park outlines** are `src-tauri/assets/parks.tsv.gz`, built by `scripts/geodata/build_parks.py` from Overture Maps (OpenStreetMap, ODbL). It holds national parks, state parks and wilderness areas of 1 km² or more, simplified to about 50 m. `geo/parks` puts them in one-degree cells and splits each ring into runs of 64 edges with their own box, so a point test skips most edges. The place suggestions dialog credits GeoNames and OpenStreetMap.
 - **Loading** happens once, on the first lookup, through a `LazyLock`. Call lookups from a background thread.
 - **Search** uses a one-degree grid, so a lookup scans only nearby cells.
 - **City names** for `search_home_cities` load into a separate list on the first search. Matches ignore case and accents, and `ue` matches `u`, so "Zür" finds "Zuerich". Names that start with the text come first, then names that contain it. Bigger cities rank higher, up to 10 results.
-- **Radii** stand in for outlines, since GeoNames has points only. `geo/radius.rs` gives each kind a radius, and a city a reach that grows with population: San Francisco covers about 18 km.
-- **Place names** come from `nearest_place`, used for trips. A covering national park or city wins first, in `geo/area.rs`. The park beats a town under 50,000 people, and beats a bigger city only when the city centre is 3 times farther. So Katoomba names Blue Mountains National Park and Bondi stays Sydney. Next comes the most nested point of interest, then the nearest city within 50 km, then any place within 150 km.
-- **Outing names** come from `notable_place` in `geo/notable.rs`. An attraction such as a zoo, museum or garden wins, then the covering national park, then any other point of interest. A beach in Royal National Park names the park.
+- **Radii** stand in for outlines where GeoNames has points only. `geo/radius.rs` gives each kind a radius, and a city a reach that grows with population: San Francisco covers about 18 km.
+- **One search** `geo::resolve` gathers the places within 50 km once and answers every lookup below from them.
+- **Place names** name trip folders. A park outline or a city wins first, in `geo/area.rs`. Within the reach of a city of 50,000 people or more, only a park of 100 km² or more beats the city. Elsewhere a point inside a park, or within 5 km of a 100 km² park, takes the park's name. So Katoomba names Blue Mountains National Park, Garie Beach names Royal National Park, and Bondi stays Sydney. Next comes the most nested point of interest, then the nearest city within 50 km, then any place within 150 km.
+- **Outing names** come from `geo/notable.rs`. An attraction such as a zoo, museum or garden wins, then the park outline around the point, then any other point of interest.
 - **Countries** come from the nearest place, so a point near a border can get the neighbour.
 
 ## Place Suggestions

@@ -1,22 +1,33 @@
 //! Picks the point of interest an outing is named after.
 
-use super::area::park_or_city;
+use super::area::park_place;
 use super::distance::Coordinates;
 use super::index::INDEX;
 use super::kind::PlaceKind;
-use super::lookup::matching_poi;
+use super::nearby::Nearby;
+use super::parks::PARKS;
 use super::place::Place;
 
-/// A visitor attraction that contains `point`, else the national park around
-/// it, else any other point of interest. A beach inside a park names the park,
-/// and a zoo inside a city still names the zoo. It doesn't return a city.
+/// A visitor attraction that contains `point`, else the park around it, else
+/// any other point of interest. A beach inside a park names the park, and a
+/// zoo inside a city still names the zoo. It doesn't return a city.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn notable_place(point: Coordinates) -> Option<Place> {
-    let index = &*INDEX;
-    let park = || park_or_city(index, point).filter(|entry| entry.kind != PlaceKind::City);
-    let entry = matching_poi(index, point, is_attraction)
-        .or_else(park)
-        .or_else(|| matching_poi(index, point, |_| true))?;
-    Some(index.place(entry))
+    notable_in(&Nearby::new(&INDEX, point))
+}
+
+pub(super) fn notable_in(nearby: &Nearby) -> Option<Place> {
+    let index = nearby.index;
+    if let Some(attraction) = nearby.matching_poi(is_attraction) {
+        return Some(index.place(attraction));
+    }
+    let park = PARKS.containing(nearby.point);
+    if let Some(park) = park.and_then(|park| park_place(index, park)) {
+        return Some(park);
+    }
+    nearby
+        .matching_poi(|_| true)
+        .map(|entry| index.place(entry))
 }
 
 fn is_attraction(kind: PlaceKind) -> bool {

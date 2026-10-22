@@ -1,3 +1,8 @@
 geodata.tsv.gz holds data from GeoNames (https://www.geonames.org/).
 GeoNames data is licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
 The file is a filtered extract. Rebuild it with scripts/geodata/build_geodata.py.
+
+parks.tsv.gz holds park outlines from OpenStreetMap (https://www.openstreetmap.org/copyright),
+taken from Overture Maps (https://overturemaps.org/). (c) OpenStreetMap contributors.
+The data is licensed under the Open Database License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/
+The file is a simplified extract. Rebuild it with scripts/geodata/build_parks.py.

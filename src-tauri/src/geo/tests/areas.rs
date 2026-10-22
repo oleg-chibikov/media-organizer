@@ -15,6 +15,7 @@ fn san_francisco_sights_are_san_francisco() {
         (37.7544, -122.4477),
         (37.8080, -122.4177),
         (37.8267, -122.4230),
+        (37.7877, -122.5054),
     ];
     for (latitude, longitude) in sights {
         assert_eq!(place_at(latitude, longitude).name, "San Francisco");
@@ -50,8 +51,22 @@ fn royal_national_park_beaches_are_the_park() {
 }
 
 #[test]
+fn a_small_park_inside_sydney_is_an_outing_but_not_a_trip_place() {
+    let north_head = (-33.8200, 151.2960);
+    assert_eq!(place_at(north_head.0, north_head.1).name, "Sydney");
+    let outing = notable_at(north_head.0, north_head.1);
+    assert_eq!(outing.name, "Sydney Harbour National Park");
+    assert_eq!(outing.country_name, "Australia");
+}
+
+#[test]
 fn harbour_suburbs_stay_sydney() {
-    for (latitude, longitude) in [(-33.8915, 151.2767), (-33.7970, 151.1800)] {
+    let suburbs = [
+        (-33.8915, 151.2767),
+        (-33.7970, 151.1800),
+        (-33.7970, 151.2880),
+    ];
+    for (latitude, longitude) in suburbs {
         assert_eq!(place_at(latitude, longitude).name, "Sydney");
         let city = nearest_city(Coordinates::new(latitude, longitude)).expect("a city");
         assert_eq!(city.name, "Sydney");

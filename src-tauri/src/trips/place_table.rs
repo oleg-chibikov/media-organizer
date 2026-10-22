@@ -30,10 +30,15 @@ impl PlaceTable {
         if let Some(resolved) = self.cache.get(&key) {
             return *resolved;
         }
+        let geo::Resolution {
+            place,
+            city,
+            notable,
+        } = geo::resolve(point);
         let resolved = Resolved {
-            place: geo::nearest_place(point).map(|place| self.intern(place)),
-            city: geo::nearest_city(point).map(|place| self.intern(place)),
-            notable: geo::notable_place(point).map(|place| self.intern(place)),
+            place: place.map(|place| self.intern(place)),
+            city: city.map(|place| self.intern(place)),
+            notable: notable.map(|place| self.intern(place)),
         };
         self.cache.insert(key, resolved);
         resolved
