@@ -114,7 +114,8 @@ pub fn run() {
             move_execution::execute_move_plan,
             move_execution::pause_move_run,
             move_execution::remove_empty_source_folders,
-            system::reveal_file_in_explorer
+            system::reveal_file_in_explorer,
+            system::open_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

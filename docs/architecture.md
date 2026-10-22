@@ -106,7 +106,7 @@ flowchart LR
   hist -.->|"history:* events"| histF
   destF -->|"destination settings commands"| settings
   settings -.->|"effective destination root"| destF
-  tableF -->|reveal_file_in_explorer| explorer
+  tableF -->|"open_file,<br/>reveal_file_in_explorer"| explorer
 ```
 
 - **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.

@@ -9,7 +9,7 @@ import { fileRowClassName } from "./fileRowClassName";
 import { FILE_TABLE_COLUMNS } from "./fileTableColumns";
 import { DEFAULT_COLUMN_SIZING, measureAutoSizedColumns } from "./measureColumnWidths";
 import { PlaceMapDialog } from "../place-map";
-import { CellDoubleClick } from "./CellDoubleClick";
+import { CellActions } from "./CellActions";
 import { sortFileRecords } from "./sortFileRecords";
 import { sortProblemsFirst } from "./sortProblemsFirst";
 import { usePlaceMapTarget } from "./usePlaceMapTarget";
@@ -110,13 +110,9 @@ export function FileTable({
             }
             getRowTooltip={(row) => row.source.value}
             renderCellWrapper={(_, rowIndex, columnId, cell) => (
-              <CellDoubleClick
-                state={visibleStates[rowIndex]}
-                columnId={columnId}
-                onOpenMap={openMap}
-              >
+              <CellActions state={visibleStates[rowIndex]} columnId={columnId} onOpenMap={openMap}>
                 {cell}
-              </CellDoubleClick>
+              </CellActions>
             )}
           />
         )}

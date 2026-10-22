@@ -31,3 +31,9 @@ pub async fn reveal_file_in_explorer(source_path: String) -> Result<(), String> 
     })
     .await
 }
+
+#[tauri::command]
+pub async fn open_file(source_path: String) -> Result<(), String> {
+    run_blocking(move || system_explorer::open_path_in_default_app(&PathBuf::from(source_path)))
+        .await
+}

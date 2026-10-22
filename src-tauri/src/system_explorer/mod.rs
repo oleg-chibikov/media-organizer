@@ -1,7 +1,10 @@
 //! Reveals a file in the platform file manager (Explorer, Finder or a freedesktop manager).
 
+mod open;
 #[cfg(test)]
 mod tests;
+
+pub(crate) use open::open_path_in_default_app;
 
 use std::path::Path;
 #[cfg(target_os = "windows")]
