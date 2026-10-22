@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { attachScanListeners, revealFileInExplorer, useBackendEvents } from "../lib/api";
 import {
+  groupsByPlace,
   useDestinationSettings,
   useEffectiveDestinationRoot
 } from "../features/destination-settings";
@@ -17,6 +18,7 @@ import { useDestinationChange } from "./useDestinationChange";
 export function useAppSession() {
   const [folderError, setFolderError] = useState<string | null>(null);
   const destination = useDestinationSettings();
+  const groupByPlace = groupsByPlace(destination.settings);
   const backend = useBackendBootstrap({
     onSettingsLoaded: destination.settingsLoaded,
     onSettingsFailed: destination.settingsFailed,
@@ -30,7 +32,7 @@ export function useAppSession() {
     selectedFolder: scan.selectedFolder,
     reportError: setFolderError,
     onPlacedFiles: (added, droppedIds) => {
-      // Dates go first, so the metadata queue doesn't read the new rows again.
+      // Metadata goes first, so the metadata queue doesn't read the new rows again.
       metadata.removeResults(droppedIds);
       metadata.addResults(added.map((move) => move.metadata));
       scan.removeRows(droppedIds);
@@ -46,12 +48,36 @@ export function useAppSession() {
     onMetadataRead: planning.requestPlans
   });
   const { completed, cancelled, discovered } = scan.progress;
+  const places = usePlaceSuggestions({
+    selectedFolder: scan.selectedFolder,
+    rows: scan.rows,
+    metadataByFileId: metadata.metadataByFileId,
+    scanCompleted: completed && !cancelled,
+    scanCancelled: cancelled,
+    metadataBusy: metadata.activeMetadataRequests > 0,
+    home: destination.settings?.home ?? null,
+    groupByPlace,
+    reportError: setFolderError,
+    onApply: (accepted) => {
+      // Files confirmed to move keep their folders. Plans still waiting take the first answer.
+      const { confirmed, executing } = moves.execution;
+      if ((confirmed || executing) && !planning.waitingForPlaces()) {
+        return;
+      }
+      planning.applyPlaceSuggestions(
+        accepted,
+        scan.rows,
+        metadataResultsFor(scan.rows, metadata.metadataByFileId)
+      );
+    }
+  });
   const planCompleted =
     completed &&
     !cancelled &&
     metadata.activeMetadataRequests === 0 &&
     !metadata.paused &&
-    planning.activePlanRequests === 0;
+    planning.activePlanRequests === 0 &&
+    !(groupByPlace && places.locating);
   const stillChecking = !planCompleted && !cancelled;
   const moves = useMoveExecution({
     stillChecking,
@@ -63,33 +89,16 @@ export function useAppSession() {
     movePlansByFileId: planning.movePlansByFileId,
     reportError: setFolderError
   });
-  // Pausing the run also stops reading dates, so the computer gets its CPU back.
+  // Pausing the run also stops reading metadata, so the computer gets its CPU back.
   const { setPaused: setMetadataPaused } = metadata;
   const movesPaused = moves.execution.paused;
   useEffect(() => setMetadataPaused(movesPaused), [movesPaused, setMetadataPaused]);
-  const places = usePlaceSuggestions({
-    selectedFolder: scan.selectedFolder,
-    rows: scan.rows,
-    metadataByFileId: metadata.metadataByFileId,
-    scanCompleted: completed && !cancelled,
-    scanCancelled: cancelled,
-    metadataBusy: metadata.activeMetadataRequests > 0,
-    home: destination.settings?.home ?? null,
-    locked: moves.execution.confirmed || moves.execution.executing,
-    reportError: setFolderError,
-    onApply: (accepted) =>
-      planning.applyPlaceSuggestions(
-        accepted,
-        scan.rows,
-        metadataResultsFor(scan.rows, metadata.metadataByFileId)
-      )
-  });
   const history = useHistory(setFolderError);
 
   // Metadata, plans, moves and place folders belong to the old folder's files.
   const resetPipeline = () => {
     metadata.resetMetadata();
-    planning.resetPlanning();
+    planning.resetPlanning(groupByPlace);
     moves.resetMoves();
     places.reset();
   };
@@ -125,6 +134,7 @@ export function useAppSession() {
     health: backend.health,
     scan,
     metadataByFileId: metadata.metadataByFileId,
+    groupByPlace,
     planning: {
       movePlansByFileId: planning.movePlansByFileId,
       planErrorsByFileId: planning.planErrorsByFileId,

@@ -12,7 +12,7 @@ interface ToolbarProps {
   isScanning: boolean;
   movesRunning: boolean;
   historyMenu?: ReactNode;
-  placeButton?: ReactNode;
+  placeToggle?: ReactNode;
   renameToggle?: ReactNode;
   settingsMenu?: ReactNode;
   onChooseFolder: () => void;
@@ -29,7 +29,7 @@ export function Toolbar({
   isScanning,
   movesRunning,
   historyMenu,
-  placeButton,
+  placeToggle,
   renameToggle,
   settingsMenu,
   onChooseFolder,
@@ -69,7 +69,7 @@ export function Toolbar({
           />
         </div>
 
-        {placeButton ? <div className="shrink-0">{placeButton}</div> : null}
+        {placeToggle ? <div className="shrink-0">{placeToggle}</div> : null}
         {renameToggle ? <div className="shrink-0">{renameToggle}</div> : null}
         {settingsMenu ? <div className="shrink-0">{settingsMenu}</div> : null}
       </div>

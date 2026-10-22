@@ -21,7 +21,7 @@ function renderCounts(read: number, total: number) {
   render(
     <StatusCounts
       scan={{ ...EMPTY_SCAN_PROGRESS, discovered: total }}
-      dates={{ read, total }}
+      metadata={{ read, total }}
       planErrors={0}
       summary={NO_PLANS}
       showReady
@@ -36,11 +36,11 @@ describe("StatusCounts", () => {
   it("counts the dates read while reading", () => {
     renderCounts(3, 10);
     expect(screen.getByText("Files: 10")).toBeInTheDocument();
-    expect(screen.getByText("Dates read: 3/10")).toBeInTheDocument();
+    expect(screen.getByText("Metadata read: 3/10")).toBeInTheDocument();
   });
 
   it("drops the dates count once every date is read", () => {
     renderCounts(10, 10);
-    expect(screen.queryByText(/Dates read/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Metadata read/)).not.toBeInTheDocument();
   });
 });

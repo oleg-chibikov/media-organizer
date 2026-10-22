@@ -1,6 +1,6 @@
 import type { DetectionStatus } from "../../lib/types";
 
-// Why "Group by place" has nothing to offer. `null` means detection didn't answer,
+// Why grouping by place finds no folders. `null` means detection didn't answer,
 // because the scan stopped early or the lookup failed.
 export function noPlacesReason(status: DetectionStatus | null): string {
   switch (status?.kind) {
@@ -15,6 +15,6 @@ export function noPlacesReason(status: DetectionStatus | null): string {
     case "too_few_geotagged":
       return "Too few geotagged files";
     case "found":
-      return "Files are already moving";
+      return "No trips or outings";
   }
 }

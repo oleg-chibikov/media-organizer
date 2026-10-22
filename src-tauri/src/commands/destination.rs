@@ -75,3 +75,15 @@ pub async fn set_rename_in_place(
     })
     .await
 }
+
+#[tauri::command]
+pub async fn set_group_by_place(
+    group_by_place: bool,
+    app: AppHandle,
+) -> Result<DestinationSettings, String> {
+    let store = settings_store(&app)?;
+    run_blocking(move || {
+        store.update(|current| settings::set_group_by_place(current, group_by_place))
+    })
+    .await
+}

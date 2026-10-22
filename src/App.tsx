@@ -1,14 +1,13 @@
 import { useAppSession } from "./app/useAppSession";
-import { DestinationSettingsMenu, RenameInPlaceToggle } from "./features/destination-settings";
+import {
+  DestinationSettingsMenu,
+  GroupByPlaceToggle,
+  RenameInPlaceToggle
+} from "./features/destination-settings";
 import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { HomeLocationSection } from "./features/home-location";
 import { MoveConfirmationDialog } from "./features/moves";
-import {
-  GroupByPlaceButton,
-  PlaceSuggestionsBanner,
-  PlaceSuggestionsReview
-} from "./features/place-suggestions";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
 
@@ -19,6 +18,7 @@ export default function App() {
   const { execution } = moves;
   const chooseFolder = () => void scan.chooseFolderAndScan();
   const renamesInPlace = destination.settings?.rename_in_place ?? false;
+  const settingsLocked = destination.loading || destination.pending || destinationActions.locked;
 
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-100">
@@ -45,15 +45,19 @@ export default function App() {
             onOpenLog={history.openLog}
           />
         }
-        placeButton={
-          scan.selectedFolder && !execution.executing ? (
-            <GroupByPlaceButton places={places} />
-          ) : null
+        placeToggle={
+          <GroupByPlaceToggle
+            checked={destination.settings?.group_by_place ?? true}
+            renamesInPlace={renamesInPlace}
+            disabled={settingsLocked}
+            placesHint={places.hint}
+            onChange={destinationActions.setGroupByPlace}
+          />
         }
         renameToggle={
           <RenameInPlaceToggle
             checked={renamesInPlace}
-            disabled={destination.loading || destination.pending || destinationActions.locked}
+            disabled={settingsLocked}
             onChange={destinationActions.setRenameInPlace}
           />
         }
@@ -83,7 +87,6 @@ export default function App() {
         onDismissError={session.dismissError}
       />
 
-      <PlaceSuggestionsBanner places={places} />
       <main className="min-h-0 flex-1">
         {scan.rows.length === 0 ? (
           <EmptyFileList
@@ -110,7 +113,7 @@ export default function App() {
       <StatusBar
         health={session.health}
         scan={scan.progress}
-        dates={places.progress}
+        metadata={places.progress}
         planning={planning}
         summary={moves.confirmationSummary}
         execution={execution}
@@ -120,8 +123,6 @@ export default function App() {
         onExecutionAction={moves.runExecutionAction}
         onOpenDestination={session.openDestination}
       />
-
-      <PlaceSuggestionsReview places={places} metadataByFileId={session.metadataByFileId} />
 
       {moves.confirmation.summary ? (
         <MoveConfirmationDialog

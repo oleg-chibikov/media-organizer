@@ -1,4 +1,6 @@
 export { DestinationSettingsMenu } from "./DestinationSettingsMenu";
+export { GroupByPlaceToggle } from "./GroupByPlaceToggle";
+export { groupsByPlace } from "./groupsByPlace";
 export { RenameInPlaceToggle } from "./RenameInPlaceToggle";
 export {
   useDestinationSettings,

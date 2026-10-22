@@ -13,16 +13,11 @@ function dayCount(suggestion: PlaceSuggestion): number {
   return Math.round((last - first) / DAY_MS) + 1;
 }
 
-export function suggestionHeading(suggestion: PlaceSuggestion): string {
+function suggestionHeading(suggestion: PlaceSuggestion): string {
   if (suggestion.kind === "outing") {
     return suggestion.title;
   }
   return suggestion.title === UNKNOWN_TRIP_TITLE ? "Trip" : `Trip to ${suggestion.title}`;
-}
-
-export function suggestionSize(suggestion: PlaceSuggestion): string {
-  const files = plural(suggestion.file_count, "file");
-  return suggestion.kind === "trip" ? `${files}, ${plural(dayCount(suggestion), "day")}` : files;
 }
 
 // How many names the banner lists before it counts the rest.

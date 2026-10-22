@@ -100,4 +100,5 @@ fn loads_settings_saved_before_home_existed() {
 
     assert!(loaded.rename_in_place);
     assert_eq!(loaded.home, None);
+    assert!(loaded.group_by_place);
 }

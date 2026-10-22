@@ -1,54 +1,54 @@
-import { act, renderHook } from "@testing-library/react";
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { freshChoice, type PlaceChoice } from "./placeChoice";
+import type { PlaceSuggestion } from "../../lib/types";
 import { OUTING, TRIP } from "./testSuggestions";
 import type { PlaceDetectionOptions } from "./usePlaceDetection";
 import { usePlaceSuggestions } from "./usePlaceSuggestions";
 
+const detection = vi.hoisted(() => ({ settled: false, suggestions: [] as PlaceSuggestion[] }));
+
 vi.mock("./usePlaceDetection", () => ({
   usePlaceDetection: () => ({
-    detection: { suggestions: [TRIP, OUTING], file_places: {}, status: { kind: "found" } },
-    locating: false,
+    detection: { suggestions: detection.suggestions, file_places: {}, status: { kind: "found" } },
+    locating: !detection.settled,
+    settled: detection.settled,
     progress: { read: 1, total: 1 },
     reset: vi.fn()
   })
 }));
 
-function renderSuggestions(locked = false) {
+function renderSuggestions(groupByPlace: boolean) {
   const onApply = vi.fn();
-  const detection = {} as PlaceDetectionOptions;
-  const hook = renderHook(() => usePlaceSuggestions({ ...detection, locked, onApply }));
+  const options = {} as PlaceDetectionOptions;
+  const hook = renderHook(
+    (group: boolean) => usePlaceSuggestions({ ...options, groupByPlace: group, onApply }),
+    {
+      initialProps: groupByPlace
+    }
+  );
   return { ...hook, onApply };
 }
 
 describe("usePlaceSuggestions", () => {
-  it("hides the banner once dismissed and keeps the suggestions for the review", () => {
-    const { result } = renderSuggestions();
-    expect(result.current.bannerVisible).toBe(true);
-    act(() => result.current.dismiss());
-    expect(result.current.bannerVisible).toBe(false);
-    act(() => result.current.openReview());
-    expect(result.current.reviewOpen).toBe(true);
-    expect(result.current.suggestions).toEqual([TRIP, OUTING]);
+  it("waits for detection, then applies what it found once", () => {
+    detection.settled = false;
+    detection.suggestions = [TRIP, OUTING];
+    const { rerender, onApply } = renderSuggestions(true);
+    expect(onApply).not.toHaveBeenCalled();
+
+    detection.settled = true;
+    rerender(true);
+    detection.suggestions = [TRIP, OUTING];
+    rerender(true);
+
+    expect(onApply).toHaveBeenCalledExactlyOnceWith([TRIP, OUTING]);
   });
 
-  it("hides suggestions once moves are confirmed", () => {
-    const { result } = renderSuggestions(true);
-    expect(result.current.suggestions).toEqual([]);
-    expect(result.current.bannerVisible).toBe(false);
-  });
+  it("applies no place folders while grouping is off", () => {
+    detection.settled = false;
+    detection.suggestions = [TRIP];
+    const { onApply } = renderSuggestions(false);
 
-  it("applies the used suggestions and remembers every choice", () => {
-    const { result, onApply } = renderSuggestions();
-    const choices: Record<string, PlaceChoice> = {
-      [TRIP.id]: freshChoice(TRIP),
-      [OUTING.id]: { ...freshChoice(OUTING), use: false }
-    };
-    act(() => result.current.openReview());
-    act(() => result.current.apply(choices));
-
-    expect(onApply).toHaveBeenCalledWith([TRIP]);
-    expect(result.current.choices).toEqual(choices);
-    expect(result.current.reviewOpen).toBe(false);
+    expect(onApply).toHaveBeenCalledExactlyOnceWith([]);
   });
 });

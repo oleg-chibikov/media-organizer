@@ -80,7 +80,7 @@ describe("useMovePlanning reset", () => {
     act(() => result.current.requestPlans([RECORD], [METADATA]));
     const old = lastRequestId();
 
-    act(() => result.current.resetPlanning());
+    act(() => result.current.resetPlanning(false));
     act(() => result.current.requestPlans([RECORD], [METADATA]));
     act(() => {
       listeners.plan?.onFile({ request_id: old, plan: { ...PLAN, destination_path: "old" } });
@@ -99,7 +99,7 @@ describe("useMovePlanning clear", () => {
     act(() => result.current.requestPlans([RECORD], [METADATA]));
     const old = lastRequestId();
 
-    act(() => result.current.clearPlans());
+    act(() => result.current.clearPlans(false));
     act(() => {
       listeners.plan?.onFile({ request_id: old, plan: PLAN });
       listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
@@ -107,6 +107,20 @@ describe("useMovePlanning clear", () => {
 
     expect(result.current.movePlansByFileId).toEqual({});
     expect(result.current.activePlanRequests).toBe(0);
+  });
+
+  it("holds plans back until the place folders come", async () => {
+    const { result } = renderPlanning();
+    await waitFor(() => expect(listeners.plan).not.toBeNull());
+    vi.mocked(createMovePlan).mockClear();
+
+    act(() => result.current.clearPlans(true));
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    expect(createMovePlan).not.toHaveBeenCalled();
+
+    act(() => result.current.applyPlaceSuggestions([], [RECORD], [METADATA]));
+    expect(createMovePlan).toHaveBeenCalledOnce();
+    expect(result.current.waitingForPlaces()).toBe(false);
   });
 });
 

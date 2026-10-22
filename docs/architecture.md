@@ -144,7 +144,7 @@ Each layer may depend only on the layers below it.
 - `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
-- `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes.
+- `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes. `group_by_place` (default on) turns place folders on. The toolbar treats `rename_in_place` as turning it off.
 - `home_location/`: reads the saved home for place suggestions, finds it on the device, learns it from large scans, and finds cities by name. `device/` holds the `DeviceLocator` trait. `SystemLocator` asks CoreLocation on macOS and reads the time zone with `iana-time-zone`. Tests use a fake locator.
 - `placements/`: the registry of trip and outing folders that runs filled. Detection matches new suggestions against it. See Continued Place Folders.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
@@ -191,7 +191,7 @@ Each layer may depend only on the layers below it.
 `create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
 - **Trip place** `<root>/<year>/<title>/<place>/<days>`. Trip files in no place go to `<root>/<year>/<title>/<days>`.
-- **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so the review dialog only lets the person rename places.
+- **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so a trip abroad keeps the country name.
 - **Outing** `<root>/<year>/<place>/<days>`, or `<root>/<year>/<country>/<place>/<days>` abroad.
 - **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
@@ -201,11 +201,11 @@ Each layer may depend only on the layers below it.
 
 `features/place-suggestions` calls `detect_place_suggestions` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
 
-- **Group by place** sits in the toolbar while a folder is open and no files move. It shows a spinner and `Finding locations… N/M` (photos and videos with metadata read, out of all of them) until the answer lands. Then it opens the review with the count, or stays focusable with the reason from `status`.
-- **Banner** above the table says `Finding locations…` while locating, then lists the places with Review folders and a dismiss button. Dismissing hides the banner only. The toolbar button still opens the review.
+- **Group by place** is a toolbar checkbox saved as `group_by_place` through `set_group_by_place`. Its tooltip lists the places found, or the reason from `status`, and credits GeoNames and OpenStreetMap. With **Rename only** on it shows unchecked and disabled. Both lock once moves are confirmed.
+- **Waiting for places** with the box on, `features/planning` holds every `create_move_plan` call until detection answers, fails, or the scan stops. So no file shows a date folder first, and the status bar says `Checking files` until then.
 - **Place column** in the file table reads `file_places` by file id. Photos and videos show a spinner and `Locating...` until the answer lands. Files with no GPS get an empty cell.
 
-Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
+Each answer with new suggestions goes to `features/planning`, which sends them with every `create_move_plan` call. With the box off it gets none. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. Toggling the box, a new scan or a new destination clears the plans and detects again. After moves are confirmed, a later answer changes no plan.
 
 Place folders are desktop only. The Android app keeps dated folders.
 
@@ -217,7 +217,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
 - **Undo** drops the undone files, and records left empty. A placed file that goes back to its old place folder is recorded there again. Redo doesn't add them back.
 - **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind and `country` at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name. Records from before `country` count as home's country.
-- **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
+- **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. A renamed suggestion drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
 - **Emptied day folders** a run removes the folders placed files moved out of once they are empty, walking up parent by parent. It stops below the place folder, or the trip or outing folder for files in no place (`safe_fs::remove_empty_parents`).

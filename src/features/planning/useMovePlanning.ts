@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { createMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, PlaceSuggestion, PlacedMove } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
-import { acceptPlaces } from "./acceptedPlaces";
+import { acceptPlaces, type AcceptedPlaces } from "./acceptedPlaces";
 import { usePlacedMoves } from "./usePlacedMoves";
 import { usePlanBatches } from "./usePlanBatches";
 import { usePlanEvents } from "./usePlanEvents";
@@ -26,7 +26,8 @@ export function useMovePlanning({
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   const signaturesRef = useRef<Map<string, string>>(new Map());
   // Accepted place suggestions go with every plan request.
-  const placesRef = useRef(acceptPlaces([]));
+  // `null` holds plans back until detection answers, so no file shows a date folder first.
+  const placesRef = useRef<AcceptedPlaces | null>(acceptPlaces([]));
   const { planPlaced, dropPlaced, isPlaced, resetPlaced } = usePlacedMoves({
     selectedFolder,
     addPlan,
@@ -40,10 +41,10 @@ export function useMovePlanning({
 
   const requestPlans = useCallback(
     (rows: FileRecord[], metadataResults: MetadataResult[]) => {
-      if (!selectedFolder) {
+      const places = placesRef.current;
+      if (!selectedFolder || !places) {
         return;
       }
-      const places = placesRef.current;
       const candidates = claimPlanCandidates(
         rows.filter((row) => !isPlaced(row.id)),
         metadataResults,
@@ -96,19 +97,27 @@ export function useMovePlanning({
 
   // A new destination or scan drops the place folders along with the plans.
   // Answers to requests in flight carry the old destination, so they are forgotten too.
-  const clearPlans = useCallback(() => {
-    signaturesRef.current = new Map();
-    placesRef.current = acceptPlaces([]);
-    dropPlaced();
-    dropPlans();
-    resetRequests();
-    setPlanErrorsByFileId({});
-  }, [dropPlaced, dropPlans, resetRequests]);
+  const clearPlans = useCallback(
+    (waitForPlaces: boolean) => {
+      signaturesRef.current = new Map();
+      placesRef.current = waitForPlaces ? null : acceptPlaces([]);
+      dropPlaced();
+      dropPlans();
+      resetRequests();
+      setPlanErrorsByFileId({});
+    },
+    [dropPlaced, dropPlans, resetRequests]
+  );
 
-  const resetPlanning = useCallback(() => {
-    clearPlans();
-    resetPlaced();
-  }, [clearPlans, resetPlaced]);
+  const resetPlanning = useCallback(
+    (waitForPlaces: boolean) => {
+      clearPlans(waitForPlaces);
+      resetPlaced();
+    },
+    [clearPlans, resetPlaced]
+  );
+
+  const waitingForPlaces = useCallback(() => placesRef.current === null, []);
 
   return {
     movePlansByFileId,
@@ -116,6 +125,7 @@ export function useMovePlanning({
     planErrorsByFileId,
     requestPlans,
     applyPlaceSuggestions,
+    waitingForPlaces,
     clearPlans,
     resetPlanning
   };

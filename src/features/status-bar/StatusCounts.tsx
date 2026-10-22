@@ -5,7 +5,7 @@ import type { ScanProgress } from "../scan";
 
 interface StatusCountsProps {
   scan: ScanProgress;
-  dates: MetadataProgress;
+  metadata: MetadataProgress;
   planErrors: number;
   summary: MoveConfirmationSummary;
   showReady: boolean;
@@ -14,7 +14,7 @@ interface StatusCountsProps {
 
 export function StatusCounts({
   scan,
-  dates,
+  metadata,
   planErrors,
   summary,
   showReady,
@@ -23,9 +23,9 @@ export function StatusCounts({
   return (
     <>
       <span>Files: {scan.discovered}</span>
-      {dates.read < dates.total ? (
+      {metadata.read < metadata.total ? (
         <span>
-          Dates read: {dates.read}/{dates.total}
+          Metadata read: {metadata.read}/{metadata.total}
         </span>
       ) : null}
       {scan.skipped > 0 ? <span>Skipped: {scan.skipped}</span> : null}

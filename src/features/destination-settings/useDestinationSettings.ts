@@ -6,7 +6,8 @@ export type DestinationSettingsOperation = () => Promise<DestinationSettings | n
 
 interface ChangeContext {
   locked: boolean;
-  onChanged: () => void;
+  // Gets the saved settings, so the replan doesn't wait for a render.
+  onChanged: (settings: DestinationSettings) => void;
 }
 
 export function useDestinationSettings() {
@@ -44,9 +45,10 @@ export function useDestinationSettings() {
     }
     setPending(true);
     try {
-      setSettings((await operation()) ?? (await getDestinationSettings()));
+      const changed = (await operation()) ?? (await getDestinationSettings());
+      setSettings(changed);
       setError(null);
-      onChanged();
+      onChanged(changed);
     } catch (changeError: unknown) {
       setError(`Failed to update destination settings: ${String(changeError)}`);
     } finally {

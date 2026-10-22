@@ -73,7 +73,7 @@ describe("useMovePlanning placed files", () => {
     const { result, onPlacedFiles } = await renderPlanning();
     act(() => result.current.applyPlaceSuggestions([CONTINUED], [RECORD], [METADATA]));
 
-    act(() => result.current.resetPlanning());
+    act(() => result.current.resetPlanning(false));
     act(() => result.current.requestPlans([RECORD], [METADATA]));
     await act(async () => answer([PLACED]));
 

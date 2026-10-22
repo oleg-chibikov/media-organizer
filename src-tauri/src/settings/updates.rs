@@ -41,6 +41,16 @@ pub(crate) fn set_rename_in_place(
     })
 }
 
+pub(crate) fn set_group_by_place(
+    settings: &DestinationSettings,
+    group_by_place: bool,
+) -> DestinationSettings {
+    stamped(DestinationSettings {
+        group_by_place,
+        ..settings.clone()
+    })
+}
+
 /// Saves the home the person picked, or clears it so a scan can learn one again.
 pub(crate) fn set_home_location(
     settings: &DestinationSettings,

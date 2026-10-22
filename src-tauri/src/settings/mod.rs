@@ -16,6 +16,6 @@ pub(crate) use custom_root_validation::validate_custom_root_media_folder;
 pub(crate) use home_precedence::{offer_home_location, replace_home_location};
 pub(crate) use store::SettingsStore;
 pub(crate) use updates::{
-    clear_root_media_folder, set_force_processed_folder, set_home_location, set_rename_in_place,
-    set_root_media_folder,
+    clear_root_media_folder, set_force_processed_folder, set_group_by_place, set_home_location,
+    set_rename_in_place, set_root_media_folder,
 };

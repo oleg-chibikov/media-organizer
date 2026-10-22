@@ -1,68 +1,61 @@
-import { useCallback, useMemo, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { PlaceSuggestion } from "../../lib/types";
-import { acceptedSuggestions, type PlaceChoice } from "./placeChoice";
+import { placesHint } from "./placesHint";
 import { usePlaceDetection, type PlaceDetectionOptions } from "./usePlaceDetection";
 
 interface PlaceSuggestionsOptions extends PlaceDetectionOptions {
-  // Files already moving keep the folders they were confirmed with.
-  locked: boolean;
+  // Off sends every file to date folders without waiting for detection.
+  groupByPlace: boolean;
+  // Gets the suggestions the plans should use, each time they change.
   onApply: (accepted: PlaceSuggestion[]) => void;
 }
 
 const NO_SUGGESTIONS: PlaceSuggestion[] = [];
 const NO_FILE_PLACES: Record<string, string> = {};
 
+// Detects trips and outings, and hands them to planning while grouping by place is on.
 export function usePlaceSuggestions({
-  locked,
+  groupByPlace,
   onApply,
   ...detectionOptions
 }: PlaceSuggestionsOptions) {
   const {
     detection,
     locating,
+    settled,
     progress,
     reset: resetDetection
   } = usePlaceDetection(detectionOptions);
-  // Kept across scans: a suggestion id stays the same for the same files.
-  const [dismissedIds, setDismissedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [choices, setChoices] = useState<Record<string, PlaceChoice>>({});
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const suggestions = detection?.suggestions ?? NO_SUGGESTIONS;
+  const onApplyRef = useRef(onApply);
+  // What planning got last. Placed files join the rows and trigger detection again,
+  // so an answer with the same suggestions changes no plan.
+  const appliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    onApplyRef.current = onApply;
+  });
 
-  const found = detection?.suggestions ?? NO_SUGGESTIONS;
-  const suggestions = locked ? NO_SUGGESTIONS : found;
-  // Dismissing hides the banner only. The toolbar button still opens the review.
-  const bannerVisible = useMemo(
-    () => suggestions.some((suggestion) => !dismissedIds.has(suggestion.id)),
-    [dismissedIds, suggestions]
-  );
+  useEffect(() => {
+    if (groupByPlace && !settled) {
+      return;
+    }
+    const accepted = groupByPlace ? suggestions : NO_SUGGESTIONS;
+    const signature = JSON.stringify(accepted);
+    if (appliedRef.current !== signature) {
+      appliedRef.current = signature;
+      onApplyRef.current(accepted);
+    }
+  }, [groupByPlace, settled, suggestions]);
 
-  const reset = useCallback(() => {
-    resetDetection();
-    setChoices({});
-    setReviewOpen(false);
-  }, [resetDetection]);
-
+  const status = detection?.status ?? null;
   return {
-    suggestions,
-    bannerVisible,
     locating,
     progress,
-    status: detection?.status ?? null,
+    hint: placesHint(status, suggestions, locating),
     filePlaces: detection?.file_places ?? NO_FILE_PLACES,
-    choices,
-    reviewOpen: reviewOpen && suggestions.length > 0,
-    openReview: () => setReviewOpen(true),
-    closeReview: () => setReviewOpen(false),
-    dismiss: () =>
-      setDismissedIds((previous) => new Set([...previous, ...suggestions.map((s) => s.id)])),
-    apply: (edited: Record<string, PlaceChoice>) => {
-      const next = { ...choices, ...edited };
-      setChoices(next);
-      setReviewOpen(false);
-      onApply(acceptedSuggestions(found, next));
-    },
-    reset
+    reset: () => {
+      appliedRef.current = null;
+      resetDetection();
+    }
   };
 }
-
-export type PlaceSuggestionsState = ReturnType<typeof usePlaceSuggestions>;

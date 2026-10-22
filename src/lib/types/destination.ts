@@ -15,6 +15,7 @@ export interface DestinationSettings {
   root_media_folder: string | null;
   force_processed_folder: boolean;
   rename_in_place: boolean;
+  group_by_place: boolean;
   home: HomeLocation | null;
   updated_at: string;
 }

@@ -15,3 +15,5 @@ export const setForceProcessedFolder = (forceProcessedFolder: boolean) =>
   });
 export const setRenameInPlace = (renameInPlace: boolean) =>
   invokeCommand<DestinationSettings>("set_rename_in_place", { renameInPlace });
+export const setGroupByPlace = (groupByPlace: boolean) =>
+  invokeCommand<DestinationSettings>("set_group_by_place", { groupByPlace });

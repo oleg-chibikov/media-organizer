@@ -1,14 +1,16 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IDLE_MOVE_EXECUTION } from "../features/moves";
+import type { DestinationSettings } from "../lib/types";
 import { METADATA, RECORD } from "../test/pipelineFixtures";
 import { useDestinationChange } from "./useDestinationChange";
 
 type Options = Parameters<typeof useDestinationChange>[0];
 
 function options(confirmed: boolean, rows = [RECORD]) {
-  const onChangedRef: { current: (() => void) | null } = { current: null };
-  const applyChange = vi.fn(async (_operation, context: { onChanged: () => void }) => {
+  type OnChanged = (settings: DestinationSettings) => void;
+  const onChangedRef: { current: OnChanged | null } = { current: null };
+  const applyChange = vi.fn(async (_operation, context: { onChanged: OnChanged }) => {
     onChangedRef.current = context.onChanged;
   });
   const value = {
@@ -45,8 +47,9 @@ describe("useDestinationChange", () => {
     const latest = options(false);
     rerender(latest.value);
 
-    first.onChangedRef.current?.();
+    first.onChangedRef.current?.({ group_by_place: true } as DestinationSettings);
 
+    expect(latest.value.planning.clearPlans).toHaveBeenCalledWith(true);
     expect(latest.value.planning.requestPlans).toHaveBeenCalledWith([RECORD], [METADATA]);
     expect(latest.value.placeSuggestions.reset).toHaveBeenCalledOnce();
   });

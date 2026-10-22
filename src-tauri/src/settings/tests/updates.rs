@@ -1,5 +1,5 @@
 use crate::settings::{
-    clear_root_media_folder, set_force_processed_folder, set_rename_in_place,
+    clear_root_media_folder, set_force_processed_folder, set_group_by_place, set_rename_in_place,
     set_root_media_folder, storage::default_destination_settings,
 };
 
@@ -45,4 +45,14 @@ fn updates_rename_in_place_and_keeps_other_settings() {
         toggled.root_media_folder,
         Some(r"C:\Media\Library".to_string())
     );
+}
+
+#[test]
+fn groups_by_place_by_default_and_turns_it_off() {
+    let defaults = default_destination_settings();
+    let off = set_group_by_place(&set_rename_in_place(&defaults, true), false);
+
+    assert!(defaults.group_by_place);
+    assert!(!off.group_by_place);
+    assert!(off.rename_in_place);
 }

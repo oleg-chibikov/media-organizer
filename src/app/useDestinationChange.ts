@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
-import type {
-  DestinationSettingsOperation,
-  useDestinationSettings
+import {
+  groupsByPlace,
+  type DestinationSettingsOperation,
+  type useDestinationSettings
 } from "../features/destination-settings";
 import { metadataResultsFor } from "../features/metadata";
 import type { useMoveExecution } from "../features/moves";
@@ -11,11 +12,12 @@ import {
   chooseRootMediaFolder,
   clearRootMediaFolder,
   setForceProcessedFolder,
+  setGroupByPlace,
   setHomeFromCurrentLocation,
   setHomeLocation,
   setRenameInPlace
 } from "../lib/api";
-import type { HomeLocation, MetadataResult } from "../lib/types";
+import type { DestinationSettings, HomeLocation, MetadataResult } from "../lib/types";
 
 interface DestinationChangeOptions {
   destination: ReturnType<typeof useDestinationSettings>;
@@ -37,7 +39,7 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     latestRef.current = options;
   });
 
-  const replanForDestinationChange = () => {
+  const replanForDestinationChange = (settings: DestinationSettings) => {
     const { scan, metadataByFileId, planning, moves: latestMoves } = latestRef.current;
     const { executing, confirmed } = latestMoves.execution;
     if (!scan.selectedFolder || executing || confirmed) {
@@ -45,11 +47,11 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     }
     // Place folders were suggested for the old destination.
     latestRef.current.placeSuggestions.reset();
+    planning.clearPlans(groupsByPlace(settings));
     const metadataResults = metadataResultsFor(scan.rows, metadataByFileId);
     if (metadataResults.length === 0) {
       return;
     }
-    planning.clearPlans();
     latestMoves.resetMovesForReplan();
     planning.requestPlans(scan.rows, metadataResults);
   };
@@ -67,6 +69,7 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     clearRoot: () => change(clearRootMediaFolder),
     setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue)),
     setRenameInPlace: (nextValue: boolean) => change(() => setRenameInPlace(nextValue)),
+    setGroupByPlace: (nextValue: boolean) => change(() => setGroupByPlace(nextValue)),
     setHome: (home: HomeLocation | null) => void changeHome(() => setHomeLocation(home)),
     locateHome: () => changeHome(setHomeFromCurrentLocation)
   };

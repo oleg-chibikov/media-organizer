@@ -90,12 +90,3 @@ export const OUTING: PlaceSuggestion = {
   continues: null,
   month_folder: null
 };
-
-export const TRIP_DATES: Record<string, string> = {
-  y1: "2025-10-28 09:00:00",
-  y2: "2025-10-29 17:00:00",
-  sf: "2025-10-29 19:00:00",
-  r1: "2025-10-30 18:00:00",
-  g1: "2025-03-01 10:00:00",
-  g2: "2025-03-01 12:00:00"
-};

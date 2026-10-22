@@ -23,6 +23,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     root_media_folder: null,
     force_processed_folder: false,
     rename_in_place: false,
+    group_by_place: true,
     home: null,
     updated_at: "2026-05-24T00:00:00Z"
   })),
@@ -71,14 +72,18 @@ describe("App", () => {
       listeners.scan?.onFile({ record: RECORD });
       listeners.scan?.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
     });
-    await waitFor(() =>
-      expect(api.createMovePlan).toHaveBeenCalledWith(
-        expect.any(Number),
-        "C:\\in",
-        [RECORD],
-        [METADATA],
-        []
-      )
+    // Plans wait for place detection, so no file shows a date folder first.
+    expect(api.createMovePlan).not.toHaveBeenCalled();
+    await waitFor(
+      () =>
+        expect(api.createMovePlan).toHaveBeenCalledWith(
+          expect.any(Number),
+          "C:\\in",
+          [RECORD],
+          [METADATA],
+          []
+        ),
+      { timeout: 3000 }
     );
 
     const request_id = vi.mocked(api.createMovePlan).mock.lastCall?.[0] ?? 0;
@@ -88,7 +93,8 @@ describe("App", () => {
     });
     const statusBar = within(screen.getByRole("contentinfo"));
     expect(statusBar.getByRole("status")).toHaveTextContent("Ready to move");
-    expect(await screen.findByText("No GPS in these files", {}, { timeout: 3000 })).toBeVisible();
+    const placeToggle = screen.getByRole("checkbox", { name: "Group by place" });
+    expect(placeToggle.closest("label")?.title).toContain("No GPS in these files.");
     expect(screen.getByText("Ready: 1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));

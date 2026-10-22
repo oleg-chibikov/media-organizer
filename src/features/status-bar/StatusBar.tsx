@@ -11,7 +11,7 @@ import { StatusCounts } from "./StatusCounts";
 interface StatusBarProps {
   health: string;
   scan: ScanProgress;
-  dates: MetadataProgress;
+  metadata: MetadataProgress;
   planning: PlanningStatus;
   summary: MoveConfirmationSummary;
   execution: MoveExecutionState;
@@ -25,7 +25,7 @@ interface StatusBarProps {
 export function StatusBar({
   health,
   scan,
-  dates,
+  metadata,
   planning,
   summary,
   execution,
@@ -43,7 +43,7 @@ export function StatusBar({
         </span>
         <StatusCounts
           scan={scan}
-          dates={dates}
+          metadata={metadata}
           planErrors={planning.planErrors}
           summary={summary}
           showReady={!execution.completed}

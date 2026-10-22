@@ -81,9 +81,12 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     setDetection(null);
   }, []);
 
+  const locating = hasMedia && !options.scanCancelled && answeredKey !== key;
   return {
     detection,
-    locating: hasMedia && !options.scanCancelled && answeredKey !== key,
+    locating,
+    // Detection answered, failed, or has no files to look at.
+    settled: !locating && (scanCompleted || options.scanCancelled),
     progress,
     reset
   };
