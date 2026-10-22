@@ -38,27 +38,21 @@ pub struct MovePlan {
     pub place: Option<FilePlace>,
 }
 
+/// A file the planner couldn't plan, with the reason.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlanFileEvent {
-    pub scan_id: u64,
-    pub plan: MovePlan,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlanErrorEvent {
-    pub scan_id: u64,
+pub struct PlanFileError {
     pub file_id: String,
     pub error: String,
 }
 
-/// One planning pass ended. The webview waits for `plan:settled` instead.
+/// The plans and errors of one planning pass, in one event instead of one per file.
 #[derive(Debug, Clone, Serialize)]
-pub struct PlanFinishedEvent {
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct PlanFilesEvent {
     pub scan_id: u64,
-    pub planned: u64,
-    pub errors: u64,
+    pub plans: Vec<MovePlan>,
+    pub errors: Vec<PlanFileError>,
 }
 
 /// The scan's plans are gone, as after a new destination. New ones follow.

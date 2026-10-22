@@ -1,29 +1,18 @@
-use super::{EventSink, PLAN_CLEARED, PLAN_ERROR, PLAN_FILE, PLAN_FINISHED, PLAN_SETTLED};
-use crate::models::{
-    PlanClearedEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, PlanSettledEvent,
-};
+use super::{EventSink, PLAN_CLEARED, PLAN_FILES, PLAN_SETTLED};
+use crate::models::{PlanClearedEvent, PlanFilesEvent, PlanSettledEvent};
 
-pub(crate) fn plan_file(sink: &impl EventSink, payload: PlanFileEvent) {
-    log::debug!(
-        "Planned {} -> {}",
-        payload.plan.original_name,
-        payload.plan.destination_path
-    );
-    sink.emit(PLAN_FILE, payload);
-}
-
-pub(crate) fn plan_error(sink: &impl EventSink, payload: PlanErrorEvent) {
-    log::warn!("Plan error for {}: {}", payload.file_id, payload.error);
-    sink.emit(PLAN_ERROR, payload);
-}
-
-pub(crate) fn plan_finished(sink: &impl EventSink, payload: PlanFinishedEvent) {
-    log::info!(
-        "Plan finished: {} planned, {} errors",
-        payload.planned,
-        payload.errors
-    );
-    sink.emit(PLAN_FINISHED, payload);
+pub(crate) fn plan_files(sink: &impl EventSink, payload: PlanFilesEvent) {
+    for plan in &payload.plans {
+        log::debug!(
+            "Planned {} -> {}",
+            plan.original_name,
+            plan.destination_path
+        );
+    }
+    for failed in &payload.errors {
+        log::warn!("Plan error for {}: {}", failed.file_id, failed.error);
+    }
+    sink.emit(PLAN_FILES, payload);
 }
 
 pub(crate) fn plan_cleared(sink: &impl EventSink, payload: PlanClearedEvent) {

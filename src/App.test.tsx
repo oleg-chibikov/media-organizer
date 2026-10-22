@@ -77,7 +77,7 @@ describe("App", () => {
     });
 
     act(() => {
-      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] });
       listeners.plan?.onSettled({ scan_id: 1 });
     });
     const statusBar = within(screen.getByRole("contentinfo"));

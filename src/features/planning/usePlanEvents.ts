@@ -1,11 +1,11 @@
 import type { RefObject } from "react";
 import { attachPlanListeners, useBackendEvents } from "../../lib/api";
-import type { MovePlan, PlanErrorEvent, PlanFileEvent } from "../../lib/types";
+import type { PlanFilesEvent } from "../../lib/types";
+import type { PlannedFiles } from "./usePlanBatches";
 
 interface PlanEventsOptions {
   scanIdRef: RefObject<number | null>;
-  addPlan: (plan: MovePlan) => void;
-  setError: (fileId: string, error: string) => void;
+  addPlanned: (planned: PlannedFiles) => void;
   clearPlans: () => void;
   onSettled: () => void;
   reportError: (message: string) => void;
@@ -14,7 +14,7 @@ interface PlanEventsOptions {
 // Mirrors the backend's plans for the scan on screen. The backend sends them in order,
 // so applying each event as it lands keeps the plans it has. Older scans' events are dropped.
 export function usePlanEvents(options: PlanEventsOptions) {
-  const { scanIdRef, addPlan, setError, clearPlans, onSettled } = options;
+  const { scanIdRef, addPlanned, clearPlans, onSettled } = options;
   const forScan =
     <T extends { scan_id: number }>(apply: (payload: T) => void) =>
     (payload: T) => {
@@ -25,8 +25,7 @@ export function usePlanEvents(options: PlanEventsOptions) {
   useBackendEvents(
     attachPlanListeners,
     {
-      onFile: forScan(({ plan }: PlanFileEvent) => addPlan(plan)),
-      onError: forScan(({ file_id, error }: PlanErrorEvent) => setError(file_id, error)),
+      onFiles: forScan((planned: PlanFilesEvent) => addPlanned(planned)),
       onCleared: forScan(clearPlans),
       onSettled: forScan(onSettled)
     },

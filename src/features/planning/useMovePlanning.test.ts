@@ -29,7 +29,7 @@ describe("useMovePlanning", () => {
 
     act(() => result.current.applyFilePlaces({}));
     expect(applyFilePlaces).toHaveBeenCalledWith(1, {});
-    act(() => listeners.plan?.onFile({ scan_id: 1, plan: PLAN }));
+    act(() => listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] }));
     expect(result.current.planning).toBe(true);
     act(() => listeners.plan?.onSettled({ scan_id: 1 }));
 
@@ -42,8 +42,11 @@ describe("useMovePlanning", () => {
     const { result } = await renderPlanning();
 
     act(() => {
-      listeners.plan?.onFile({ scan_id: 0, plan: PLAN });
-      listeners.plan?.onError({ scan_id: 0, file_id: "f1", error: "gone" });
+      listeners.plan?.onFiles({
+        scan_id: 0,
+        plans: [PLAN],
+        errors: [{ file_id: "f2", error: "gone" }]
+      });
       listeners.plan?.onSettled({ scan_id: 0 });
     });
 
@@ -55,15 +58,19 @@ describe("useMovePlanning", () => {
     const { result } = await renderPlanning();
 
     act(() => {
-      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
-      listeners.plan?.onError({ scan_id: 1, file_id: "f1", error: "Bad date" });
+      listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] });
+      listeners.plan?.onFiles({
+        scan_id: 1,
+        plans: [],
+        errors: [{ file_id: "f1", error: "Bad date" }]
+      });
       listeners.plan?.onSettled({ scan_id: 1 });
     });
     expect(result.current.planErrorsByFileId).toEqual({ f1: "Bad date" });
     expect(result.current.movePlansByFileId.has("f1")).toBe(false);
 
     act(() => {
-      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] });
       listeners.plan?.onSettled({ scan_id: 1 });
     });
     expect(result.current.planErrorsByFileId).toEqual({});
@@ -73,7 +80,7 @@ describe("useMovePlanning", () => {
     const { result } = await renderPlanning();
     act(() => {
       result.current.applyFilePlaces({});
-      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] });
       listeners.plan?.onSettled({ scan_id: 1 });
     });
 

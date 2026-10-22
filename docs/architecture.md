@@ -46,7 +46,7 @@ sequenceDiagram
   Rust->>Exif: reads tags of each batch
   Rust-->>UI: metadata:results with capture dates
   UI->>Rust: apply_file_places, once places are known
-  Rust-->>UI: plan:file events with destinations, then plan:settled
+  Rust-->>UI: plan:files events with destinations, then plan:settled
   Person->>UI: Confirms the move
   UI->>Rust: start_moves
   Rust->>Disk: checks, moves and logs each file
@@ -62,7 +62,7 @@ sequenceDiagram
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `scan_metadata` takes each batch of photos and videos right after its `scan:files` event and reads them through the persistent ExifTool workers of `metadata_queue`. It streams `metadata:results` and ends with `metadata:finished`. Both carry the `scan_id` from `scan:started`, so `features/metadata` drops dates of a replaced scan. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
-4. `scan_session` plans each file once its date is read and the place folders are known. `apply_file_places` tells it the place of each file, see Place Folders. `planner` streams `plan:*` events with destination previews and the `scan_id`. One lock orders every planning pass of a scan, so `features/planning` mirrors the events as they land. Every plan of a scan shares one set of reserved names, so two files planned in different passes don't get the same destination.
+4. `scan_session` plans each file once its date is read and the place folders are known. `apply_file_places` tells it the place of each file, see Place Folders. Each planning pass sends one `plan:files` event with its plans, errors and the `scan_id`. The destination layout is read once per set of places. One lock orders every planning pass of a scan, so `features/planning` mirrors the events as they land. Every plan of a scan shares one set of reserved names, so two files planned in different passes don't get the same destination.
 5. After the user confirms, `features/moves` calls `start_moves`. A thread of `scan_session` moves every ready file through `move_run`, then the files that become ready while the scan, its reads or its place folders are still going. `move_run` checks, moves and records each file and streams `move:*` events. Once nothing is left to check, the session removes the empty source folders and sends `move:done`.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
@@ -109,7 +109,7 @@ flowchart LR
 ```
 
 - **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.
-- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events and metadata results go through `lib/useBufferedFlush.ts`. Scan rows and plans have their own buffers. A large folder costs a few renders a second instead of one per file.
+- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events, metadata results and plans go through `lib/useBufferedFlush.ts`. Scan rows have their own buffer. A large folder costs a few renders a second instead of one per file.
 - **Arrows inside the frontend** pass data between features through `app/useAppSession.ts`.
 - **Ids, not records** the backend keeps each scan's records and dates in `scan_session`, so commands get file ids or plans. A folder of 100,000 files doesn't cross IPC again on every plan or move.
 - **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_destination_settings`.

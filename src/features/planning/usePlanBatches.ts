@@ -1,56 +1,69 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { MovePlan } from "../../lib/types";
+import { useCallback, useState } from "react";
+import type { MovePlan, PlanFileError } from "../../lib/types";
 import { FileIdMap } from "../../lib/fileIdMap";
+import { useBufferedFlush } from "../../lib/useBufferedFlush";
 import { withoutFileIds } from "./withoutFileIds";
+
+export interface PlannedFiles {
+  plans: MovePlan[];
+  errors: PlanFileError[];
+}
 
 const fileIdOf = (plan: MovePlan) => plan.file_id;
 
 // Each flush redraws every row, so a large folder needs few of them. Still feels live.
 const PLAN_FLUSH_MS = 250;
 
-// Collects streamed plans and applies them in batches, one render per batch instead of per file.
+// The last plan or error of each file, since a later pass replaces an earlier one.
+function latestOutcomes(batches: PlannedFiles[]) {
+  const latest = new Map<string, MovePlan | PlanFileError>();
+  for (const { plans, errors } of batches) {
+    for (const plan of plans) {
+      latest.set(plan.file_id, plan);
+    }
+    for (const failed of errors) {
+      latest.set(failed.file_id, failed);
+    }
+  }
+  const plans: MovePlan[] = [];
+  const errors: Record<string, string> = {};
+  for (const outcome of latest.values()) {
+    if ("error" in outcome) {
+      errors[outcome.file_id] = outcome.error;
+    } else {
+      plans.push(outcome);
+    }
+  }
+  return { plans, errors };
+}
+
+// Collects streamed plans and errors and applies them in batches, one render per batch.
 export function usePlanBatches() {
   const [movePlansByFileId, setMovePlansByFileId] = useState(FileIdMap.empty<MovePlan>);
-  const pendingRef = useRef<Record<string, MovePlan>>({});
-  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
 
-  const cancelScheduledFlush = useCallback(() => {
-    if (flushTimerRef.current !== null) {
-      clearTimeout(flushTimerRef.current);
-      flushTimerRef.current = null;
-    }
+  const apply = useCallback((batches: PlannedFiles[]) => {
+    const { plans, errors } = latestOutcomes(batches);
+    const failedIds = Object.keys(errors);
+    setMovePlansByFileId((previous) => previous.with(plans, fileIdOf).without(failedIds));
+    setPlanErrorsByFileId((previous) => {
+      const next = withoutFileIds(previous, plans.map(fileIdOf));
+      return failedIds.length > 0 ? { ...next, ...errors } : next;
+    });
   }, []);
-
-  const flushPlans = useCallback(() => {
-    cancelScheduledFlush();
-    const pending = pendingRef.current;
-    if (Object.keys(pending).length === 0) {
-      return;
-    }
-    pendingRef.current = {};
-    setMovePlansByFileId((previous) => previous.with(Object.values(pending), fileIdOf));
-  }, [cancelScheduledFlush]);
-
-  const addPlan = useCallback(
-    (plan: MovePlan) => {
-      pendingRef.current[plan.file_id] = plan;
-      flushTimerRef.current ??= setTimeout(flushPlans, PLAN_FLUSH_MS);
-    },
-    [flushPlans]
-  );
+  const { add, flush, drop } = useBufferedFlush(apply, PLAN_FLUSH_MS);
 
   const dropPlans = useCallback(() => {
-    cancelScheduledFlush();
-    pendingRef.current = {};
+    drop();
     setMovePlansByFileId(FileIdMap.empty());
-  }, [cancelScheduledFlush]);
+    setPlanErrorsByFileId({});
+  }, [drop]);
 
-  const dropPlansFor = useCallback((fileIds: string[]) => {
-    pendingRef.current = withoutFileIds(pendingRef.current, fileIds);
-    setMovePlansByFileId((previous) => previous.without(fileIds));
-  }, []);
-
-  useEffect(() => cancelScheduledFlush, [cancelScheduledFlush]);
-
-  return { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor };
+  return {
+    movePlansByFileId,
+    planErrorsByFileId,
+    addPlanned: add,
+    flushPlans: flush,
+    dropPlans
+  };
 }

@@ -2,8 +2,7 @@ import type {
   FilePlace,
   MoveConfirmationSummary,
   PlanClearedEvent,
-  PlanErrorEvent,
-  PlanFileEvent,
+  PlanFilesEvent,
   PlanSettledEvent
 } from "../types";
 import { listenAll } from "./listenAll";
@@ -23,15 +22,13 @@ export const getMoveConfirmationSummary = (scanId: number, fileIds: string[]) =>
   invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", { scanId, fileIds });
 
 export interface PlanListeners {
-  onFile: (payload: PlanFileEvent) => void;
-  onError: (payload: PlanErrorEvent) => void;
+  onFiles: (payload: PlanFilesEvent) => void;
   onCleared: (payload: PlanClearedEvent) => void;
   onSettled: (payload: PlanSettledEvent) => void;
 }
 
 const PLAN_EVENTS = {
-  onFile: "plan:file",
-  onError: "plan:error",
+  onFiles: "plan:files",
   onCleared: "plan:cleared",
   onSettled: "plan:settled"
 } as const;

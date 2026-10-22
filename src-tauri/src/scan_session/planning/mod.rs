@@ -14,7 +14,7 @@ use super::ScanSession;
 use crate::{
     events::{self, EventSink},
     models::{FilePlace, MetadataResult, MovePlan, PlanClearedEvent, PlanSettledEvent, PlanStatus},
-    planner::{PlaceFolders, Reservations},
+    planner::{DestinationLayout, PlaceFolders, Reservations},
     settings::SettingsStore,
 };
 
@@ -29,6 +29,8 @@ pub(crate) struct PlanContext {
 pub(super) struct Planning {
     /// The place folder of each file. `None` holds plans back until places are known.
     places: Option<PlaceFolders>,
+    /// Where the files go, resolved on the first plan after the places are set.
+    layout: Option<DestinationLayout>,
     signatures: HashMap<String, String>,
     plans: HashMap<String, MovePlan>,
     reservations: Reservations,
@@ -56,10 +58,12 @@ impl ScanSession {
         match PlaceFolders::new(&file_places, &self.all_metadata()) {
             Ok(folders) => {
                 planning.places = Some(folders);
+                planning.layout = None;
                 self.plan_files(sink, &mut planning, &file_ids);
             }
             Err(error) => {
                 planning.places = Some(PlaceFolders::default());
+                planning.layout = None;
                 self.fail_all(sink, &file_ids, &error);
             }
         }

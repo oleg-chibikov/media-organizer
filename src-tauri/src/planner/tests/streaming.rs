@@ -2,25 +2,18 @@ use std::path::Path;
 
 use super::dated;
 use crate::{
-    events,
     models::FileKind,
-    planner::{stream_move_plan, PlaceFolders, Reservations},
-    test_support::{
-        events::RecordingSink,
-        media::{dated_metadata, file_record},
-    },
+    planner::{plan_files, PlaceFolders, Reservations},
+    test_support::media::{dated_metadata, file_record},
 };
 
 #[test]
-fn streams_one_plan_per_media_file_then_totals() {
+fn plans_only_photos_and_videos() {
     let photo = file_record("IMG_1001", "jpg", FileKind::Photo);
     let notes = file_record("notes", "txt", FileKind::Unsupported);
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
-    let sink = RecordingSink::default();
 
-    stream_move_plan(
-        &sink,
-        7,
+    let planned = plan_files(
         &dated(Path::new("MediaRoot")),
         &[photo, notes],
         &[metadata],
@@ -28,10 +21,7 @@ fn streams_one_plan_per_media_file_then_totals() {
         &mut Reservations::default(),
     );
 
-    assert_eq!(sink.names(), vec![events::PLAN_FILE, events::PLAN_FINISHED]);
-    let finished = &sink.payloads(events::PLAN_FINISHED)[0];
-    assert_eq!(finished["planned"], 1);
-    assert_eq!(finished["errors"], 0);
-    assert_eq!(finished["scan_id"], 7);
-    assert_eq!(sink.payloads(events::PLAN_FILE)[0]["scan_id"], 7);
+    assert_eq!(planned.plans.len(), 1);
+    assert_eq!(planned.plans[0].file_id, "IMG_1001");
+    assert!(planned.errors.is_empty());
 }

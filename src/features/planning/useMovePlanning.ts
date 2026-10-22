@@ -3,7 +3,6 @@ import { applyFilePlaces, clearScanPlans } from "../../lib/api";
 import type { FilePlace } from "../../lib/types";
 import { usePlanBatches } from "./usePlanBatches";
 import { usePlanEvents } from "./usePlanEvents";
-import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
   // The backend plans the files of this scan as their dates are read.
@@ -13,8 +12,8 @@ interface MovePlanningOptions {
 
 // Shows the plans the backend makes, and tells it the place of each file.
 export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions) {
-  const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
-  const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
+  const { movePlansByFileId, planErrorsByFileId, addPlanned, flushPlans, dropPlans } =
+    usePlanBatches();
   // Plans wait for the place folders until the first apply, so no file shows a date folder first.
   const [waiting, setWaiting] = useState(true);
   const waitingRef = useRef(true);
@@ -25,22 +24,10 @@ export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions)
     setWaiting(nextWaiting);
   }, []);
 
-  const forgetPlans = useCallback(() => {
-    dropPlans();
-    setPlanErrorsByFileId({});
-  }, [dropPlans]);
-
   usePlanEvents({
     scanIdRef,
-    addPlan: (plan) => {
-      addPlan(plan);
-      setPlanErrorsByFileId((previous) => withoutFileIds(previous, [plan.file_id]));
-    },
-    setError: (fileId, error) => {
-      dropPlansFor([fileId]);
-      setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error }));
-    },
-    clearPlans: forgetPlans,
+    addPlanned,
+    clearPlans: dropPlans,
     onSettled: () => {
       // Plans land before planning counts as done.
       flushPlans();
@@ -69,7 +56,7 @@ export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions)
 
   // A new destination drops the plans. They come back once the places apply again.
   const clearPlans = useCallback(() => {
-    forgetPlans();
+    dropPlans();
     wait(true);
     const scanId = scanIdRef.current;
     if (scanId !== null) {
@@ -77,14 +64,14 @@ export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions)
         reportError(`Failed to clear the plans: ${String(error)}`)
       );
     }
-  }, [forgetPlans, reportError, scanIdRef, wait]);
+  }, [dropPlans, reportError, scanIdRef, wait]);
 
   // A new scan starts with no plans and waits for its places.
   const resetPlanning = useCallback(() => {
-    forgetPlans();
+    dropPlans();
     wait(true);
     setApplying(false);
-  }, [forgetPlans, wait]);
+  }, [dropPlans, wait]);
 
   return {
     movePlansByFileId,

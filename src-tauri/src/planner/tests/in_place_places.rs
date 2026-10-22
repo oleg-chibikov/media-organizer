@@ -6,10 +6,9 @@ use std::{
 
 use super::{photo_record, place};
 use crate::{
-    events,
-    planner::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations},
+    planner::{plan_files, DestinationLayout, PlaceFolders, Reservations},
     settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
-    test_support::{events::RecordingSink, media::dated_metadata},
+    test_support::media::dated_metadata,
 };
 
 /// Plans `a` (at the zoo) and `b` (in no place), both inside `selected`.
@@ -27,20 +26,17 @@ fn planned_dirs(layout: &DestinationLayout, selected: &Path) -> Vec<PathBuf> {
     ];
     let places = HashMap::from([("a".to_owned(), place("Zoo", None))]);
     let folders = PlaceFolders::new(&places, &metadata).expect("valid places");
-    let sink = RecordingSink::default();
-    stream_move_plan(
-        &sink,
-        0,
+    plan_files(
         layout,
         &records,
         &metadata,
         &folders,
         &mut Reservations::default(),
-    );
-    sink.payloads(events::PLAN_FILE)
-        .iter()
-        .map(|payload| PathBuf::from(payload["plan"]["destination_dir"].as_str().expect("a dir")))
-        .collect()
+    )
+    .plans
+    .iter()
+    .map(|plan| PathBuf::from(&plan.destination_dir))
+    .collect()
 }
 
 #[test]
@@ -64,14 +60,11 @@ fn placed_files_leave_for_the_root_while_the_rest_rename_in_place() {
 #[test]
 fn a_placed_file_without_a_resolved_root_is_an_error() {
     let layout = DestinationLayout::SameFolder { place_root: None };
-    let sink = RecordingSink::default();
     let metadata = [dated_metadata("a", "2025-03-01 10:00:00")];
     let places = HashMap::from([("a".to_owned(), place("Zoo", None))]);
     let folders = PlaceFolders::new(&places, &metadata).expect("valid places");
 
-    stream_move_plan(
-        &sink,
-        0,
+    let planned = plan_files(
         &layout,
         &[photo_record("a", "jpg")],
         &metadata,
@@ -79,7 +72,7 @@ fn a_placed_file_without_a_resolved_root_is_an_error() {
         &mut Reservations::default(),
     );
 
-    assert_eq!(sink.payloads(events::PLAN_ERROR).len(), 1);
+    assert_eq!(planned.errors.len(), 1);
 }
 
 #[test]

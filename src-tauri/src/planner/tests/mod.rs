@@ -11,14 +11,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations};
+use super::{plan_files, DestinationLayout, PlaceFolders, Reservations};
 use crate::{
-    events,
     models::{FileKind, FilePlace, FileRecord, HomeMatch},
-    test_support::{
-        events::RecordingSink,
-        media::{dated_metadata, file_record},
-    },
+    test_support::media::{dated_metadata, file_record},
 };
 
 fn dated(root: &Path) -> DestinationLayout {
@@ -60,18 +56,15 @@ fn planned_dirs(
         .filter_map(|(id, _, place)| Some(((*id).to_owned(), place.clone()?)))
         .collect();
     let folders = PlaceFolders::new(&places, &metadata).expect("valid places");
-    let sink = RecordingSink::default();
-    stream_move_plan(
-        &sink,
-        0,
+    plan_files(
         layout,
         &records,
         &metadata,
         &folders,
         &mut Reservations::default(),
-    );
-    sink.payloads(events::PLAN_FILE)
-        .iter()
-        .map(|payload| PathBuf::from(payload["plan"]["destination_dir"].as_str().expect("a dir")))
-        .collect()
+    )
+    .plans
+    .iter()
+    .map(|plan| PathBuf::from(&plan.destination_dir))
+    .collect()
 }
