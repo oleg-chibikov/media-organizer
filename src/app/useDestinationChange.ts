@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../lib/fileIdMap";
 import { useEffect, useRef } from "react";
 import {
   groupsByPlace,
@@ -22,7 +23,7 @@ import type { DestinationSettings, HomeLocation, MetadataResult } from "../lib/t
 interface DestinationChangeOptions {
   destination: ReturnType<typeof useDestinationSettings>;
   scan: ReturnType<typeof useScanSession>;
-  metadataByFileId: Record<string, MetadataResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
   planning: ReturnType<typeof useMovePlanning>;
   moves: ReturnType<typeof useMoveExecution>;
   placeSuggestions: { reset: () => void };

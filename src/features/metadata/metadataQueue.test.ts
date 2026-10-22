@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FileIdMap } from "../../lib/fileIdMap";
 import type { FileRecord, MetadataResult } from "../../lib/types";
 import {
   createMetadataQueue,
@@ -21,7 +22,7 @@ function row(id: string, kind: FileRecord["kind"] = "photo"): FileRecord {
 describe("metadataQueue", () => {
   it("queues only media rows without metadata, up to capacity", () => {
     const queue = createMetadataQueue();
-    const known = { b: { file_id: "b" } as MetadataResult };
+    const known = FileIdMap.from({ b: { file_id: "b" } as MetadataResult });
     enqueueRowsNeedingMetadata(
       queue,
       [row("a"), row("b"), row("c", "unsupported"), row("d"), row("e")],

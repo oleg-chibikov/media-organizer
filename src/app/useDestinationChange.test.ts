@@ -1,4 +1,5 @@
 import { renderHook } from "@testing-library/react";
+import { FileIdMap } from "../lib/fileIdMap";
 import { describe, expect, it, vi } from "vitest";
 import { IDLE_MOVE_EXECUTION } from "../features/moves";
 import type { DestinationSettings } from "../lib/types";
@@ -16,7 +17,7 @@ function options(confirmed: boolean, rows = [RECORD]) {
   const value = {
     destination: { applyChange },
     scan: { selectedFolder: "C:\\in", rows },
-    metadataByFileId: { [RECORD.id]: METADATA },
+    metadataByFileId: FileIdMap.from({ [RECORD.id]: METADATA }),
     planning: { clearPlans: vi.fn(), requestPlans: vi.fn() },
     moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMovesForReplan: vi.fn() },
     placeSuggestions: { reset: vi.fn() }

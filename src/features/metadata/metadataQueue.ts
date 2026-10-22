@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type { FileRecord, MetadataReadRequest, MetadataResult } from "../../lib/types";
 
 const METADATA_BATCH_SIZE = 8;
@@ -21,11 +22,11 @@ function hasReadableMetadata(row: FileRecord): boolean {
 export function enqueueRowsNeedingMetadata(
   queue: MetadataQueue,
   rows: FileRecord[],
-  metadataByFileId: Record<string, MetadataResult>,
+  metadataByFileId: FileIdMap<MetadataResult>,
   capacity: number
 ): void {
   for (const row of rows) {
-    if (!hasReadableMetadata(row) || metadataByFileId[row.id]) {
+    if (!hasReadableMetadata(row) || metadataByFileId.get(row.id)) {
       continue;
     }
     if (queue.requestedIds.has(row.id) || queue.queuedIds.has(row.id)) {

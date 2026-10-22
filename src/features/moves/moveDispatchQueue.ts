@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 
 export const MOVE_DISPATCH_CONCURRENCY = 1;
@@ -35,16 +36,16 @@ export function createMoveDispatchQueue(): MoveDispatchQueue {
 // Mutates the queue: tracks every ready plan once and queues those without a result.
 export function enqueueReadyPlans(
   queue: MoveDispatchQueue,
-  plansByFileId: Record<string, MovePlan>,
-  resultsByFileId: Record<string, MoveResult>
+  plansByFileId: FileIdMap<MovePlan>,
+  resultsByFileId: FileIdMap<MoveResult>
 ): void {
-  for (const plan of Object.values(plansByFileId)) {
+  for (const plan of plansByFileId.values()) {
     const fileId = plan.file_id;
     if (plan.plan_status !== "ready" || queue.trackedIds.has(fileId)) {
       continue;
     }
     queue.trackedIds.add(fileId);
-    if (resultsByFileId[fileId] !== undefined) {
+    if (resultsByFileId.get(fileId) !== undefined) {
       queue.completedIds.add(fileId);
       continue;
     }
@@ -57,8 +58,8 @@ export function enqueueReadyPlans(
 export function takeMoveBatch(
   queue: MoveDispatchQueue,
   rowById: Map<string, FileRecord>,
-  metadataByFileId: Record<string, MetadataResult>,
-  plansByFileId: Record<string, MovePlan>
+  metadataByFileId: FileIdMap<MetadataResult>,
+  plansByFileId: FileIdMap<MovePlan>
 ): MoveBatch {
   const batch: MoveBatch = { fileIds: [], files: [], metadata: [], plans: [] };
   const pending = queue.pending;
@@ -69,8 +70,8 @@ export function takeMoveBatch(
       continue;
     }
     const row = rowById.get(fileId);
-    const metadata = metadataByFileId[fileId];
-    const plan = plansByFileId[fileId];
+    const metadata = metadataByFileId.get(fileId);
+    const plan = plansByFileId.get(fileId);
     if (!row || !metadata || !plan || plan.plan_status !== "ready") {
       queue.trackedIds.delete(fileId);
       continue;

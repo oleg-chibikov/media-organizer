@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type {
   FileRecord,
   MetadataResult,
@@ -7,11 +8,11 @@ import type {
 
 export function summarizeMoveConfirmation(
   rows: FileRecord[],
-  metadataByFileId: Record<string, MetadataResult>,
-  plansByFileId: Record<string, MovePlan>
+  metadataByFileId: FileIdMap<MetadataResult>,
+  plansByFileId: FileIdMap<MovePlan>
 ): MoveConfirmationSummary {
   // Files that already have their planned name have nothing to do.
-  const plans = Object.values(plansByFileId).filter((plan) => plan.plan_status !== "already_named");
+  const plans = [...plansByFileId.values()].filter((plan) => plan.plan_status !== "already_named");
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const summary: MoveConfirmationSummary = {
     total_plans: plans.length,
@@ -38,7 +39,7 @@ export function summarizeMoveConfirmation(
       if (plan.conflict_status === "suffix_applied") {
         summary.suffix_applied += 1;
       }
-      if (metadataByFileId[plan.file_id]?.date_kind === "fallback") {
+      if (metadataByFileId.get(plan.file_id)?.date_kind === "fallback") {
         summary.fallback_warnings += 1;
       }
       const kind = rowsById.get(plan.file_id)?.kind;

@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type { FileRecord, MetadataResult } from "../../lib/types";
 
 export interface MetadataProgress {
@@ -8,14 +9,14 @@ export interface MetadataProgress {
 // Only photos and videos get metadata, so other rows don't hold detection back.
 export function metadataProgress(
   rows: FileRecord[],
-  metadataByFileId: Record<string, MetadataResult>
+  metadataByFileId: FileIdMap<MetadataResult>
 ): MetadataProgress {
   let read = 0;
   let total = 0;
   for (const row of rows) {
     if (row.kind === "photo" || row.kind === "video") {
       total += 1;
-      if (row.id in metadataByFileId) {
+      if (metadataByFileId.has(row.id)) {
         read += 1;
       }
     }

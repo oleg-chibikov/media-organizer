@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, type RefObject } from "react";
 import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
 import { IDLE_MOVE_EXECUTION, type MoveExecutionState } from "./moveExecutionState";
@@ -15,8 +16,8 @@ interface MoveExecutionOptions {
   selectedFolder: string | null;
   rows: FileRecord[];
   rowByIdRef: RefObject<Map<string, FileRecord>>;
-  metadataByFileId: Record<string, MetadataResult>;
-  movePlansByFileId: Record<string, MovePlan>;
+  metadataByFileId: FileIdMap<MetadataResult>;
+  movePlansByFileId: FileIdMap<MovePlan>;
   reportError: (message: string) => void;
 }
 

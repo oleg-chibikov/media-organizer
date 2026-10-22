@@ -1,10 +1,11 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type { MetadataResult } from "../../lib/types";
 import { PlaceSuggestionsDialog } from "./PlaceSuggestionsDialog";
 import type { PlaceSuggestionsState } from "./usePlaceSuggestions";
 
 interface PlaceSuggestionsReviewProps {
   places: PlaceSuggestionsState;
-  metadataByFileId: Record<string, MetadataResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
 }
 
 // The review dialog while it is open, wired to the suggestions state.

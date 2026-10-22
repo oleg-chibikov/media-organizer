@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { buildFileTableRow } from "./buildFileTableRow";
 import { fileRowCategory, type FileRowCategory } from "./fileRowCategory";
@@ -5,9 +6,9 @@ import type { FileRowState } from "./fileRowState";
 import type { FileTableRow } from "./fileTableColumns";
 
 interface FileRowInputs {
-  metadataByFileId: Record<string, MetadataResult>;
-  movePlansByFileId: Record<string, MovePlan>;
-  moveResultsByFileId: Record<string, MoveResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
+  movePlansByFileId: FileIdMap<MovePlan>;
+  moveResultsByFileId: FileIdMap<MoveResult>;
   planErrorsByFileId: Record<string, string>;
 }
 
@@ -37,9 +38,9 @@ export function createFileRowCache() {
   function states(records: FileRecord[], inputs: FileRowInputs): FileRowState[] {
     const result = records.map((record) => {
       const fileId = record.id;
-      const metadata = inputs.metadataByFileId[fileId];
-      const movePlan = inputs.movePlansByFileId[fileId];
-      const moveResult = inputs.moveResultsByFileId[fileId];
+      const metadata = inputs.metadataByFileId.get(fileId);
+      const movePlan = inputs.movePlansByFileId.get(fileId);
+      const moveResult = inputs.moveResultsByFileId.get(fileId);
       const planError = inputs.planErrorsByFileId[fileId];
       const state = entries.get(fileId)?.state;
       if (

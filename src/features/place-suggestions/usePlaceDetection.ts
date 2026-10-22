@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
 import type { FileRecord, HomeLocation, MetadataResult, PlaceDetection } from "../../lib/types";
@@ -10,7 +11,7 @@ export interface PlaceDetectionOptions {
   // Continued trips are matched under this folder's destination.
   selectedFolder: string | null;
   rows: FileRecord[];
-  metadataByFileId: Record<string, MetadataResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
   scanCompleted: boolean;
   // A stopped scan is never detected, so it shows no progress either.
   scanCancelled: boolean;

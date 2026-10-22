@@ -1,3 +1,4 @@
+import { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { executeMovePlan, pauseMoveRun } from "../../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
@@ -14,9 +15,9 @@ interface MoveDispatchOptions {
   stillChecking: boolean;
   selectedFolder: string | null;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
-  metadataByFileId: Record<string, MetadataResult>;
-  movePlansByFileId: Record<string, MovePlan>;
-  moveResultsByFileId: Record<string, MoveResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
+  movePlansByFileId: FileIdMap<MovePlan>;
+  moveResultsByFileId: FileIdMap<MoveResult>;
   executionConfirmed: boolean;
   updateExecution: (patch: Partial<MoveExecutionState>) => void;
   reportError: (message: string) => void;
@@ -94,7 +95,7 @@ export function useMoveDispatch({
   const startDispatch = useCallback(() => {
     restartQueue(true);
     queueRef.current.awaitingPlans = stillChecking;
-    enqueueReadyPlans(queueRef.current, movePlansByFileId, {});
+    enqueueReadyPlans(queueRef.current, movePlansByFileId, FileIdMap.empty());
   }, [movePlansByFileId, restartQueue, stillChecking]);
 
   const togglePaused = useCallback((): boolean => {

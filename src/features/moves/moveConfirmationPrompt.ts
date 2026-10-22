@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import type {
   FileRecord,
   MetadataResult,
@@ -13,24 +14,28 @@ export interface MoveConfirmationInput {
 }
 
 export function countPendingExecutableMoves(
-  plansByFileId: Record<string, MovePlan>,
-  resultsByFileId: Record<string, MoveResult>
+  plansByFileId: FileIdMap<MovePlan>,
+  resultsByFileId: FileIdMap<MoveResult>
 ): number {
-  return Object.values(plansByFileId).filter(
-    (plan) => plan.plan_status === "ready" && resultsByFileId[plan.file_id] === undefined
-  ).length;
+  let count = 0;
+  for (const plan of plansByFileId.values()) {
+    if (plan.plan_status === "ready" && !resultsByFileId.has(plan.file_id)) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 // Every planned file of the current scan, so the backend can count what it would move or skip.
 export function collectConfirmationInput(
   rows: FileRecord[],
-  metadataByFileId: Record<string, MetadataResult>,
-  plansByFileId: Record<string, MovePlan>
+  metadataByFileId: FileIdMap<MetadataResult>,
+  plansByFileId: FileIdMap<MovePlan>
 ): MoveConfirmationInput {
   const input: MoveConfirmationInput = { files: [], metadata: [], plans: [] };
   for (const row of rows) {
-    const metadata = metadataByFileId[row.id];
-    const plan = plansByFileId[row.id];
+    const metadata = metadataByFileId.get(row.id);
+    const plan = plansByFileId.get(row.id);
     if (metadata && plan) {
       input.files.push(row);
       input.metadata.push(metadata);

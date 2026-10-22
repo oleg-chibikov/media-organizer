@@ -1,11 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MetadataResult } from "../../lib/types";
 import { PlaceSuggestionsDialog } from "./PlaceSuggestionsDialog";
 import { CONTINUED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
 
-const metadataByFileId = Object.fromEntries(
-  Object.entries(TRIP_DATES).map(([id, date]) => [id, { chosen_date: date } as MetadataResult])
+const metadataByFileId = FileIdMap.from(
+  Object.fromEntries(
+    Object.entries(TRIP_DATES).map(([id, date]) => [id, { chosen_date: date } as MetadataResult])
+  )
 );
 
 function renderDialog(trip = TRIP) {

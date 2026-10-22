@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MovePlan } from "../../lib/types";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { withoutFileIds } from "./withoutFileIds";
+
+const fileIdOf = (plan: MovePlan) => plan.file_id;
 
 // Each flush redraws every row, so a large folder needs few of them. Still feels live.
 const PLAN_FLUSH_MS = 250;
 
 // Collects streamed plans and applies them in batches, one render per batch instead of per file.
 export function usePlanBatches() {
-  const [movePlansByFileId, setMovePlansByFileId] = useState<Record<string, MovePlan>>({});
+  const [movePlansByFileId, setMovePlansByFileId] = useState(FileIdMap.empty<MovePlan>);
   const pendingRef = useRef<Record<string, MovePlan>>({});
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -25,7 +28,7 @@ export function usePlanBatches() {
       return;
     }
     pendingRef.current = {};
-    setMovePlansByFileId((previous) => ({ ...previous, ...pending }));
+    setMovePlansByFileId((previous) => previous.with(Object.values(pending), fileIdOf));
   }, [cancelScheduledFlush]);
 
   const addPlan = useCallback(
@@ -39,12 +42,12 @@ export function usePlanBatches() {
   const dropPlans = useCallback(() => {
     cancelScheduledFlush();
     pendingRef.current = {};
-    setMovePlansByFileId({});
+    setMovePlansByFileId(FileIdMap.empty());
   }, [cancelScheduledFlush]);
 
   const dropPlansFor = useCallback((fileIds: string[]) => {
     pendingRef.current = withoutFileIds(pendingRef.current, fileIds);
-    setMovePlansByFileId((previous) => withoutFileIds(previous, fileIds));
+    setMovePlansByFileId((previous) => previous.without(fileIds));
   }, []);
 
   useEffect(() => cancelScheduledFlush, [cancelScheduledFlush]);

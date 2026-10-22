@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FileIdMap } from "../../lib/fileIdMap";
 import type { MoveResult } from "../../lib/types";
 import { countMoveResults, hasMoveResults } from "./moveCounts";
 
@@ -15,10 +16,12 @@ function result(fileId: string, status: MoveResult["result_status"]): MoveResult
 
 describe("countMoveResults", () => {
   it("counts each file once by its latest status", () => {
-    const counts = countMoveResults({ a: result("a", "moved"), b: result("b", "failed") });
+    const counts = countMoveResults(
+      FileIdMap.from({ a: result("a", "moved"), b: result("b", "failed") })
+    );
 
     expect(counts).toEqual({ moved: 1, copied: 0, skipped: 0, failed: 1 });
     expect(hasMoveResults(counts)).toBe(true);
-    expect(hasMoveResults(countMoveResults({}))).toBe(false);
+    expect(hasMoveResults(countMoveResults(FileIdMap.empty()))).toBe(false);
   });
 });

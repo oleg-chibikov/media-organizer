@@ -47,7 +47,7 @@ describe("useMovePlanning placed files", () => {
 
     expect(planContinuedMoves).toHaveBeenCalledWith("C:\\in", [CONTINUED], [METADATA]);
     expect(onPlacedFiles).toHaveBeenCalledWith([PLACED], []);
-    expect(result.current.movePlansByFileId[PLACED_RECORD.id]).toEqual(PLACED.plan);
+    expect(result.current.movePlansByFileId.get(PLACED_RECORD.id)).toEqual(PLACED.plan);
 
     vi.mocked(createMovePlan).mockClear();
     act(() => result.current.requestPlans([PLACED_RECORD], [PLACED.metadata]));
@@ -64,7 +64,7 @@ describe("useMovePlanning placed files", () => {
 
     expect(planContinuedMoves).not.toHaveBeenCalled();
     expect(onPlacedFiles).toHaveBeenLastCalledWith([], [PLACED_RECORD.id]);
-    expect(result.current.movePlansByFileId[PLACED_RECORD.id]).toBeUndefined();
+    expect(result.current.movePlansByFileId.get(PLACED_RECORD.id)).toBeUndefined();
   });
 
   it("drops placed files that arrive after a reset", async () => {

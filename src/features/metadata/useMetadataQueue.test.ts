@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { describe, expect, it, vi } from "vitest";
 import type { MetadataResult } from "../../lib/types";
 import { METADATA, RECORD } from "../../test/pipelineFixtures";
@@ -42,7 +43,7 @@ describe("useMetadataQueue", () => {
     await act(async () => finishOldBatch?.([METADATA]));
 
     expect(result.current.activeMetadataRequests).toBe(0);
-    expect(result.current.metadataByFileId).toEqual({});
+    expect(result.current.metadataByFileId).toEqual(FileIdMap.empty());
     expect(onMetadataRead).not.toHaveBeenCalled();
   });
 
@@ -64,7 +65,7 @@ describe("useMetadataQueue", () => {
     const failed = { ...METADATA, metadata_status: "error" as const, error: "Timed out" };
     await act(async () => pending.resolve?.([failed]));
 
-    expect(result.current.metadataByFileId[RECORD.id]).toEqual(failed);
+    expect(result.current.metadataByFileId.get(RECORD.id)).toEqual(failed);
     expect(reportError).not.toHaveBeenCalled();
   });
 
@@ -110,6 +111,6 @@ describe("useMetadataQueue", () => {
 
     act(() => result.current.removeResults([METADATA.file_id]));
 
-    expect(result.current.metadataByFileId).toEqual({ f2: other });
+    expect(result.current.metadataByFileId).toEqual(FileIdMap.from({ f2: other }));
   });
 });

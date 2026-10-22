@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { getMoveConfirmationSummary } from "../../lib/api";
 import type {
@@ -11,8 +12,8 @@ import { collectConfirmationInput } from "./moveConfirmationPrompt";
 interface MoveConfirmationOptions {
   rows: FileRecord[];
   rowByIdRef: RefObject<Map<string, FileRecord>>;
-  metadataByFileId: Record<string, MetadataResult>;
-  movePlansByFileId: Record<string, MovePlan>;
+  metadataByFileId: FileIdMap<MetadataResult>;
+  movePlansByFileId: FileIdMap<MovePlan>;
   reportError: (message: string) => void;
   onConfirmed: () => void;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { FileRecord, MetadataResult } from "../../lib/types";
+import { FileIdMap } from "../../lib/fileIdMap";
+import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { createFileRowCache } from "./fileRowCache";
 
 const record = (id: string) =>
@@ -8,9 +9,9 @@ const metadata = (id: string) =>
   ({ file_id: id, metadata_status: "ready", chosen_date: "2024-01-01" }) as MetadataResult;
 const RECORDS = [record("a"), record("b")];
 const NO_INPUTS = {
-  metadataByFileId: {},
-  movePlansByFileId: {},
-  moveResultsByFileId: {},
+  metadataByFileId: FileIdMap.empty<MetadataResult>(),
+  movePlansByFileId: FileIdMap.empty<MovePlan>(),
+  moveResultsByFileId: FileIdMap.empty<MoveResult>(),
   planErrorsByFileId: {}
 };
 const CONTEXT = {
@@ -24,7 +25,7 @@ describe("createFileRowCache", () => {
   it("rebuilds only the rows whose inputs changed", () => {
     const cache = createFileRowCache();
     const first = cache.rows(cache.states(RECORDS, NO_INPUTS), CONTEXT);
-    const inputs = { ...NO_INPUTS, metadataByFileId: { b: metadata("b") } };
+    const inputs = { ...NO_INPUTS, metadataByFileId: FileIdMap.from({ b: metadata("b") }) };
     const second = cache.rows(cache.states(RECORDS, inputs), CONTEXT);
 
     expect(second[0]).toBe(first[0]);

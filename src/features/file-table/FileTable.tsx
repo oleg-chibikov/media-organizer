@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useMemo, useState } from "react";
 import { ResizableVirtualTable } from "../../components/design-system/ResizableVirtualTable";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
@@ -16,10 +17,10 @@ import { usePlaceMapTarget } from "./usePlaceMapTarget";
 
 interface FileTableProps {
   rows: FileRecord[];
-  metadataByFileId: Record<string, MetadataResult>;
-  movePlansByFileId: Record<string, MovePlan>;
+  metadataByFileId: FileIdMap<MetadataResult>;
+  movePlansByFileId: FileIdMap<MovePlan>;
   planErrorsByFileId: Record<string, string>;
-  moveResultsByFileId: Record<string, MoveResult>;
+  moveResultsByFileId: FileIdMap<MoveResult>;
   activeMoveFileId: string | null;
   destinationRoot: string | null;
   // Place labels by file id, empty until detection answers.

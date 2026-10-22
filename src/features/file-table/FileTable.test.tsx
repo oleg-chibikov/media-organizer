@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FileTable } from "./FileTable";
 import type { FileRecord, MetadataResult, MovePlan } from "../../lib/types";
@@ -58,10 +59,10 @@ function renderTable(props: Partial<FileTableProps>) {
   return render(
     <FileTable
       rows={[]}
-      metadataByFileId={{}}
-      movePlansByFileId={{}}
+      metadataByFileId={FileIdMap.empty()}
+      movePlansByFileId={FileIdMap.empty()}
       planErrorsByFileId={{}}
-      moveResultsByFileId={{}}
+      moveResultsByFileId={FileIdMap.empty()}
       activeMoveFileId={null}
       destinationRoot={null}
       filePlaces={{}}
@@ -87,7 +88,7 @@ describe("FileTable", () => {
     const plan = { file_id: "a", destination_path: "D:\\Media\\2024\\5\\1\\a.jpg" } as MovePlan;
     renderTable({
       rows: [createRow("a")],
-      movePlansByFileId: { a: plan },
+      movePlansByFileId: FileIdMap.from({ a: plan }),
       destinationRoot: "D:\\Media"
     });
 
@@ -99,11 +100,11 @@ describe("FileTable", () => {
     const ready = { metadata_status: "ready" } as MetadataResult;
     renderTable({
       rows: [createRow("ok"), createRow("nodate"), createRow("broken")],
-      metadataByFileId: {
+      metadataByFileId: FileIdMap.from({
         ok: ready,
         nodate: { metadata_status: "no_date" } as MetadataResult,
         broken: { metadata_status: "error" } as MetadataResult
-      }
+      })
     });
     const sourceCells = () =>
       screen

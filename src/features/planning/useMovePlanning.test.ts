@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { describe, expect, it, vi } from "vitest";
 import { createMovePlan, type PlanListeners } from "../../lib/api";
 import type { PlaceSuggestion } from "../../lib/types";
@@ -31,10 +32,10 @@ describe("useMovePlanning", () => {
     act(() => result.current.requestPlans([RECORD], [METADATA]));
     const request_id = lastRequestId();
     act(() => listeners.plan?.onFile({ request_id, plan: PLAN }));
-    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
     act(() => listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 }));
 
-    expect(result.current.movePlansByFileId).toEqual({ f1: PLAN });
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.from({ f1: PLAN }));
     expect(result.current.activePlanRequests).toBe(0);
   });
 
@@ -48,7 +49,7 @@ describe("useMovePlanning", () => {
       listeners.plan?.onFinished({ request_id: -1, planned: 1, errors: 1 });
     });
 
-    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
     expect(result.current.planErrorsByFileId).toEqual({});
     expect(reportError).not.toHaveBeenCalled();
   });
@@ -87,7 +88,7 @@ describe("useMovePlanning reset", () => {
       listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
     });
 
-    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
     expect(result.current.activePlanRequests).toBe(1);
   });
 });
@@ -105,7 +106,7 @@ describe("useMovePlanning clear", () => {
       listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
     });
 
-    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
     expect(result.current.activePlanRequests).toBe(0);
   });
 
@@ -157,7 +158,7 @@ describe("useMovePlanning place folders", () => {
       [METADATA],
       [outing]
     );
-    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
     expect(result.current.activePlanRequests).toBe(1);
 
     vi.mocked(createMovePlan).mockClear();

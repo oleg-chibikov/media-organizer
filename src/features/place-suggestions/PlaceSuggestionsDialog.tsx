@@ -1,3 +1,4 @@
+import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useState } from "react";
 import { Button } from "../../components/design-system/Button";
 import { Dialog } from "../../components/design-system/Dialog";
@@ -8,7 +9,7 @@ import { PlaceSuggestionSection } from "./PlaceSuggestionSection";
 interface PlaceSuggestionsDialogProps {
   suggestions: PlaceSuggestion[];
   choices: Record<string, PlaceChoice>;
-  metadataByFileId: Record<string, MetadataResult>;
+  metadataByFileId: FileIdMap<MetadataResult>;
   onApply: (choices: Record<string, PlaceChoice>) => void;
   onCancel: () => void;
 }
@@ -27,7 +28,7 @@ export function PlaceSuggestionsDialog({
     draft[suggestion.id] ?? freshChoice(suggestion);
   const valid = suggestions.every((suggestion) => isChoiceValid(suggestion, choiceFor(suggestion)));
   const dateOf = useCallback(
-    (fileId: string) => metadataByFileId[fileId]?.chosen_date,
+    (fileId: string) => metadataByFileId.get(fileId)?.chosen_date,
     [metadataByFileId]
   );
 

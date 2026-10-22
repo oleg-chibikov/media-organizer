@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getMoveConfirmationSummary } from "../../lib/api";
 import type { MoveConfirmationSummary } from "../../lib/types";
@@ -16,8 +17,8 @@ function renderConfirmation() {
     useMoveConfirmation({
       rows: [RECORD],
       rowByIdRef,
-      metadataByFileId: { [RECORD.id]: METADATA },
-      movePlansByFileId: { [RECORD.id]: PLAN },
+      metadataByFileId: FileIdMap.from({ [RECORD.id]: METADATA }),
+      movePlansByFileId: FileIdMap.from({ [RECORD.id]: PLAN }),
       reportError: vi.fn(),
       onConfirmed
     })

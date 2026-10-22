@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { FileIdMap } from "../../lib/fileIdMap";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { detectPlaceSuggestions } from "../../lib/api";
 import type { HomeLocation, PlaceDetection, PlaceSuggestion } from "../../lib/types";
@@ -28,7 +29,7 @@ function renderDetection(initial: DetectionProps) {
       usePlaceDetection({
         selectedFolder: "C:\\in",
         rows: [RECORD],
-        metadataByFileId: metadataBusy ? {} : { f1: METADATA },
+        metadataByFileId: FileIdMap.from(metadataBusy ? {} : { f1: METADATA }),
         scanCompleted: true,
         scanCancelled: false,
         metadataBusy,
