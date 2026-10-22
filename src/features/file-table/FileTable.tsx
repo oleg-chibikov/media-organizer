@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { ResizableVirtualTable } from "../../components/design-system/ResizableVirtualTable";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { buildFileTableRow } from "./buildFileTableRow";
 import { FileFilterBar } from "./FileFilterBar";
+import { createFileRowCache } from "./fileRowCache";
 import { fileFilterRange, type FileFilter } from "./fileFilter";
 import { FILE_COLUMN_DEFS } from "./fileColumnDefs";
 import { fileRowClassName } from "./fileRowClassName";
@@ -47,33 +47,38 @@ export function FileTable({
   const [filter, setFilter] = useState<FileFilter>("all");
   const { mapTarget, openMap, closeMap } = usePlaceMapTarget(filePlaces);
   const sortedRows = useMemo(() => sortFileRecords(rows), [rows]);
+  const [rowCache] = useState(createFileRowCache);
 
   const sorted = useMemo(
     () =>
       sortProblemsFirst(
-        sortedRows.map((record) => ({
-          record,
-          metadata: metadataByFileId[record.id],
-          movePlan: movePlansByFileId[record.id],
-          moveResult: moveResultsByFileId[record.id],
-          planError: planErrorsByFileId[record.id]
-        }))
+        rowCache.states(sortedRows, {
+          metadataByFileId,
+          movePlansByFileId,
+          moveResultsByFileId,
+          planErrorsByFileId
+        }),
+        rowCache.categoryOf
       ),
-    [sortedRows, metadataByFileId, movePlansByFileId, moveResultsByFileId, planErrorsByFileId]
+    [
+      rowCache,
+      sortedRows,
+      metadataByFileId,
+      movePlansByFileId,
+      moveResultsByFileId,
+      planErrorsByFileId
+    ]
   );
 
   const tableRows = useMemo(
     () =>
-      sorted.states.map((state) =>
-        buildFileTableRow(
-          state,
-          activeMoveFileId,
-          destinationRoot,
-          filePlaces[state.record.id],
-          locatingPlaces
-        )
-      ),
-    [sorted, activeMoveFileId, destinationRoot, filePlaces, locatingPlaces]
+      rowCache.rows(sorted.states, {
+        activeMoveFileId,
+        destinationRoot,
+        filePlaces,
+        locatingPlaces
+      }),
+    [rowCache, sorted, activeMoveFileId, destinationRoot, filePlaces, locatingPlaces]
   );
 
   // Columns fit every row, so switching the filter doesn't change their widths.
