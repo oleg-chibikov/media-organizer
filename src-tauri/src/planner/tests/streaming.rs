@@ -4,7 +4,7 @@ use super::dated;
 use crate::{
     events,
     models::FileKind,
-    planner::stream_move_plan,
+    planner::{stream_move_plan, PlaceFolders},
     test_support::{
         events::RecordingSink,
         media::{dated_metadata, file_record},
@@ -23,6 +23,7 @@ fn streams_one_plan_per_media_file_then_totals() {
         &dated(Path::new("MediaRoot")),
         &[photo, notes],
         &[metadata],
+        &PlaceFolders::default(),
     );
 
     assert_eq!(sink.names(), vec![events::PLAN_FILE, events::PLAN_FINISHED]);

@@ -1,6 +1,9 @@
 mod conflicts;
 mod file_plan;
 mod in_place;
+mod place_fixtures;
+mod place_folders;
+mod place_validation;
 mod streaming;
 
 use std::path::Path;

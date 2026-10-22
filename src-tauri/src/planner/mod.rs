@@ -1,8 +1,10 @@
-//! Destination planning: dated or same folders, original-name filenames and conflict suffixes.
+//! Destination planning: dated, place or same folders, original-name filenames and conflict suffixes.
 
 mod destination_allocation;
 mod destination_layout;
 mod file_plan;
+mod place_folder;
+mod place_folders;
 
 #[cfg(test)]
 mod tests;
@@ -17,14 +19,17 @@ use crate::{
 };
 pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
+pub(crate) use place_folders::PlaceFolders;
 
-/// Plans every photo/video into `layout`, streaming one event per file.
+/// Plans every photo/video into `layout`, streaming one event per file. Files
+/// in `place_folders` go to their place folder instead of a date folder.
 /// Planning is a dry run: it doesn't create folders or files.
 pub(crate) fn stream_move_plan(
     sink: &impl EventSink,
     layout: &DestinationLayout,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
+    place_folders: &PlaceFolders,
 ) {
     let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
         .iter()
@@ -40,7 +45,13 @@ pub(crate) fn stream_move_plan(
         }
 
         let metadata = metadata_by_id.get(file.id.as_str()).copied();
-        match create_plan_for_file(layout, file, metadata, &mut reserved_paths) {
+        match create_plan_for_file(
+            layout,
+            file,
+            metadata,
+            place_folders.get(&file.id),
+            &mut reserved_paths,
+        ) {
             Ok(plan) => {
                 planned += 1;
                 events::plan_file(sink, PlanFileEvent { plan });

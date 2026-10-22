@@ -7,7 +7,7 @@ use super::{
     background::{run_blocking, spawn_job},
 };
 use crate::{
-    models::{FileRecord, MetadataResult, MoveConfirmationSummary, MovePlan},
+    models::{FileRecord, MetadataResult, MoveConfirmationSummary, MovePlan, PlaceSuggestion},
     mover, path_safety, planner,
 };
 
@@ -16,6 +16,7 @@ pub async fn create_move_plan(
     selected_path: String,
     files: Vec<FileRecord>,
     metadata_results: Vec<MetadataResult>,
+    place_suggestions: Vec<PlaceSuggestion>,
     app: AppHandle,
 ) -> Result<(), String> {
     let settings = settings_store(&app)?;
@@ -26,9 +27,10 @@ pub async fn create_move_plan(
         Ok(planner::DestinationLayout::for_root(&effective_root))
     })
     .await?;
+    let place_folders = planner::PlaceFolders::new(&layout, &place_suggestions, &metadata_results)?;
 
     spawn_job(move || {
-        planner::stream_move_plan(&app, &layout, &files, &metadata_results);
+        planner::stream_move_plan(&app, &layout, &files, &metadata_results, &place_folders);
     });
     Ok(())
 }

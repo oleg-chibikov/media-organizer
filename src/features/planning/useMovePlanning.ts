@@ -44,7 +44,7 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
       // A file planned again gets a fresh answer, so its old error goes.
       setPlanErrorsByFileId((previous) => withoutFiles(previous, candidates.files));
       changeActiveRequests(1);
-      void createMovePlan(selectedFolder, candidates.files, candidates.metadata).catch(
+      void createMovePlan(selectedFolder, candidates.files, candidates.metadata, []).catch(
         (error: unknown) => {
           changeActiveRequests(-1);
           restorePlanSignatures(signaturesRef.current, candidates.previousSignatures);

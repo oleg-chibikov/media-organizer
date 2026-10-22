@@ -3,6 +3,7 @@ import type {
   MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
+  PlaceSuggestion,
   PlanErrorEvent,
   PlanFileEvent,
   PlanFinishedEvent
@@ -10,15 +11,18 @@ import type {
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
+/** Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders. */
 export const createMovePlan = (
   selectedPath: string,
   files: FileRecord[],
-  metadataResults: MetadataResult[]
+  metadataResults: MetadataResult[],
+  placeSuggestions: PlaceSuggestion[]
 ) =>
   invokeCommand<void>("create_move_plan", {
     selectedPath,
     files,
-    metadataResults
+    metadataResults,
+    placeSuggestions
   });
 
 export const getMoveConfirmationSummary = (

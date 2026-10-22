@@ -29,6 +29,7 @@ fn renames_into_the_folder_the_file_is_in() {
         &DestinationLayout::SameFolder,
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -48,6 +49,7 @@ fn keeps_a_file_that_already_has_its_planned_name() {
         &DestinationLayout::SameFolder,
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -70,6 +72,7 @@ fn keeps_a_file_that_already_has_a_numbered_name() {
         &DestinationLayout::SameFolder,
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");

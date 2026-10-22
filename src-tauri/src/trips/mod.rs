@@ -25,6 +25,8 @@ use crate::{
     geo::Coordinates,
     models::{FileRecord, MetadataResult, PlaceSuggestion},
 };
+pub(crate) use day_layout::day_layout_for_span;
+pub(crate) use shots::CHOSEN_DATE_FORMAT;
 
 /// Trips and outings in time order. With `home` unset, home is inferred
 /// from the files; with no clear home there are only outings.

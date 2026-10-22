@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// The format of `MetadataResult::chosen_date`.
-pub(super) const CHOSEN_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+pub(crate) const CHOSEN_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 pub(super) struct Shot<'a> {
     pub(super) file_id: &'a str,

@@ -7,7 +7,7 @@ use crate::models::DayLayout;
 
 /// One day needs no day folder. Up to a month uses `MM-DD`, which sorts across
 /// a month boundary. Longer spans use `<month>/<day>`.
-pub(super) fn day_layout_for_span(first: NaiveDate, last: NaiveDate) -> DayLayout {
+pub(crate) fn day_layout_for_span(first: NaiveDate, last: NaiveDate) -> DayLayout {
     let span_days = (last - first).num_days().abs();
     if span_days == 0 {
         DayLayout::Single

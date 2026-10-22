@@ -31,6 +31,7 @@ fn applies_suffix_for_existing_destination_file() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -52,6 +53,7 @@ fn blocks_conflict_when_existing_destination_has_identical_content() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -75,6 +77,7 @@ fn blocks_conflict_when_a_suffixed_destination_has_identical_content() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
+        None,
         &mut HashSet::new(),
     )
     .expect("plan should be created");

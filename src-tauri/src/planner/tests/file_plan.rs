@@ -16,7 +16,7 @@ fn plans_forced_legacy_processed_root_destination_and_filename() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let root = Path::new("todo").join("Processed");
-    let plan = create_plan_for_file(&dated(&root), &file, Some(&metadata), &mut reserved)
+    let plan = create_plan_for_file(&dated(&root), &file, Some(&metadata), None, &mut reserved)
         .expect("plan should be created");
 
     assert_eq!(
@@ -36,7 +36,7 @@ fn plans_custom_root_destination_and_filename() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let root = Path::new("MediaRoot");
-    let plan = create_plan_for_file(&dated(root), &file, Some(&metadata), &mut reserved)
+    let plan = create_plan_for_file(&dated(root), &file, Some(&metadata), None, &mut reserved)
         .expect("plan should be created");
 
     assert_eq!(
@@ -54,8 +54,14 @@ fn blocks_plan_when_metadata_not_ready() {
     let mut reserved = HashSet::new();
     let file = photo_record("IMG_1001", "jpg");
 
-    let plan =
-        create_plan_for_file(&dated(Path::new(r"C:\todo")), &file, None, &mut reserved).unwrap();
+    let plan = create_plan_for_file(
+        &dated(Path::new(r"C:\todo")),
+        &file,
+        None,
+        None,
+        &mut reserved,
+    )
+    .unwrap();
 
     assert!(matches!(plan.plan_status, PlanStatus::BlockedNoDate));
     assert!(plan.destination_path.is_empty());
@@ -72,6 +78,7 @@ fn dry_run_planning_does_not_create_destination_directories() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
+        None,
         &mut reserved,
     )
     .expect("plan should be created");

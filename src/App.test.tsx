@@ -65,7 +65,7 @@ describe("App", () => {
       listeners.scan?.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
     });
     await waitFor(() =>
-      expect(api.createMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA])
+      expect(api.createMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA], [])
     );
 
     act(() => {

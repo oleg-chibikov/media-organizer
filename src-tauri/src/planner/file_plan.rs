@@ -2,13 +2,16 @@ use std::{collections::HashSet, path::Path};
 
 use chrono::NaiveDateTime;
 
-use super::{destination_allocation::allocate_destination_path, DestinationLayout};
+use super::{
+    destination_allocation::allocate_destination_path, place_folder::PlaceFolder, DestinationLayout,
+};
 use crate::{
     filename,
     models::{
         ConflictStatus, FileRecord, MetadataResult, MetadataStatus, MovePlan, PlanStatus,
         ScanStatus,
     },
+    trips::CHOSEN_DATE_FORMAT,
 };
 
 /// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file.
@@ -16,17 +19,18 @@ pub(super) fn create_plan_for_file(
     layout: &DestinationLayout,
     file: &FileRecord,
     metadata: Option<&MetadataResult>,
+    place: Option<&PlaceFolder>,
     reserved_paths: &mut HashSet<String>,
 ) -> Result<MovePlan, String> {
     let Some(chosen_date) = plannable_date(file, metadata) else {
         return Ok(empty_plan(file, PlanStatus::BlockedNoDate));
     };
 
-    let parsed_date = NaiveDateTime::parse_from_str(chosen_date, "%Y-%m-%d %H:%M:%S")
+    let parsed_date = NaiveDateTime::parse_from_str(chosen_date, CHOSEN_DATE_FORMAT)
         .map_err(|error| format!("Invalid chosen date for {}: {error}", file.source_path))?;
 
     let source_path = Path::new(&file.source_path);
-    let destination_dir = layout.destination_dir(source_path, &parsed_date)?;
+    let destination_dir = layout.destination_dir(source_path, &parsed_date, place)?;
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let device_name = metadata.and_then(|metadata| metadata.device_name.as_deref());
     let stem_base = destination_stem(&parsed_date, &original_name, device_name);
