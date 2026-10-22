@@ -17,5 +17,7 @@ mod tests;
 
 pub(crate) use distance::{distance_km, Coordinates};
 pub(crate) use kind::PlaceKind;
-pub(crate) use lookup::{country_of, nearest_city, nearest_place};
+#[cfg(test)]
+pub(crate) use lookup::country_of;
+pub(crate) use lookup::{nearest_city, nearest_place};
 pub(crate) use place::Place;

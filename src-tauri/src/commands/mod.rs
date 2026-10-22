@@ -10,6 +10,7 @@ pub(crate) mod destination;
 pub(crate) mod history;
 pub(crate) mod metadata;
 pub(crate) mod move_execution;
+pub(crate) mod places;
 pub(crate) mod plan;
 pub(crate) mod scan;
 pub(crate) mod system;

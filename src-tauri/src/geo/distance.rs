@@ -1,5 +1,7 @@
 //! Great-circle distance between two points on the Earth.
 
+use crate::models::GpsPoint;
+
 const EARTH_RADIUS_KM: f64 = 6371.0088;
 
 /// A point in decimal degrees.
@@ -25,4 +27,10 @@ pub(crate) fn distance_km(a: Coordinates, b: Coordinates) -> f64 {
     let half_dlon = (b.longitude - a.longitude).to_radians() / 2.0;
     let h = half_dlat.sin().powi(2) + lat_a.cos() * lat_b.cos() * half_dlon.sin().powi(2);
     2.0 * EARTH_RADIUS_KM * h.sqrt().min(1.0).asin()
+}
+
+impl From<GpsPoint> for Coordinates {
+    fn from(point: GpsPoint) -> Self {
+        Self::new(point.latitude, point.longitude)
+    }
 }

@@ -8,7 +8,6 @@ mod events;
 mod file_ops;
 mod filename;
 // Used by the trips module next.
-#[allow(dead_code, unused_imports)]
 mod geo;
 mod history;
 mod metadata;
@@ -23,6 +22,7 @@ mod safe_fs;
 mod scanner;
 mod settings;
 mod system_explorer;
+mod trips;
 mod undo_redo;
 
 #[cfg(test)]
@@ -30,8 +30,8 @@ mod test_support;
 
 use app_state::AppState;
 use commands::{
-    destination, history as history_commands, metadata as metadata_commands, move_execution, plan,
-    scan, system, undo_redo as undo_redo_commands,
+    destination, history as history_commands, metadata as metadata_commands, move_execution,
+    places, plan, scan, system, undo_redo as undo_redo_commands,
 };
 use tauri::Manager;
 
@@ -98,6 +98,7 @@ pub fn run() {
             metadata_commands::read_metadata_for_files,
             plan::create_move_plan,
             plan::get_move_confirmation_summary,
+            places::detect_place_suggestions,
             history_commands::delete_history_run,
             history_commands::list_history_runs,
             history_commands::get_history_run,

@@ -25,6 +25,8 @@ pub(crate) fn nearest_city(point: Coordinates) -> Option<Place> {
 
 /// Country code and English name of the nearest place. Near a border this
 /// can name the neighbour, because GeoNames gives points and no outlines.
+// Trips read the country off `nearest_place`, which they already call.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn country_of(point: Coordinates) -> Option<(String, String)> {
     nearest_place(point).map(|place| (place.country_code, place.country_name))
 }
