@@ -62,11 +62,6 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     cancelConfirmation();
     clearMoves(() => IDLE_MOVE_EXECUTION);
   }, [cancelConfirmation, clearMoves]);
-  // Replanning keeps the executing flag because a running batch still reports back.
-  const resetMovesForReplan = useCallback(
-    () => clearMoves((previous) => ({ ...IDLE_MOVE_EXECUTION, executing: previous.executing })),
-    [clearMoves]
-  );
 
   const togglePause = () => {
     const scanId = scanIdRef.current;
@@ -92,7 +87,6 @@ export function useMoveExecution(options: MoveExecutionOptions) {
       cancel: confirmation.cancel
     },
     runExecutionAction: execution.confirmed ? togglePause : () => void confirmation.request(),
-    resetMoves,
-    resetMovesForReplan
+    resetMoves
   };
 }

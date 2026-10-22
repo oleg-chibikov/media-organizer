@@ -46,7 +46,7 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     // and the backend plans every dated file for the new destination then.
     latestRef.current.filePlaces.reset();
     planning.clearPlans();
-    latestMoves.resetMovesForReplan();
+    latestMoves.resetMoves();
   };
 
   const change = (operation: DestinationSettingsOperation) =>

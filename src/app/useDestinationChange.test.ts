@@ -17,7 +17,7 @@ function options(confirmed: boolean, rows = [RECORD]) {
     destination: { applyChange },
     scan: { selectedFolder: "C:\\in", rows },
     planning: { clearPlans: vi.fn() },
-    moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMovesForReplan: vi.fn() },
+    moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMoves: vi.fn() },
     filePlaces: { reset: vi.fn() }
   } as unknown as Options;
   return { value, applyChange, onChangedRef };
@@ -50,7 +50,7 @@ describe("useDestinationChange", () => {
 
     expect(first.value.planning.clearPlans).not.toHaveBeenCalled();
     expect(latest.value.planning.clearPlans).toHaveBeenCalledOnce();
-    expect(latest.value.moves.resetMovesForReplan).toHaveBeenCalledOnce();
+    expect(latest.value.moves.resetMoves).toHaveBeenCalledOnce();
     expect(latest.value.filePlaces.reset).toHaveBeenCalledOnce();
   });
 });
