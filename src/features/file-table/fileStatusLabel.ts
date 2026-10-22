@@ -37,7 +37,7 @@ export function fileStatusLabel(
     return "Moving";
   }
   if (metadata?.metadata_status === "error") {
-    return "Can't read date";
+    return "Can't read metadata";
   }
   if (planError && !movePlan) {
     return "Can't plan";
@@ -46,7 +46,7 @@ export function fileStatusLabel(
     return "Ready (file date)";
   }
   if (!movePlan) {
-    return metadata?.metadata_status === "ready" ? "Planning" : "Reading date";
+    return metadata?.metadata_status === "ready" ? "Planning" : "Reading metadata";
   }
   if (movePlan.plan_status === "ready" && movePlan.conflict_status === "suffix_applied") {
     return "Ready (renamed)";

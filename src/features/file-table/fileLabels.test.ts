@@ -23,7 +23,7 @@ function state(overrides: Partial<FileRowState> = {}): FileRowState {
 
 describe("fileStatusLabel", () => {
   it("follows the file from planning to the move result", () => {
-    expect(fileStatusLabel(state({ metadata: undefined }), null)).toBe("Reading date");
+    expect(fileStatusLabel(state({ metadata: undefined }), null)).toBe("Reading metadata");
     expect(fileStatusLabel(state(), null)).toBe("Planning");
     expect(fileStatusLabel(state(), "f1")).toBe("Moving");
     const suffixed = { plan_status: "ready", conflict_status: "suffix_applied" } as MovePlan;

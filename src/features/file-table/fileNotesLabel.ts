@@ -23,7 +23,7 @@ export function fileNotesLabel({
     return "Copied. The original file stays in place.";
   }
   if (metadata?.metadata_status === "error") {
-    return metadata.error ?? "Can't read the date from this file";
+    return metadata.error ?? "Can't read metadata from this file";
   }
   if (planError && !movePlan) {
     return planError;
