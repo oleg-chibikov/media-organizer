@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MovePlan } from "../../lib/types";
 import { withoutFileIds } from "./withoutFileIds";
 
-// Long enough to batch a burst of plan events, short enough to feel live.
-const PLAN_FLUSH_MS = 50;
+// Each flush redraws every row, so a large folder needs few of them. Still feels live.
+const PLAN_FLUSH_MS = 250;
 
 // Collects streamed plans and applies them in batches, one render per batch instead of per file.
 export function usePlanBatches() {

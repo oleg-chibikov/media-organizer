@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FileRecord } from "../../lib/types";
 
-// Long enough to batch a burst of scan events, short enough to feel live.
-export const SCAN_ROW_FLUSH_MS = 50;
+// Each flush re-sorts every row, so a large folder needs few of them. Still feels live.
+export const SCAN_ROW_FLUSH_MS = 250;
 
 // Collects streamed scan records and appends them to `rows` in batches, one render per batch.
 export function useScanRows() {

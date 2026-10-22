@@ -16,7 +16,10 @@ function createMeasureContext(): CanvasRenderingContext2D | null {
 }
 
 // Most cells keep their text between passes, so each width is measured once.
-const MAX_CACHED_WIDTHS = 50_000;
+const MAX_CACHED_WIDTHS = 5_000;
+// Text this much shorter than the longest cell can't be the widest, even in a proportional font.
+const CANDIDATE_LENGTH_RATIO = 0.6;
+const MAX_CANDIDATES = 200;
 const widthCache = new Map<string, number>();
 
 function measureText(context: CanvasRenderingContext2D, value: string, font: string): number {
@@ -50,6 +53,19 @@ export const DEFAULT_COLUMN_SIZING: ColumnSizingState = Object.fromEntries(
   FILE_TABLE_COLUMNS.map((column) => [column.key, COLUMN_HORIZONTAL_PADDING])
 );
 
+// The cells that may be widest, so a pass over thousands of rows measures a few hundred.
+function widthCandidates(rows: FileTableRow[], key: FileColumnKey): string[] {
+  const longest = rows.reduce((max, row) => Math.max(max, row[key].value.length), 0);
+  const minLength = Math.floor(longest * CANDIDATE_LENGTH_RATIO);
+  const candidates = new Set<string>();
+  for (const row of rows) {
+    if (row[key].value.length >= minLength) {
+      candidates.add(row[key].value);
+    }
+  }
+  return [...candidates].sort((a, b) => b.length - a.length).slice(0, MAX_CANDIDATES);
+}
+
 // Fits each column to its widest cell, but keeps the header readable.
 export function measureAutoSizedColumns(rows: FileTableRow[]): Record<FileColumnKey, number> {
   const widths = { ...HEADER_MIN_WIDTHS };
@@ -59,8 +75,8 @@ export function measureAutoSizedColumns(rows: FileTableRow[]): Record<FileColumn
   }
   for (const column of FILE_TABLE_COLUMNS) {
     const font = MONO_COLUMN_KEYS.has(column.key) ? MONO_CELL_FONT : BODY_CELL_FONT;
-    const cellMaxWidth = rows.reduce(
-      (maxWidth, row) => Math.max(maxWidth, measureText(context, row[column.key].value, font)),
+    const cellMaxWidth = widthCandidates(rows, column.key).reduce(
+      (maxWidth, value) => Math.max(maxWidth, measureText(context, value, font)),
       0
     );
     widths[column.key] = Math.max(
