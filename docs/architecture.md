@@ -179,6 +179,8 @@ Each layer may depend only on the layers below it.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
 - **Other files** keep `<root>/<year>/<month>/<day>`. Same folder mode ignores suggestions.
 
+`features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, and skips it with Rename only. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
+
 Place folders are desktop only. The Android app keeps dated folders.
 
 ## Frontend Modules
@@ -186,7 +188,7 @@ Place folders are desktop only. The Android app keeps dated folders.
 - `app/useAppSession.ts`: composes the scan, metadata, planning, moves, history and destination hooks.
 - `app/useBackendBootstrap.ts`: loads health, processing limits and settings at startup.
 - `app/useDestinationChange.ts`: applies a destination change and replans before any move starts.
-- `features/`: `scan`, `metadata`, `planning`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `toolbar`.
+- `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `toolbar`.
 - `lib/api/`: typed command wrappers, `listenAll` event subscriptions and `useBackendEvents`.
 - `lib/types/`: TypeScript copies of the Rust payloads.
 

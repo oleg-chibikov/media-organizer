@@ -103,6 +103,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - Stores processing history in appData for inspection, undo, and redo.
 - Supports either legacy `<selected folder>/Processed` destinations or a persisted custom media root.
 - Renames files where they are, with **Rename only** in the toolbar. Files keep their folder and get the dated name.
+- Suggests trip and outing folders from GPS and dates. Review them from the status bar, rename the folders, then apply.
 
 ## User Flow
 
