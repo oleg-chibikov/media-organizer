@@ -5,7 +5,7 @@ mod plan_files;
 mod signature;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{MutexGuard, PoisonError},
 };
@@ -94,14 +94,18 @@ impl ScanSession {
         self.planning().places.is_none()
     }
 
-    pub(super) fn plan_ids_with(&self, keep: impl Fn(&PlanStatus) -> bool) -> Vec<String> {
+    /// The files whose plan is ready and not in `done`, in a stable order.
+    pub(super) fn ready_file_ids(&self, done: &HashSet<String>) -> Vec<String> {
         let planning = self.planning();
-        planning
+        let mut ids: Vec<String> = planning
             .plans
             .values()
-            .filter(|plan| keep(&plan.plan_status))
+            .filter(|plan| matches!(plan.plan_status, PlanStatus::Ready))
+            .filter(|plan| !done.contains(&plan.file_id))
             .map(|plan| plan.file_id.clone())
-            .collect()
+            .collect();
+        ids.sort_unstable();
+        ids
     }
 
     fn planning(&self) -> MutexGuard<'_, Planning> {

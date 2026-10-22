@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
@@ -93,12 +93,5 @@ impl ScanSession {
                 error,
             },
         );
-    }
-
-    fn ready_file_ids(&self, done: &HashSet<String>) -> Vec<String> {
-        self.ready_plan_ids()
-            .into_iter()
-            .filter(|file_id| !done.contains(file_id))
-            .collect()
     }
 }

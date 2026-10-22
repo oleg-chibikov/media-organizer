@@ -16,7 +16,7 @@ use std::{
     },
 };
 
-use crate::models::{FileRecord, MetadataResult, PlanStatus};
+use crate::models::{FileRecord, MetadataResult};
 use moves::Moves;
 pub(crate) use planning::PlanContext;
 use planning::Planning;
@@ -73,13 +73,6 @@ impl ScanSession {
         !self.scanned.load(Ordering::SeqCst)
             || !self.dates_read.load(Ordering::SeqCst)
             || self.waiting_for_places()
-    }
-
-    /// The files whose plan is ready to move, in a stable order.
-    fn ready_plan_ids(&self) -> Vec<String> {
-        let mut ids = self.plan_ids_with(|status| matches!(status, PlanStatus::Ready));
-        ids.sort();
-        ids
     }
 
     pub(crate) fn add_records(&self, records: &[FileRecord]) {
