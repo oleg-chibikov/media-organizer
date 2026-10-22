@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { detectPlaceSuggestions } from "../../lib/api";
-import type { PlaceSuggestion } from "../../lib/types";
+import type { HomeLocation, PlaceSuggestion } from "../../lib/types";
 import { METADATA, RECORD } from "../../test/pipelineFixtures";
 import { usePlaceDetection } from "./usePlaceDetection";
 
@@ -9,17 +9,25 @@ vi.mock("../../lib/api", () => ({ detectPlaceSuggestions: vi.fn() }));
 
 const detect = vi.mocked(detectPlaceSuggestions);
 const SUGGESTION = { id: "s1" } as PlaceSuggestion;
+const SYDNEY = { latitude: -33.87, longitude: 151.21 } as HomeLocation;
 
-function renderDetection(initial: { metadataBusy: boolean; enabled?: boolean }) {
+interface DetectionProps {
+  metadataBusy: boolean;
+  enabled?: boolean;
+  home?: HomeLocation | null;
+}
+
+function renderDetection(initial: DetectionProps) {
   const reportError = vi.fn();
   return renderHook(
-    ({ metadataBusy, enabled = true }: { metadataBusy: boolean; enabled?: boolean }) =>
+    ({ metadataBusy, enabled = true, home = null }: DetectionProps) =>
       usePlaceDetection({
         rows: [RECORD],
         metadataByFileId: metadataBusy ? {} : { f1: METADATA },
         scanCompleted: true,
         metadataBusy,
         enabled,
+        home,
         reportError
       }),
     { initialProps: initial }
@@ -64,6 +72,21 @@ describe("usePlaceDetection", () => {
     expect(result.current.suggestions).toEqual([]);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(detect).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again when home changes and drops the answer for the old home", async () => {
+    let answer: (found: PlaceSuggestion[]) => void = () => undefined;
+    detect.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    detect.mockResolvedValueOnce([SUGGESTION]);
+    const { result, rerender } = renderDetection({ metadataBusy: false });
+    act(() => vi.advanceTimersByTime(1000));
+
+    rerender({ metadataBusy: false, home: SYDNEY });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    await act(async () => answer([]));
+
+    expect(detect).toHaveBeenCalledTimes(2);
+    expect(result.current.suggestions).toEqual([SUGGESTION]);
   });
 
   it("skips detection when files are renamed in place", () => {

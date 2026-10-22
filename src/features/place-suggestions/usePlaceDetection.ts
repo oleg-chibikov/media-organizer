@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
-import type { FileRecord, MetadataResult, PlaceSuggestion } from "../../lib/types";
+import type { FileRecord, HomeLocation, MetadataResult, PlaceSuggestion } from "../../lib/types";
 import { metadataResultsFor } from "../metadata";
 import { allMetadataRead } from "./allMetadataRead";
 
@@ -13,12 +13,14 @@ export interface PlaceDetectionOptions {
   scanCompleted: boolean;
   metadataBusy: boolean;
   enabled: boolean;
+  // Trips are measured from home, so a new home asks again.
+  home: HomeLocation | null;
   reportError: (message: string) => void;
 }
 
-// Asks the backend for place folders once per scan, after every file's metadata is read.
+// Asks the backend for place folders once per scan and home, after every file's metadata is read.
 export function usePlaceDetection(options: PlaceDetectionOptions) {
-  const { rows, metadataByFileId, scanCompleted, metadataBusy, enabled } = options;
+  const { rows, metadataByFileId, scanCompleted, metadataBusy, enabled, home } = options;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [generation, setGeneration] = useState(0);
   const generationRef = useRef(0);
@@ -33,7 +35,8 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     [rows, metadataByFileId]
   );
   const ready = enabled && scanCompleted && !metadataBusy && metadataRead && rows.length > 0;
-  const key = `${generation}:${rows.length}`;
+  const homeKey = home ? `${home.latitude},${home.longitude}` : "none";
+  const key = `${generation}:${rows.length}:${homeKey}`;
 
   useEffect(() => {
     if (!ready || detectedKeyRef.current === key) {
@@ -43,8 +46,9 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
       detectedKeyRef.current = key;
       const latest = latestRef.current;
       const results = metadataResultsFor(latest.rows, latest.metadataByFileId);
-      // A reset while the backend works makes the answer belong to an older scan.
-      const isCurrent = () => generationRef.current === generation;
+      // A reset or a new home while the backend works makes the answer out of date.
+      const isCurrent = () =>
+        detectedKeyRef.current === key && generationRef.current === generation;
       detectPlaceSuggestions(latest.rows, results).then(
         (found) => {
           if (isCurrent()) {
