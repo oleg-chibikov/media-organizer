@@ -4,9 +4,9 @@ name: Android
 on:
   push:
     branches: [main]
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "src-tauri/assets/**", ".github/workflows/android.yml"]
   pull_request:
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "src-tauri/assets/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 jobs:

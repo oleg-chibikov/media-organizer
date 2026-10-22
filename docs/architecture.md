@@ -218,7 +218,7 @@ The destination is the permanent library. Each photo and video goes to the folde
 
 Each answer goes to `apply_file_places`. With the box off it gets none. Each plan signature in `scan_session` holds the file's place folders and their levels, so only files whose folder changed get planned again. Toggling the box or a new destination calls `clear_scan_plans` and detects again. A new scan starts a new session. After moves are confirmed and the final places apply, a later answer changes no plan.
 
-Place folders are desktop only. The Android app keeps dated folders.
+The Android app copies these rules. See Android App.
 
 ## Frontend Modules
 
@@ -234,12 +234,15 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 ## Android App
 
-`android/` is a separate Kotlin app that moves the phone gallery into dated folders on the device. It shares no code with the desktop app. Its user flow and code diagrams are in `android/README.md`.
+`android/` is a separate Kotlin app that moves the phone gallery into dated and place folders on the device. It shares the place tables in `src-tauri/assets` and no code. Its user flow and code diagrams are in `android/README.md`.
 
 - **`organize/`** copies the scanner, planner, filename and date rules with no Android imports, so JVM tests cover it.
+- **`geo/`** copies `src-tauri/src/geo`. The APK bundles `geodata.tsv.gz` and `parks.tsv.gz` through `assets.srcDir` in `app/build.gradle.kts`.
+- **`places/`** copies `file_places`, the home choice of `home_location/detect.rs`, and the place folder levels, nearby days and library moves of `planner/`.
+- **`location/`** keeps the Group by place box, on by default, and home. Home is a learned home, else the city of the phone's time zone.
 - **`folders/`** lets the person pick the gallery and Move to folders, and keeps both between launches.
-- **`metadata/`** reads the same tags with `ExifInterface` and `MediaMetadataRetriever` and prints them in ExifTool's date format.
-- **Moves** plan and move one file at a time with `Files.move` without replace, after all files access is granted.
+- **`metadata/`** reads the same tags and GPS with `ExifInterface` and `MediaMetadataRetriever` and prints dates in ExifTool's format.
+- **Moves** read every date first, find places, gather earlier days, then move one file at a time with `Files.move` without replace.
 - **No history.** A run keeps counters and the newest log lines in memory.
 
 ## Data And Persistence

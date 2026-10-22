@@ -6,8 +6,8 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import kotlin.io.path.isDirectory
 
-/** Removes folders emptied by the run, walking up to just below [root]. The root itself stays. */
-fun removeEmptySourceFolders(root: Path, folders: Set<Path>) {
+/** Removes folders a run emptied, walking up to just below [root]. The root itself stays. */
+fun removeEmptyFolders(root: Path, folders: Set<Path>) {
     for (folder in folders) {
         var current: Path? = folder
         while (current != null && current != root && current.startsWith(root) && removeIfEmptyFolder(current)) {

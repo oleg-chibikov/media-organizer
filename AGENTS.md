@@ -39,7 +39,7 @@
 - Runtime bridge: Tauri commands and events are wrapped by `src/lib/api/`.
 - Source of truth for app behavior is the Rust backend; frontend state should mirror command results and emitted events.
 - Architecture notes live in `docs/architecture.md`.
-- Android: Kotlin app in `android/`, built with `android/build-apk.sh` instead of `mise`. Its `organize/` package copies the planner, filename and date rules. Change both sides together.
+- Android: Kotlin app in `android/`, built with `android/build-apk.sh` instead of `mise`. Its `organize/`, `geo/` and `places/` packages copy the planner, filename, date and place rules. Change both sides together.
 
 ## File Organization
 

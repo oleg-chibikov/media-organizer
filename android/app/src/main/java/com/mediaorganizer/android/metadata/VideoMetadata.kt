@@ -8,7 +8,10 @@ internal fun readVideoMetadata(path: Path): RawMetadata {
     val retriever = MediaMetadataRetriever()
     return try {
         retriever.setDataSource(path.toString())
-        RawMetadata(createDate = retrieverDateToExifTool(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)))
+        RawMetadata(
+            createDate = retrieverDateToExifTool(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DATE)),
+            gps = parseIso6709(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION)),
+        )
     } catch (_: RuntimeException) {
         RawMetadata()
     } finally {

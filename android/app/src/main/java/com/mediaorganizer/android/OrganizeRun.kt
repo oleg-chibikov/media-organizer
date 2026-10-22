@@ -2,6 +2,7 @@ package com.mediaorganizer.android
 
 import android.content.Context
 import android.media.MediaScannerConnection
+import com.mediaorganizer.android.location.appPlaceSources
 import com.mediaorganizer.android.metadata.DeviceMetadataReader
 import com.mediaorganizer.android.organize.MovedFile
 import com.mediaorganizer.android.organize.OrganizeRequest
@@ -32,7 +33,7 @@ class OrganizeRun private constructor(private val context: Context, private val 
     private fun start(onEnd: () -> Unit) {
         thread(name = "organize") {
             try {
-                notifyGallery(organize(request, DeviceMetadataReader, progress, cancelled::get))
+                notifyGallery(organize(request, DeviceMetadataReader, progress, appPlaceSources(context), cancelled::get))
             } catch (error: Exception) {
                 progress.log("Stopped: $error")
                 progress.finish(RunEnd.FAILED)

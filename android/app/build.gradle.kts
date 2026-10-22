@@ -46,6 +46,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // The desktop app's place tables, so both apps name places alike. NOTICE.txt credits their sources.
+    sourceSets.getByName("main").assets.srcDir("../../src-tauri/assets")
 }
 
 dependencies {

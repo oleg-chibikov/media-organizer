@@ -8,6 +8,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import com.mediaorganizer.android.background.BackgroundSwitch
 import com.mediaorganizer.android.folders.FolderFields
+import com.mediaorganizer.android.location.GroupByPlace
 import com.mediaorganizer.android.organize.RequestCheck
 import com.mediaorganizer.android.organize.checkRequest
 
@@ -32,6 +33,7 @@ class MainActivity : Activity() {
         screen = RunScreen(this)
         folders = FolderFields(this, screen.source, screen.destination, screen.pickSource, screen.pickDestination)
         BackgroundSwitch(this, screen.background, folders::save)
+        GroupByPlace.bind(screen.groupByPlace)
         screen.start.setOnClickListener { onStartPressed() }
     }
 

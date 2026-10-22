@@ -1,6 +1,6 @@
 # Media Organizer for Android
 
-Moves photos and videos from the phone gallery into folders by year, month and day, with the same rules as the desktop app.
+Moves photos and videos from the phone gallery into folders by year, month and day, and by place, with the same rules as the desktop app.
 
 ## Install
 
@@ -40,6 +40,8 @@ Choose opens a folder list inside the app. Tap a folder to open it, and "↑ Up"
 
 Choose next to "Move to" creates the folder first when it doesn't exist yet, so the picker opens inside it.
 
+"Group by place" is on by default. Turn it off, and every file goes to its dated folder. The automatic moves read the box too.
+
 ```mermaid
 flowchart LR
   open["Opens the app"] --> folders["Keeps or chooses the gallery and Move to folders"]
@@ -50,7 +52,7 @@ flowchart LR
   run --> done["Sees Done"]
   folders --> auto["Turns on automatic moves"]
   auto --> camera["Takes a photo with the app closed"]
-  camera --> moved["Finds it in the dated folder a few seconds later"]
+  camera --> moved["Finds it in its dated or place folder a few seconds later"]
 ```
 
 ## Move new photos automatically
@@ -66,6 +68,8 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 ## What matches the desktop app
 
 - **Folders** `<root>/<year>/<month>/<day>/<date> (<original>) - <device>.<ext>`.
+- **Places** a file with GPS goes to the folder of its city, park or sight, as in `2024/Japan/3/Kyoto/15`. Home's city gets no place folder, and home's country no country folder. A file with no GPS joins a file from the same device taken within 3 hours.
+- **Earlier days** of a place already in "Move to" move into the place's new folder, so a trip shot over days ends in one folder.
 - **Dates** come from the same tags in the same order, ending with the file date.
 - **Conflicts** get a ` (n)` suffix. A file with the same bytes already there stays in place.
 - **Skipped** files are anything under `Processed`, the destination, and non-media files.
@@ -82,6 +86,8 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 
 - **Metadata** comes from Android's `ExifInterface` and `MediaMetadataRetriever` instead of ExifTool.
 - **Device name** of a file without a camera model is the phone's own model. Android doesn't expose the camera model of a video, so every video gets it.
+- **Home** is the city the phone's time zone names, such as Sydney for `Australia/Sydney`. A run with 60 days of photos in one city learns that city as home and keeps it. There is no home setting and no location access.
+- **Place tables** add about 11 MB to the APK. The first run with GPS photos loads them, which takes a few seconds.
 - **Hidden files** such as `.trashed-*` and `.pending-*` stay put. They belong to the Android gallery.
 - **History and undo** don't exist. The log on screen shows the last 300 moves.
 
@@ -96,13 +102,16 @@ flowchart TD
   sched --> job
   run["OrganizeRun<br/>one run at a time, on its own thread"] --> organize
   organize["organize/<br/>scan, dates, names, safe move, cleanup"] --> meta["metadata/<br/>ExifInterface and MediaMetadataRetriever"]
+  organize --> places["places/<br/>place of each file, folder levels, earlier days"]
+  places --> geo["geo/<br/>offline geocoding over src-tauri/assets"]
+  run --> location["location/<br/>Group by place box, home"]
   organize --> disk[("Gallery folder and Move to folder")]
   run -->|old and new paths| gallery["MediaScannerConnection<br/>refreshes the gallery"]
   screen --> saved["folders/SavedFolders<br/>keeps both folders"]
   job --> saved
 ```
 
-The sorting code is a copy of `src-tauri/src/planner`, `filename` and `metadata/date_selection.rs`. A rule change there needs the same change in `app/src/main/java/com/mediaorganizer/android/organize`.
+The sorting code is a copy of `src-tauri/src/planner`, `filename` and `metadata/date_selection.rs`. A rule change there needs the same change in `app/src/main/java/com/mediaorganizer/android/organize`. The same goes for `src-tauri/src/geo` and `geo/`, and for `file_places` and `places/`.
 
 ## Release signing
 

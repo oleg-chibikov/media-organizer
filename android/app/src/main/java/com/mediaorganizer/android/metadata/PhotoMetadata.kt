@@ -1,6 +1,7 @@
 package com.mediaorganizer.android.metadata
 
 import android.media.ExifInterface
+import com.mediaorganizer.android.geo.Coordinates
 import com.mediaorganizer.android.organize.RawMetadata
 import java.io.IOException
 import java.nio.file.Path
@@ -21,7 +22,14 @@ internal fun readPhotoMetadata(path: Path): RawMetadata {
         createDate = exif.tag(ExifInterface.TAG_DATETIME_DIGITIZED),
         modifyDate = exif.tag(ExifInterface.TAG_DATETIME),
         deviceName = exif.tag(ExifInterface.TAG_MODEL) ?: exif.tag(ExifInterface.TAG_MAKE),
+        gps = exif.gps(),
     )
+}
+
+/** The EXIF GPS point. Android gives it as floats, about a metre apart. */
+private fun ExifInterface.gps(): Coordinates? {
+    val point = FloatArray(2)
+    return if (getLatLong(point)) gpsPoint(point[0].toDouble(), point[1].toDouble()) else null
 }
 
 /** Builds ExifTool's `SubSecDateTimeOriginal`: the date, then `.subsec`, then the offset. */

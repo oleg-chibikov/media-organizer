@@ -74,6 +74,13 @@
             android:minHeight="48dp"
             android:text="@string/background_label" />
 
+        <CheckBox
+            android:id="@+id/group_by_place"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/group_by_place_label" />
+
         <Button
             android:id="@+id/start"
             android:layout_width="match_parent"

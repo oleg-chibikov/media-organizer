@@ -3,6 +3,7 @@ package com.mediaorganizer.android
 import android.app.Activity
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -18,6 +19,7 @@ class RunScreen(activity: Activity) {
     val pickSource: Button = activity.findViewById(R.id.pick_source)
     val pickDestination: Button = activity.findViewById(R.id.pick_destination)
     val background: Switch = activity.findViewById(R.id.background)
+    val groupByPlace: CheckBox = activity.findViewById(R.id.group_by_place)
     val start: Button = activity.findViewById(R.id.start)
     private val status: TextView = activity.findViewById(R.id.status)
     private val progressBar: ProgressBar = activity.findViewById(R.id.progress)
@@ -32,6 +34,7 @@ class RunScreen(activity: Activity) {
         destination.isEnabled = !running
         pickSource.isEnabled = !running
         pickDestination.isEnabled = !running
+        groupByPlace.isEnabled = !running
     }
 
     fun show(snapshot: RunProgress.Snapshot) {
