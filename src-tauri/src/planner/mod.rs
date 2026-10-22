@@ -12,17 +12,19 @@ mod place_folders;
 mod placed_file;
 mod placed_moves;
 mod placed_under;
+mod reservations;
 mod suggestion_folders;
 
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
     events::{self, EventSink},
     models::{
-        FileKind, FileRecord, MetadataResult, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
+        FileKind, FileRecord, MetadataResult, MovePlan, PlanErrorEvent, PlanFileEvent,
+        PlanFinishedEvent,
     },
 };
 pub(crate) use continued_moves::plan_continued_moves;
@@ -30,25 +32,26 @@ pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
 pub(crate) use place_folders::PlaceFolders;
 pub(crate) use placed_under::placed_files_under;
+pub(crate) use reservations::Reservations;
 
 /// Plans every photo/video into `layout`, streaming one event per file tagged with
-/// `request_id`, so the frontend can drop the events of a request it replaced. Files
-/// in `place_folders` go to their place folder instead of a date folder.
-/// Planning is a dry run: it doesn't create folders or files.
+/// `scan_id`. Files in `place_folders` go to their place folder instead of a date folder.
+/// `reservations` holds the names the scan's earlier plans took, so no two files get one.
+/// Planning is a dry run: it doesn't create folders or files. Returns the plans it made.
 pub(crate) fn stream_move_plan(
     sink: &impl EventSink,
-    request_id: u64,
+    scan_id: u64,
     layout: &DestinationLayout,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
     place_folders: &PlaceFolders,
-) {
+    reservations: &mut Reservations,
+) -> Vec<MovePlan> {
     let metadata_by_id: HashMap<&str, &MetadataResult> = metadata_results
         .iter()
         .map(|result| (result.file_id.as_str(), result))
         .collect();
-    let mut reserved_paths: HashSet<String> = HashSet::new();
-    let mut planned = 0_u64;
+    let mut plans = Vec::new();
     let mut errors = 0_u64;
 
     for file in files {
@@ -56,18 +59,26 @@ pub(crate) fn stream_move_plan(
             continue;
         }
 
+        reservations.release(&file.id);
         let metadata = metadata_by_id.get(file.id.as_str()).copied();
-        match create_plan_for_file(layout, file, metadata, place_folders, &mut reserved_paths) {
+        match create_plan_for_file(layout, file, metadata, place_folders, reservations.paths()) {
             Ok(plan) => {
-                planned += 1;
-                events::plan_file(sink, PlanFileEvent { request_id, plan });
+                reservations.hold(&plan);
+                events::plan_file(
+                    sink,
+                    PlanFileEvent {
+                        scan_id,
+                        plan: plan.clone(),
+                    },
+                );
+                plans.push(plan);
             }
             Err(error) => {
                 errors += 1;
                 events::plan_error(
                     sink,
                     PlanErrorEvent {
-                        request_id,
+                        scan_id,
                         file_id: file.id.clone(),
                         error,
                     },
@@ -79,9 +90,10 @@ pub(crate) fn stream_move_plan(
     events::plan_finished(
         sink,
         PlanFinishedEvent {
-            request_id,
-            planned,
+            scan_id,
+            planned: plans.len() as u64,
             errors,
         },
     );
+    plans
 }

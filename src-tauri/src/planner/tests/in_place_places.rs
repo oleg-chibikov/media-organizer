@@ -10,7 +10,7 @@ use super::{
 use crate::{
     events,
     models::{PlaceSuggestion, SuggestionKind},
-    planner::{stream_move_plan, DestinationLayout, PlaceFolders},
+    planner::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations},
     settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
     test_support::{events::RecordingSink, media::dated_metadata},
 };
@@ -35,7 +35,15 @@ fn planned_dirs(layout: &DestinationLayout, selected: &Path) -> Vec<PathBuf> {
     ];
     let folders = PlaceFolders::new(&[zoo_outing()], &metadata).expect("valid suggestions");
     let sink = RecordingSink::default();
-    stream_move_plan(&sink, 0, layout, &records, &metadata, &folders);
+    stream_move_plan(
+        &sink,
+        0,
+        layout,
+        &records,
+        &metadata,
+        &folders,
+        &mut Reservations::default(),
+    );
     sink.payloads(events::PLAN_FILE)
         .iter()
         .map(|payload| PathBuf::from(payload["plan"]["destination_dir"].as_str().expect("a dir")))
@@ -71,6 +79,7 @@ fn a_placed_file_without_a_resolved_root_is_an_error() {
         &[photo_record("a", "jpg")],
         &metadata,
         &folders,
+        &mut Reservations::default(),
     );
 
     assert_eq!(sink.payloads(events::PLAN_ERROR).len(), 1);

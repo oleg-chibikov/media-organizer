@@ -49,24 +49,47 @@ pub struct PlacedMove {
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlanFileEvent {
-    pub request_id: u64,
+    pub scan_id: u64,
     pub plan: MovePlan,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlanErrorEvent {
-    pub request_id: u64,
+    pub scan_id: u64,
     pub file_id: String,
     pub error: String,
 }
 
+/// One planning pass ended. The webview waits for `plan:settled` instead.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlanFinishedEvent {
-    pub request_id: u64,
+    pub scan_id: u64,
     pub planned: u64,
     pub errors: u64,
+}
+
+/// The scan's plans are gone, as after a new destination. New ones follow.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct PlanClearedEvent {
+    pub scan_id: u64,
+}
+
+/// Files earlier runs placed that join the scan, and the ones that leave it.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct PlacedFilesEvent {
+    pub scan_id: u64,
+    pub added: Vec<PlacedMove>,
+    pub dropped: Vec<String>,
+}
+
+/// Every file with a date is planned for the place folders the person chose.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct PlanSettledEvent {
+    pub scan_id: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

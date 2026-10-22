@@ -1,144 +1,105 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
-import { createMovePlan } from "../../lib/api";
-import type { FileRecord, MetadataResult, PlaceSuggestion, PlacedMove } from "../../lib/types";
-import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
-import { acceptPlaces, type AcceptedPlaces } from "./acceptedPlaces";
-import { usePlacedMoves } from "./usePlacedMoves";
+import { applyPlaceSuggestions, clearScanPlans } from "../../lib/api";
+import type { PlaceSuggestion, PlacedMove } from "../../lib/types";
 import { usePlanBatches } from "./usePlanBatches";
 import { usePlanEvents } from "./usePlanEvents";
-import { usePlanRequests } from "./usePlanRequests";
 import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
-  selectedFolder: string | null;
-  // The backend plans the files of this scan by id.
+  // The backend plans the files of this scan as their dates are read.
   scanIdRef: RefObject<number | null>;
   reportError: (message: string) => void;
+  // Placed files that move to new day folders join the rows, and leave them when dropped.
   onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
 }
 
-export function useMovePlanning({
-  selectedFolder,
-  scanIdRef,
-  reportError,
-  onPlacedFiles
-}: MovePlanningOptions) {
+// Shows the plans the backend makes, and tells it which place folders the person chose.
+export function useMovePlanning({ scanIdRef, reportError, onPlacedFiles }: MovePlanningOptions) {
   const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
-  const { activePlanRequests, startRequest, finishRequest, isActive, resetRequests } =
-    usePlanRequests();
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
-  const signaturesRef = useRef<Map<string, string>>(new Map());
-  // Accepted place suggestions go with every plan request.
-  // `null` holds plans back until detection answers, so no file shows a date folder first.
-  const placesRef = useRef<AcceptedPlaces | null>(acceptPlaces([]));
-  const { planPlaced, dropPlaced, isPlaced, resetPlaced } = usePlacedMoves({
-    selectedFolder,
-    scanIdRef,
-    addPlan,
-    flushPlans,
-    dropPlansFor,
-    startRequest,
-    finishRequest,
-    reportError,
-    onPlacedFiles
-  });
+  // Plans wait for the place folders until the first apply, so no file shows a date folder first.
+  const [waiting, setWaiting] = useState(true);
+  const waitingRef = useRef(true);
+  const [applying, setApplying] = useState(false);
 
-  const requestPlans = useCallback(
-    (rows: FileRecord[], metadataResults: MetadataResult[]) => {
-      const places = placesRef.current;
-      const scanId = scanIdRef.current;
-      if (!selectedFolder || !places || scanId === null) {
-        return;
-      }
-      const candidates = claimPlanCandidates(
-        rows.filter((row) => !isPlaced(row.id)),
-        metadataResults,
-        signaturesRef.current,
-        places.keys
-      );
-      if (candidates.files.length === 0) {
-        return;
-      }
-      // A file planned again gets a fresh answer, so its old plan and error go.
-      const fileIds = candidates.files.map((file) => file.id);
-      dropPlansFor(fileIds);
-      setPlanErrorsByFileId((previous) => withoutFileIds(previous, fileIds));
-      const requestId = startRequest();
-      void createMovePlan(requestId, selectedFolder, scanId, fileIds, places.suggestions).catch(
-        (error: unknown) => {
-          // After a reset the signatures belong to the new folder.
-          if (!isActive(requestId)) {
-            return;
-          }
-          finishRequest(requestId);
-          restorePlanSignatures(signaturesRef.current, candidates.previousSignatures);
-          reportError(`Failed to create move plan: ${String(error)}`);
-        }
-      );
-    },
-    [
-      dropPlansFor,
-      finishRequest,
-      isActive,
-      isPlaced,
-      reportError,
-      scanIdRef,
-      selectedFolder,
-      startRequest
-    ]
-  );
+  const wait = useCallback((nextWaiting: boolean) => {
+    waitingRef.current = nextWaiting;
+    setWaiting(nextWaiting);
+  }, []);
 
-  // Plans again only the files whose place folder changed, plus the placed files that move.
-  const applyPlaceSuggestions = useCallback(
-    (suggestions: PlaceSuggestion[], rows: FileRecord[], metadataResults: MetadataResult[]) => {
-      placesRef.current = acceptPlaces(suggestions);
-      requestPlans(rows, metadataResults);
-      planPlaced(suggestions, metadataResults);
-    },
-    [planPlaced, requestPlans]
-  );
+  const forgetPlans = useCallback(() => {
+    dropPlans();
+    setPlanErrorsByFileId({});
+  }, [dropPlans]);
 
   usePlanEvents({
-    isActive,
-    addPlan,
-    addError: (fileId, error) =>
-      setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error })),
-    flushPlans,
-    finishRequest,
+    scanIdRef,
+    addPlan: (plan) => {
+      addPlan(plan);
+      setPlanErrorsByFileId((previous) => withoutFileIds(previous, [plan.file_id]));
+    },
+    setError: (fileId, error) => {
+      dropPlansFor([fileId]);
+      setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error }));
+    },
+    clearPlans: forgetPlans,
+    onPlacedFiles: (added, droppedIds) => {
+      dropPlansFor(droppedIds);
+      onPlacedFiles(added, droppedIds);
+      added.forEach((move) => addPlan(move.plan));
+    },
+    onSettled: () => {
+      // Plans land before planning counts as done.
+      flushPlans();
+      setApplying(false);
+    },
     reportError
   });
 
-  // A new destination or scan drops the place folders along with the plans.
-  // Answers to requests in flight carry the old destination, so they are forgotten too.
-  const clearPlans = useCallback(
-    (waitForPlaces: boolean) => {
-      signaturesRef.current = new Map();
-      placesRef.current = waitForPlaces ? null : acceptPlaces([]);
-      dropPlaced();
-      dropPlans();
-      resetRequests();
-      setPlanErrorsByFileId({});
+  const applyPlaces = useCallback(
+    (suggestions: PlaceSuggestion[]) => {
+      const scanId = scanIdRef.current;
+      if (scanId === null) {
+        return;
+      }
+      wait(false);
+      setApplying(true);
+      applyPlaceSuggestions(scanId, suggestions).catch((error: unknown) => {
+        if (scanIdRef.current === scanId) {
+          setApplying(false);
+          reportError(String(error));
+        }
+      });
     },
-    [dropPlaced, dropPlans, resetRequests]
+    [reportError, scanIdRef, wait]
   );
 
-  const resetPlanning = useCallback(
-    (waitForPlaces: boolean) => {
-      clearPlans(waitForPlaces);
-      resetPlaced();
-    },
-    [clearPlans, resetPlaced]
-  );
+  // A new destination drops the plans. They come back once the places apply again.
+  const clearPlans = useCallback(() => {
+    forgetPlans();
+    wait(true);
+    const scanId = scanIdRef.current;
+    if (scanId !== null) {
+      clearScanPlans(scanId).catch((error: unknown) =>
+        reportError(`Failed to clear the plans: ${String(error)}`)
+      );
+    }
+  }, [forgetPlans, reportError, scanIdRef, wait]);
 
-  const waitingForPlaces = useCallback(() => placesRef.current === null, []);
+  // A new scan starts with no plans and waits for its places.
+  const resetPlanning = useCallback(() => {
+    forgetPlans();
+    wait(true);
+    setApplying(false);
+  }, [forgetPlans, wait]);
 
   return {
     movePlansByFileId,
-    activePlanRequests,
     planErrorsByFileId,
-    requestPlans,
-    applyPlaceSuggestions,
-    waitingForPlaces,
+    // Still planning: waiting for the places, or the backend is planning for them.
+    planning: waiting || applying,
+    applyPlaceSuggestions: applyPlaces,
+    waitingForPlaces: useCallback(() => waitingRef.current, []),
     clearPlans,
     resetPlanning
   };

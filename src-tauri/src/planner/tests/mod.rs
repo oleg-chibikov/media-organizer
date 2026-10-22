@@ -14,7 +14,7 @@ mod streaming;
 
 use std::path::{Path, PathBuf};
 
-use super::{stream_move_plan, DestinationLayout, PlaceFolders};
+use super::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations};
 use crate::{
     events,
     models::{FileKind, FileRecord, PlaceSuggestion},
@@ -38,7 +38,15 @@ fn planned_dir(root: &Path, trip: &PlaceSuggestion, id: &str, date: &str) -> Pat
     let folders = PlaceFolders::new(std::slice::from_ref(trip), &metadata).expect("folders");
     let sink = RecordingSink::default();
     let files = [photo_record(id, "jpg")];
-    stream_move_plan(&sink, 0, &dated(root), &files, &metadata, &folders);
+    stream_move_plan(
+        &sink,
+        0,
+        &dated(root),
+        &files,
+        &metadata,
+        &folders,
+        &mut Reservations::default(),
+    );
     PathBuf::from(
         sink.payloads(events::PLAN_FILE)[0]["plan"]["destination_dir"]
             .as_str()

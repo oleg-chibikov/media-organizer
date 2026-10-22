@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { FileIdMap } from "../../lib/fileIdMap";
 import { describe, expect, it, vi } from "vitest";
-import { createMovePlan, type PlanListeners } from "../../lib/api";
-import type { PlaceSuggestion } from "../../lib/types";
+import { FileIdMap } from "../../lib/fileIdMap";
+import { applyPlaceSuggestions, clearScanPlans, type PlanListeners } from "../../lib/api";
+import type { PlacedMove } from "../../lib/types";
 import { METADATA, PLAN, RECORD } from "../../test/pipelineFixtures";
 import { useMovePlanning } from "./useMovePlanning";
 
@@ -10,170 +10,95 @@ const listeners = vi.hoisted(() => ({ plan: null as PlanListeners | null }));
 
 vi.mock("../../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/api")>()),
-  createMovePlan: vi.fn(async () => undefined),
+  applyPlaceSuggestions: vi.fn(async () => undefined),
+  clearScanPlans: vi.fn(async () => undefined),
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), []))
 }));
 
-const lastRequestId = () => vi.mocked(createMovePlan).mock.lastCall?.[0] ?? 0;
-
-function renderPlanning() {
-  const reportError = vi.fn();
+async function renderPlanning() {
+  const onPlacedFiles = vi.fn();
   const hook = renderHook(() =>
-    useMovePlanning({
-      selectedFolder: "C:\\in",
-      scanIdRef: { current: 1 },
-      reportError,
-      onPlacedFiles: vi.fn()
-    })
+    useMovePlanning({ scanIdRef: { current: 1 }, reportError: vi.fn(), onPlacedFiles })
   );
-  return { ...hook, reportError };
+  await waitFor(() => expect(listeners.plan).not.toBeNull());
+  return { ...hook, onPlacedFiles };
 }
 
 describe("useMovePlanning", () => {
-  it("applies requested plans in one batch when planning finishes", async () => {
-    const { result } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
+  it("waits for the places, then shows the plans once the backend settles", async () => {
+    const { result } = await renderPlanning();
+    expect(result.current.planning).toBe(true);
 
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    const request_id = lastRequestId();
-    act(() => listeners.plan?.onFile({ request_id, plan: PLAN }));
-    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
-    act(() => listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 }));
+    act(() => result.current.applyPlaceSuggestions([]));
+    expect(applyPlaceSuggestions).toHaveBeenCalledWith(1, []);
+    act(() => listeners.plan?.onFile({ scan_id: 1, plan: PLAN }));
+    expect(result.current.planning).toBe(true);
+    act(() => listeners.plan?.onSettled({ scan_id: 1 }));
 
     expect(result.current.movePlansByFileId).toEqual(FileIdMap.from({ f1: PLAN }));
-    expect(result.current.activePlanRequests).toBe(0);
-  });
-
-  it("ignores plans and errors of requests it did not make", async () => {
-    const { result, reportError } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-
-    act(() => {
-      listeners.plan?.onFile({ request_id: -1, plan: { ...PLAN, file_id: "old" } });
-      listeners.plan?.onError({ request_id: -1, file_id: "old", error: "gone" });
-      listeners.plan?.onFinished({ request_id: -1, planned: 1, errors: 1 });
-    });
-
-    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
-    expect(result.current.planErrorsByFileId).toEqual({});
-    expect(reportError).not.toHaveBeenCalled();
-  });
-
-  it("keeps a plan error on its file until the file is planned again", async () => {
-    const { result, reportError } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    act(() =>
-      listeners.plan?.onError({
-        request_id: lastRequestId(),
-        file_id: RECORD.id,
-        error: "Bad date"
-      })
-    );
-    expect(result.current.planErrorsByFileId).toEqual({ f1: "Bad date" });
-    expect(reportError).not.toHaveBeenCalled();
-
-    act(() => result.current.requestPlans([RECORD], [{ ...METADATA, chosen_date: "2026-05-25" }]));
-    expect(result.current.planErrorsByFileId).toEqual({});
-  });
-});
-
-describe("useMovePlanning reset", () => {
-  it("drops the answers to requests made before a reset", async () => {
-    const { result } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    const old = lastRequestId();
-
-    act(() => result.current.resetPlanning(false));
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    act(() => {
-      listeners.plan?.onFile({ request_id: old, plan: { ...PLAN, destination_path: "old" } });
-      listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
-    });
-
-    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
-    expect(result.current.activePlanRequests).toBe(1);
-  });
-});
-
-describe("useMovePlanning clear", () => {
-  it("drops plans for the old destination that land after a clear", async () => {
-    const { result } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    const old = lastRequestId();
-
-    act(() => result.current.clearPlans(false));
-    act(() => {
-      listeners.plan?.onFile({ request_id: old, plan: PLAN });
-      listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
-    });
-
-    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
-    expect(result.current.activePlanRequests).toBe(0);
-  });
-
-  it("holds plans back until the place folders come", async () => {
-    const { result } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-    vi.mocked(createMovePlan).mockClear();
-
-    act(() => result.current.clearPlans(true));
-    act(() => result.current.requestPlans([RECORD], [METADATA]));
-    expect(createMovePlan).not.toHaveBeenCalled();
-
-    act(() => result.current.applyPlaceSuggestions([], [RECORD], [METADATA]));
-    expect(createMovePlan).toHaveBeenCalledOnce();
+    expect(result.current.planning).toBe(false);
     expect(result.current.waitingForPlaces()).toBe(false);
   });
-});
 
-describe("useMovePlanning place folders", () => {
-  const other = { ...RECORD, id: "f2" };
-  const otherMetadata = { ...METADATA, file_id: "f2" };
-  const outing = {
-    id: "o1",
-    kind: "outing",
-    places: [{ name: "Gardens", file_ids: ["f1"] }],
-    root_file_ids: [],
-    continues: null
-  } as unknown as PlaceSuggestion;
+  it("drops events of another scan", async () => {
+    const { result } = await renderPlanning();
 
-  it("plans again only the files whose place folder changed", async () => {
-    const { result } = renderPlanning();
-    await waitFor(() => expect(listeners.plan).not.toBeNull());
-    const rows = [RECORD, other];
-    const metadata = [METADATA, otherMetadata];
-    act(() => result.current.requestPlans(rows, metadata));
-    const request_id = lastRequestId();
     act(() => {
-      listeners.plan?.onFile({ request_id, plan: PLAN });
-      listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 });
+      listeners.plan?.onFile({ scan_id: 0, plan: PLAN });
+      listeners.plan?.onError({ scan_id: 0, file_id: "f1", error: "gone" });
+      listeners.plan?.onSettled({ scan_id: 0 });
     });
-    vi.mocked(createMovePlan).mockClear();
 
-    act(() => result.current.applyPlaceSuggestions([outing], rows, metadata));
-
-    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
-      expect.any(Number),
-      "C:\\in",
-      1,
-      [RECORD.id],
-      [outing]
-    );
     expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
-    expect(result.current.activePlanRequests).toBe(1);
+    expect(result.current.planErrorsByFileId).toEqual({});
+  });
 
-    vi.mocked(createMovePlan).mockClear();
-    act(() => result.current.applyPlaceSuggestions([], rows, metadata));
-    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
-      expect.any(Number),
-      "C:\\in",
-      1,
-      [RECORD.id],
-      []
-    );
+  it("swaps a plan for its error and back", async () => {
+    const { result } = await renderPlanning();
+
+    act(() => {
+      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onError({ scan_id: 1, file_id: "f1", error: "Bad date" });
+      listeners.plan?.onSettled({ scan_id: 1 });
+    });
+    expect(result.current.planErrorsByFileId).toEqual({ f1: "Bad date" });
+    expect(result.current.movePlansByFileId.has("f1")).toBe(false);
+
+    act(() => {
+      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onSettled({ scan_id: 1 });
+    });
+    expect(result.current.planErrorsByFileId).toEqual({});
+  });
+
+  it("adds placed files with their plans and drops them again", async () => {
+    const { result, onPlacedFiles } = await renderPlanning();
+    const placed: PlacedMove = { record: RECORD, metadata: METADATA, plan: PLAN };
+
+    act(() => {
+      listeners.plan?.onPlaced({ scan_id: 1, added: [placed], dropped: [] });
+      listeners.plan?.onSettled({ scan_id: 1 });
+    });
+    expect(onPlacedFiles).toHaveBeenCalledWith([placed], []);
+    expect(result.current.movePlansByFileId.get("f1")).toEqual(PLAN);
+
+    act(() => listeners.plan?.onPlaced({ scan_id: 1, added: [], dropped: ["f1"] }));
+    expect(result.current.movePlansByFileId.has("f1")).toBe(false);
+  });
+
+  it("clears the plans for a new destination and waits for the places again", async () => {
+    const { result } = await renderPlanning();
+    act(() => {
+      result.current.applyPlaceSuggestions([]);
+      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onSettled({ scan_id: 1 });
+    });
+
+    act(() => result.current.clearPlans());
+
+    expect(clearScanPlans).toHaveBeenCalledWith(1);
+    expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
+    expect(result.current.waitingForPlaces()).toBe(true);
+    expect(result.current.planning).toBe(true);
   });
 });

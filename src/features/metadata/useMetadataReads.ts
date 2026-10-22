@@ -1,43 +1,29 @@
 import { useCallback, useState, type RefObject } from "react";
 import { setMetadataPaused, type MetadataListeners } from "../../lib/api";
-import type { FileRecord, MetadataResult } from "../../lib/types";
 import { useMetadataResults } from "./useMetadataResults";
 
 interface MetadataReadsOptions {
   // The scan on screen. Its ref changes as soon as the scan starts, before the next render.
   scanId: number | null;
   scanIdRef: RefObject<number | null>;
-  rowByIdRef: RefObject<Map<string, FileRecord>>;
   reportError: (message: string) => void;
-  onMetadataRead: (rows: FileRecord[], results: MetadataResult[]) => void;
 }
 
 // Holds the dates the backend reads while it scans. Events of a replaced scan are dropped.
-export function useMetadataReads({
-  scanId,
-  scanIdRef,
-  rowByIdRef,
-  reportError,
-  onMetadataRead
-}: MetadataReadsOptions) {
-  const results = useMetadataResults(onMetadataRead);
+export function useMetadataReads({ scanId, scanIdRef, reportError }: MetadataReadsOptions) {
+  const results = useMetadataResults();
   const { addRead, flushReads } = results;
   const [finishedScanId, setFinishedScanId] = useState<number | null>(null);
 
   const events: MetadataListeners = {
     onResults: ({ scan_id, results: read }) => {
-      if (scan_id !== scanIdRef.current) {
-        return;
+      if (scan_id === scanIdRef.current) {
+        addRead(read);
       }
-      // The backend sends a file's date after its row, so every row is already known.
-      const rows = read
-        .map((result) => rowByIdRef.current.get(result.file_id))
-        .filter((row): row is FileRecord => row !== undefined);
-      addRead({ rows, results: read });
     },
     onFinished: ({ scan_id }) => {
       if (scan_id === scanIdRef.current) {
-        // Planning hears of the last dates before reading counts as done.
+        // The last dates land before reading counts as done.
         flushReads();
         setFinishedScanId(scan_id);
       }

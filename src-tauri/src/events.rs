@@ -6,14 +6,15 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
 
 mod log_lines;
+mod plan_events;
 
 use log_lines::{log_move_result, log_replay_step};
+pub(crate) use plan_events::*;
 
 use crate::models::{
     HistoryIndexUpdatedEvent, HistoryReplayProgressEvent, MetadataFinishedEvent,
-    MetadataResultsEvent, MoveFileEvent, MoveFinishedEvent, MoveProgressEvent, PlanErrorEvent,
-    PlanFileEvent, PlanFinishedEvent, ScanErrorEvent, ScanFilesEvent, ScanFinishedEvent,
-    ScanStartedEvent,
+    MetadataResultsEvent, MoveFileEvent, MoveFinishedEvent, MoveProgressEvent, ScanErrorEvent,
+    ScanFilesEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -25,6 +26,9 @@ pub const METADATA_FINISHED: &str = "metadata:finished";
 pub const PLAN_FILE: &str = "plan:file";
 pub const PLAN_ERROR: &str = "plan:error";
 pub const PLAN_FINISHED: &str = "plan:finished";
+pub const PLAN_CLEARED: &str = "plan:cleared";
+pub const PLAN_PLACED: &str = "plan:placed";
+pub const PLAN_SETTLED: &str = "plan:settled";
 pub const MOVE_FILE: &str = "move:file";
 pub const MOVE_PROGRESS: &str = "move:progress";
 pub const MOVE_FINISHED: &str = "move:finished";
@@ -86,29 +90,6 @@ pub(crate) fn metadata_finished(sink: &impl EventSink, payload: MetadataFinished
         payload.cancelled
     );
     sink.emit(METADATA_FINISHED, payload);
-}
-
-pub(crate) fn plan_file(sink: &impl EventSink, payload: PlanFileEvent) {
-    log::debug!(
-        "Planned {} -> {}",
-        payload.plan.original_name,
-        payload.plan.destination_path
-    );
-    sink.emit(PLAN_FILE, payload);
-}
-
-pub(crate) fn plan_error(sink: &impl EventSink, payload: PlanErrorEvent) {
-    log::warn!("Plan error for {}: {}", payload.file_id, payload.error);
-    sink.emit(PLAN_ERROR, payload);
-}
-
-pub(crate) fn plan_finished(sink: &impl EventSink, payload: PlanFinishedEvent) {
-    log::info!(
-        "Plan finished: {} planned, {} errors",
-        payload.planned,
-        payload.errors
-    );
-    sink.emit(PLAN_FINISHED, payload);
 }
 
 pub(crate) fn move_file(sink: &impl EventSink, payload: MoveFileEvent) {

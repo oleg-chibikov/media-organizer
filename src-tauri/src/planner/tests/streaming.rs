@@ -4,7 +4,7 @@ use super::dated;
 use crate::{
     events,
     models::FileKind,
-    planner::{stream_move_plan, PlaceFolders},
+    planner::{stream_move_plan, PlaceFolders, Reservations},
     test_support::{
         events::RecordingSink,
         media::{dated_metadata, file_record},
@@ -25,12 +25,13 @@ fn streams_one_plan_per_media_file_then_totals() {
         &[photo, notes],
         &[metadata],
         &PlaceFolders::default(),
+        &mut Reservations::default(),
     );
 
     assert_eq!(sink.names(), vec![events::PLAN_FILE, events::PLAN_FINISHED]);
     let finished = &sink.payloads(events::PLAN_FINISHED)[0];
     assert_eq!(finished["planned"], 1);
     assert_eq!(finished["errors"], 0);
-    assert_eq!(finished["request_id"], 7);
-    assert_eq!(sink.payloads(events::PLAN_FILE)[0]["request_id"], 7);
+    assert_eq!(finished["scan_id"], 7);
+    assert_eq!(sink.payloads(events::PLAN_FILE)[0]["scan_id"], 7);
 }

@@ -21,20 +21,14 @@ export function countPendingExecutableMoves(
 }
 
 // Every planned file of the current scan, so the backend can count what it would move or skip.
-// The backend has each file's record and date, so only the plans go.
-export function collectConfirmationPlans(
+export function confirmationFileIds(
   rows: FileRecord[],
   metadataByFileId: FileIdMap<MetadataResult>,
   plansByFileId: FileIdMap<MovePlan>
-): MovePlan[] {
-  const plans: MovePlan[] = [];
-  for (const row of rows) {
-    const plan = plansByFileId.get(row.id);
-    if (plan && metadataByFileId.has(row.id)) {
-      plans.push(plan);
-    }
-  }
-  return plans;
+): string[] {
+  return rows
+    .filter((row) => plansByFileId.has(row.id) && metadataByFileId.has(row.id))
+    .map((row) => row.id);
 }
 
 export function fileCountLabel(count: number): string {

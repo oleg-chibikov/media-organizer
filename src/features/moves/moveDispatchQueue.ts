@@ -14,10 +14,9 @@ export interface MoveDispatchQueue {
   awaitingPlans: boolean;
 }
 
-// The backend looks each plan's file and date up in the scan, so a batch carries plans only.
+// The backend moves each file by its own plan, so a batch carries file ids only.
 export interface MoveBatch {
   fileIds: string[];
-  plans: MovePlan[];
 }
 
 export function createMoveDispatchQueue(): MoveDispatchQueue {
@@ -60,7 +59,7 @@ export function takeMoveBatch(
   metadataByFileId: FileIdMap<MetadataResult>,
   plansByFileId: FileIdMap<MovePlan>
 ): MoveBatch {
-  const batch: MoveBatch = { fileIds: [], plans: [] };
+  const batch: MoveBatch = { fileIds: [] };
   const pending = queue.pending;
   queue.pending = [];
   for (const fileId of pending) {
@@ -79,7 +78,6 @@ export function takeMoveBatch(
       continue;
     }
     batch.fileIds.push(fileId);
-    batch.plans.push(plan);
   }
   if (batch.fileIds.length > 0) {
     queue.activeRequests += 1;

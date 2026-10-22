@@ -7,7 +7,7 @@ import type {
   MoveConfirmationSummary,
   MovePlan
 } from "../../lib/types";
-import { collectConfirmationPlans } from "./moveConfirmationPrompt";
+import { confirmationFileIds } from "./moveConfirmationPrompt";
 
 interface MoveConfirmationOptions {
   rows: FileRecord[];
@@ -53,8 +53,8 @@ export function useMoveConfirmation({
       if (scanId === null) {
         return;
       }
-      const plans = collectConfirmationPlans(rows, metadataByFileId, movePlansByFileId);
-      const summary = await getMoveConfirmationSummary(scanId, plans);
+      const fileIds = confirmationFileIds(rows, metadataByFileId, movePlansByFileId);
+      const summary = await getMoveConfirmationSummary(scanId, fileIds);
       if (rowByIdRef.current === scanSession) {
         setPending({ summary, scanSession });
       }

@@ -3,14 +3,14 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{AppHandle, State};
 
 use super::{
-    app_dirs::resource_dir,
+    app_dirs::{placement_store, resource_dir, settings_store},
     background::{run_blocking, spawn_job},
 };
 use crate::{
     app_state::AppState,
     path_safety, scan_metadata,
     scan_metadata::{QueueReader, ReadOptions},
-    scan_session::SessionReader,
+    scan_session::{PlanContext, SessionReader},
     scanner,
 };
 
@@ -25,14 +25,20 @@ pub async fn start_scan(
     run_blocking(move || path_safety::validate_selected_folder(&validated_folder)).await?;
 
     let active_scan = state.active_scan.clone();
+    let context = PlanContext {
+        folder: selected_folder.clone(),
+        settings: settings_store(&app)?,
+        placements: placement_store(&app)?,
+    };
     let ticket = active_scan.begin();
-    let session = state.current_scan.begin(ticket.scan_id());
+    let session = state.current_scan.begin(ticket.scan_id(), context);
     let reader = SessionReader {
         inner: QueueReader {
             queue: state.metadata_queue.clone(),
             resource_dir: resource_dir(&app),
         },
         session: session.clone(),
+        sink: app.clone(),
     };
     let feed = scan_metadata::start_reading(
         app.clone(),

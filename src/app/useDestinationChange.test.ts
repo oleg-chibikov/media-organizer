@@ -1,9 +1,8 @@
 import { renderHook } from "@testing-library/react";
-import { FileIdMap } from "../lib/fileIdMap";
 import { describe, expect, it, vi } from "vitest";
 import { IDLE_MOVE_EXECUTION } from "../features/moves";
 import type { DestinationSettings } from "../lib/types";
-import { METADATA, RECORD } from "../test/pipelineFixtures";
+import { RECORD } from "../test/pipelineFixtures";
 import { useDestinationChange } from "./useDestinationChange";
 
 type Options = Parameters<typeof useDestinationChange>[0];
@@ -17,8 +16,7 @@ function options(confirmed: boolean, rows = [RECORD]) {
   const value = {
     destination: { applyChange },
     scan: { selectedFolder: "C:\\in", rows },
-    metadataByFileId: FileIdMap.from({ [RECORD.id]: METADATA }),
-    planning: { clearPlans: vi.fn(), requestPlans: vi.fn() },
+    planning: { clearPlans: vi.fn() },
     moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMovesForReplan: vi.fn() },
     placeSuggestions: { reset: vi.fn() }
   } as unknown as Options;
@@ -39,7 +37,7 @@ describe("useDestinationChange", () => {
     );
   });
 
-  it("replans with the rows present when the change lands", () => {
+  it("replans the session that is on screen when the change lands", () => {
     const first = options(false, []);
     const { result, rerender } = renderHook((props: Options) => useDestinationChange(props), {
       initialProps: first.value
@@ -50,8 +48,9 @@ describe("useDestinationChange", () => {
 
     first.onChangedRef.current?.({ group_by_place: true } as DestinationSettings);
 
-    expect(latest.value.planning.clearPlans).toHaveBeenCalledWith(true);
-    expect(latest.value.planning.requestPlans).toHaveBeenCalledWith([RECORD], [METADATA]);
+    expect(first.value.planning.clearPlans).not.toHaveBeenCalled();
+    expect(latest.value.planning.clearPlans).toHaveBeenCalledOnce();
+    expect(latest.value.moves.resetMovesForReplan).toHaveBeenCalledOnce();
     expect(latest.value.placeSuggestions.reset).toHaveBeenCalledOnce();
   });
 });

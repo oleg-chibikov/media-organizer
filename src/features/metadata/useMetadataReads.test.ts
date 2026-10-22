@@ -7,20 +7,15 @@ import { useMetadataReads } from "./useMetadataReads";
 vi.mock("../../lib/api", () => ({ setMetadataPaused: vi.fn(async () => undefined) }));
 
 function renderReads(scanId: number | null = 1) {
-  const onMetadataRead = vi.fn();
   const scanIdRef = { current: scanId };
-  const rowByIdRef = { current: new Map([[RECORD.id, RECORD]]) };
-  const hook = renderHook(
-    ({ id }) =>
-      useMetadataReads({ scanId: id, scanIdRef, rowByIdRef, reportError: vi.fn(), onMetadataRead }),
-    { initialProps: { id: scanId } }
-  );
-  return { ...hook, onMetadataRead, scanIdRef };
+  return renderHook(({ id }) => useMetadataReads({ scanId: id, scanIdRef, reportError: vi.fn() }), {
+    initialProps: { id: scanId }
+  });
 }
 
 describe("useMetadataReads", () => {
-  it("keeps the current scan's dates and hands them to planning when reading ends", () => {
-    const { result, onMetadataRead } = renderReads();
+  it("keeps the current scan's dates and shows them all when reading ends", () => {
+    const { result } = renderReads();
     expect(result.current.reading).toBe(true);
 
     act(() => {
@@ -29,12 +24,11 @@ describe("useMetadataReads", () => {
     });
 
     expect(result.current.metadataByFileId.get(RECORD.id)).toEqual(METADATA);
-    expect(onMetadataRead).toHaveBeenCalledWith([RECORD], [METADATA]);
     expect(result.current.reading).toBe(false);
   });
 
   it("drops the dates and the end of a scan it replaced", () => {
-    const { result, onMetadataRead } = renderReads();
+    const { result } = renderReads();
 
     act(() => {
       result.current.events.onResults({ scan_id: 0, results: [METADATA] });
@@ -42,7 +36,6 @@ describe("useMetadataReads", () => {
     });
 
     expect(result.current.metadataByFileId.size).toBe(0);
-    expect(onMetadataRead).not.toHaveBeenCalled();
     expect(result.current.reading).toBe(true);
   });
 

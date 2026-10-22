@@ -35,7 +35,7 @@ describe("useMoveConfirmation", () => {
     const { result, onConfirmed } = renderConfirmation();
 
     await act(() => result.current.request());
-    expect(getMoveConfirmationSummary).toHaveBeenCalledWith(1, [PLAN]);
+    expect(getMoveConfirmationSummary).toHaveBeenCalledWith(1, [RECORD.id]);
     expect(result.current.summary).toBe(SUMMARY);
     act(() => result.current.cancel());
     expect(result.current.summary).toBeNull();

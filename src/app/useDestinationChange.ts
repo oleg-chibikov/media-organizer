@@ -1,11 +1,8 @@
-import type { FileIdMap } from "../lib/fileIdMap";
 import { useEffect, useRef } from "react";
 import {
-  groupsByPlace,
   type DestinationSettingsOperation,
   type useDestinationSettings
 } from "../features/destination-settings";
-import { metadataResultsFor } from "../features/metadata";
 import type { useMoveExecution } from "../features/moves";
 import type { useMovePlanning } from "../features/planning";
 import type { useScanSession } from "../features/scan";
@@ -18,12 +15,11 @@ import {
   setHomeLocation,
   setRenameInPlace
 } from "../lib/api";
-import type { DestinationSettings, HomeLocation, MetadataResult } from "../lib/types";
+import type { HomeLocation } from "../lib/types";
 
 interface DestinationChangeOptions {
   destination: ReturnType<typeof useDestinationSettings>;
   scan: ReturnType<typeof useScanSession>;
-  metadataByFileId: FileIdMap<MetadataResult>;
   planning: ReturnType<typeof useMovePlanning>;
   moves: ReturnType<typeof useMoveExecution>;
   placeSuggestions: { reset: () => void };
@@ -40,21 +36,17 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     latestRef.current = options;
   });
 
-  const replanForDestinationChange = (settings: DestinationSettings) => {
-    const { scan, metadataByFileId, planning, moves: latestMoves } = latestRef.current;
+  const replanForDestinationChange = () => {
+    const { scan, planning, moves: latestMoves } = latestRef.current;
     const { executing, confirmed } = latestMoves.execution;
     if (!scan.selectedFolder || executing || confirmed) {
       return;
     }
-    // Place folders were suggested for the old destination.
+    // Place folders were suggested for the old destination. Detection applies them again,
+    // and the backend plans every dated file for the new destination then.
     latestRef.current.placeSuggestions.reset();
-    planning.clearPlans(groupsByPlace(settings));
-    const metadataResults = metadataResultsFor(scan.rows, metadataByFileId);
-    if (metadataResults.length === 0) {
-      return;
-    }
+    planning.clearPlans();
     latestMoves.resetMovesForReplan();
-    planning.requestPlans(scan.rows, metadataResults);
   };
 
   const change = (operation: DestinationSettingsOperation) =>

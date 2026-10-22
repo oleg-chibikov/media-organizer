@@ -1,97 +1,42 @@
-use std::path::PathBuf;
-
 use tauri::AppHandle;
 
-use super::{
-    app_dirs::{placement_store, settings_store},
-    background::{run_blocking, spawn_job},
-    session::scan_session,
-};
+use super::{background::run_blocking, session::scan_session};
 use crate::{
-    models::{MoveConfirmationSummary, MovePlan, PlaceSuggestion, PlacedMove},
-    mover, path_safety, planner,
+    models::{MoveConfirmationSummary, PlaceSuggestion},
+    mover,
 };
 
+/// Plans every file of the scan with a date for the place folders the person chose, and
+/// moves the placed files they continue. Files read later are planned as they come.
 #[tauri::command]
-pub async fn create_move_plan(
-    request_id: u64,
-    selected_path: String,
+pub async fn apply_place_suggestions(
     scan_id: u64,
-    file_ids: Vec<String>,
     place_suggestions: Vec<PlaceSuggestion>,
     app: AppHandle,
 ) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
-    let files = session.records(&file_ids)?;
-    let metadata_results = session.metadata(&file_ids);
-    let settings = settings_store(&app)?;
-    let placements = placement_store(&app)?;
-    let with_places = !place_suggestions.is_empty();
-    let (layout, placed, files) = run_blocking(move || {
-        let selected_folder = PathBuf::from(selected_path);
-        path_safety::validate_selected_folder(&selected_folder)?;
-        let layout =
-            planner::DestinationLayout::for_folder(&settings, &selected_folder, with_places)?;
-        let placed = planner::placed_files_under(&settings, &placements, &selected_folder, &files);
-        Ok::<_, String>((layout, placed, files))
-    })
-    .await?;
-    let place_folders =
-        planner::PlaceFolders::new(&place_suggestions, &metadata_results)?.with_placed(placed);
-
-    spawn_job(move || {
-        planner::stream_move_plan(
-            &app,
-            request_id,
-            &layout,
-            &files,
-            &metadata_results,
-            &place_folders,
-        );
-    });
-    Ok(())
+    run_blocking(move || session.set_places(&app, place_suggestions)).await
 }
 
-/// Files earlier runs placed in the folders the accepted suggestions continue, planned
-/// into their new day folders. Files whose day folder stays the same are left out.
+/// Drops the scan's plans for a new destination. They come back once places are applied.
 #[tauri::command]
-pub async fn plan_continued_moves(
-    selected_path: String,
-    scan_id: u64,
-    file_ids: Vec<String>,
-    place_suggestions: Vec<PlaceSuggestion>,
-    app: AppHandle,
-) -> Result<Vec<PlacedMove>, String> {
+pub async fn clear_scan_plans(scan_id: u64, app: AppHandle) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
-    let metadata_results = session.metadata(&file_ids);
-    let settings = settings_store(&app)?;
-    let placements = placement_store(&app)?;
-    let moves = run_blocking(move || {
-        planner::plan_continued_moves(
-            &settings,
-            &placements,
-            &PathBuf::from(selected_path),
-            &place_suggestions,
-            &metadata_results,
-        )
+    run_blocking(move || {
+        session.clear_plans(&app);
+        Ok(())
     })
-    .await?;
-    // Placed files join the scan, so later plans and moves can find them by id.
-    let records: Vec<_> = moves.iter().map(|placed| placed.record.clone()).collect();
-    let metadata: Vec<_> = moves.iter().map(|placed| placed.metadata.clone()).collect();
-    session.add_records(&records);
-    session.add_metadata(&metadata);
-    Ok(moves)
+    .await
 }
 
 #[tauri::command]
 pub fn get_move_confirmation_summary(
     scan_id: u64,
-    plans: Vec<MovePlan>,
+    file_ids: Vec<String>,
     app: AppHandle,
 ) -> Result<MoveConfirmationSummary, String> {
     let session = scan_session(&app, scan_id)?;
-    let file_ids: Vec<String> = plans.iter().map(|plan| plan.file_id.clone()).collect();
+    let plans = session.plans(&file_ids)?;
     let files = session.records(&file_ids)?;
     let metadata_results = session.metadata(&file_ids);
     Ok(mover::build_move_confirmation_summary(

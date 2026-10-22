@@ -11,7 +11,7 @@ import {
   useEffectiveDestinationRoot
 } from "../features/destination-settings";
 import { useHistory } from "../features/history";
-import { metadataResultsFor, useMetadataReads } from "../features/metadata";
+import { useMetadataReads } from "../features/metadata";
 import { useMoveExecution } from "../features/moves";
 import { usePlaceSuggestions } from "../features/place-suggestions";
 import { useMovePlanning } from "../features/planning";
@@ -33,11 +33,9 @@ export function useAppSession() {
     onNewScan: () => resetPipeline()
   });
   const planning = useMovePlanning({
-    selectedFolder: scan.selectedFolder,
     scanIdRef: scan.scanIdRef,
     reportError: setFolderError,
     onPlacedFiles: (added, droppedIds) => {
-      // Metadata goes first, so the metadata queue doesn't read the new rows again.
       metadata.removeResults(droppedIds);
       metadata.addResults(added.map((move) => move.metadata));
       scan.removeRows(droppedIds);
@@ -47,9 +45,7 @@ export function useAppSession() {
   const metadata = useMetadataReads({
     scanId: scan.scanId,
     scanIdRef: scan.scanIdRef,
-    rowByIdRef: scan.rowByIdRef,
-    reportError: setFolderError,
-    onMetadataRead: planning.requestPlans
+    reportError: setFolderError
   });
   const { completed, cancelled, discovered } = scan.progress;
   const places = usePlaceSuggestions({
@@ -69,18 +65,14 @@ export function useAppSession() {
       if ((confirmed || executing) && !planning.waitingForPlaces()) {
         return;
       }
-      planning.applyPlaceSuggestions(
-        accepted,
-        scan.rows,
-        metadataResultsFor(scan.rows, metadata.metadataByFileId)
-      );
+      planning.applyPlaceSuggestions(accepted);
     }
   });
   const planCompleted =
     completed &&
     !cancelled &&
     !metadata.reading &&
-    planning.activePlanRequests === 0 &&
+    !planning.planning &&
     !(groupByPlace && places.locating);
   const stillChecking = !planCompleted && !cancelled;
   const moves = useMoveExecution({
@@ -103,7 +95,7 @@ export function useAppSession() {
   // Metadata, plans, moves and place folders belong to the old folder's files.
   const resetPipeline = () => {
     metadata.resetMetadata();
-    planning.resetPlanning(groupByPlace);
+    planning.resetPlanning();
     moves.resetMoves();
     places.reset();
   };
@@ -123,7 +115,6 @@ export function useAppSession() {
   const destinationActions = useDestinationChange({
     destination,
     scan,
-    metadataByFileId: metadata.metadataByFileId,
     planning,
     moves,
     placeSuggestions: places
@@ -147,7 +138,7 @@ export function useAppSession() {
       movePlansByFileId: planning.movePlansByFileId,
       planErrorsByFileId: planning.planErrorsByFileId,
       planErrors: Object.keys(planning.planErrorsByFileId).length,
-      isPlanning: planning.activePlanRequests > 0,
+      isPlanning: planning.planning,
       planCompleted,
       stillChecking
     },

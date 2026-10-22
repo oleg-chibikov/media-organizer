@@ -45,8 +45,8 @@ sequenceDiagram
   Rust-->>UI: scan:files batches
   Rust->>Exif: reads tags of each batch
   Rust-->>UI: metadata:results with capture dates
-  UI->>Rust: create_move_plan
-  Rust-->>UI: plan:file events with destinations
+  UI->>Rust: apply_place_suggestions, once places are known
+  Rust-->>UI: plan:file events with destinations, then plan:settled
   Person->>UI: Confirms the move
   UI->>Rust: execute_move_plan
   Rust->>Disk: checks, moves and logs each file
@@ -62,7 +62,7 @@ sequenceDiagram
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `scan_metadata` takes each batch of photos and videos right after its `scan:files` event and reads them through the persistent ExifTool workers of `metadata_queue`. It streams `metadata:results` and ends with `metadata:finished`. Both carry the `scan_id` from `scan:started`, so `features/metadata` drops dates of a replaced scan. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
-4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews. Each event carries the call's `request_id`, so `features/planning` drops events of requests made before a reset. The call also takes the place suggestions the person accepted, see Place Suggestions.
+4. `scan_session` plans each file once its date is read and the place folders are known. `apply_place_suggestions` tells it the folders the person accepted, see Place Suggestions. `planner` streams `plan:*` events with destination previews and the `scan_id`. One lock orders every planning pass of a scan, so `features/planning` mirrors the events as they land. Every plan of a scan shares one set of reserved names, so two files planned in different passes don't get the same destination.
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
@@ -96,7 +96,7 @@ flowchart LR
   scanner -.->|"scan:* events"| scanF
   metaF -->|set_metadata_paused| metaQ
   metaQ -.->|"metadata:* events"| metaF
-  planF -->|"create_move_plan,<br/>detect_place_suggestions,<br/>plan_continued_moves"| planner
+  planF -->|"apply_place_suggestions,<br/>clear_scan_plans,<br/>detect_place_suggestions"| planner
   homeF -->|"search_home_cities,<br/>set_home_location,<br/>use_current_location"| settings
   planner -.->|"plan:* events"| planF
   movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan, pause_move_run,<br/>remove_empty_source_folders"| mover
@@ -138,7 +138,7 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
-- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. `create_move_plan`, `plan_continued_moves`, `detect_place_suggestions`, `get_move_confirmation_summary` and `execute_move_plan` take the `scan_id` and file ids or plans, and look the files up there. A command for a replaced scan fails.
+- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. It also owns the scan's plans: it plans read files, applies place folders, swaps placed files and clears plans for a new destination. `detect_place_suggestions`, `get_move_confirmation_summary` and `execute_move_plan` take the `scan_id` and file ids, and look the files and plans up there. A command for a replaced scan fails.
 - `scan_metadata/`: reader threads that read the dates of a running scan's photos and videos, pause with `set_metadata_paused`, and stop with the scan.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files in an accepted place folder. A file that already has its planned name gets `already_named` and stays out of the move.
@@ -190,7 +190,7 @@ Each layer may depend only on the layers below it.
 
 `PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids`, `country`, `continues` and `month_folder`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
 
-`create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
+`apply_place_suggestions` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
 - **Trip place** `<root>/<year>/<title>/<place>/<days>`. Trip files in no place go to `<root>/<year>/<title>/<days>`.
 - **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so the edit dialog only lets the person rename places.
@@ -205,10 +205,10 @@ Each layer may depend only on the layers below it.
 
 - **Group by place** is a toolbar checkbox saved as `group_by_place` through `set_group_by_place`. Its tooltip lists the places found, or the reason from `status`, and credits GeoNames and OpenStreetMap. With **Rename only** on it shows unchecked and disabled. Both lock once moves are confirmed.
 - **Edit places (N)…** sits next to the box while it is on and detection found places. The dialog renames folders or sends a trip to date folders, with a preview of the folders. Update folders saves the choices by suggestion id and replans the changed files. It moves no file: Move Files does that. A suggestion with no saved choice goes to its place folders as found.
-- **Waiting for places** with the box on, `features/planning` holds every `create_move_plan` call until detection answers, fails, or the scan stops. So no file shows a date folder first, and the status bar says `Checking files` until then.
+- **Waiting for places** each scan's session plans nothing until the first `apply_place_suggestions`. With the box on, that comes once detection answers, fails, or the scan stops. So no file shows a date folder first, and the status bar says `Checking files` until then.
 - **Place column** in the file table reads `file_places` by file id. Photos and videos show a spinner and `Locating...` until the answer lands. Files with no GPS get an empty cell.
 
-Each answer with new suggestions goes to `features/planning`, which sends them with every `create_move_plan` call. With the box off it gets none. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. Toggling the box, a new scan or a new destination clears the plans and detects again. After moves are confirmed, a later answer changes no plan.
+Each answer with new suggestions goes to `apply_place_suggestions`. With the box off it gets none. Each plan signature in `scan_session` holds the file's place folder, so only files whose folder changed get planned again. Toggling the box or a new destination calls `clear_scan_plans` and detects again. A new scan starts a new session. After moves are confirmed, a later answer changes no plan.
 
 Place folders are desktop only. The Android app keeps dated folders.
 
@@ -222,7 +222,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind and `country` at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name. Records from before `country` count as home's country.
 - **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the edit dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
-- **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
+- **Placed moves** `apply_place_suggestions` runs `planner::plan_continued_moves` and sends `plan:placed` with `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes, and the ids of the ones the last folders moved. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
 - **Emptied day folders** a run removes the folders placed files moved out of once they are empty, walking up parent by parent. It stops below the place folder, or the trip or outing folder for files in no place (`safe_fs::remove_empty_parents`).
 
 ## Month Folder Placement
@@ -233,9 +233,9 @@ A library already sorted by date has `<root>/<year>/<month>/<day>` folders, as t
 - **At home** a suggestion with no `country` gets `month_folder` and goes to `<root>/<year>/<month>/<trip or place>`. It continues only records of the same month, by the usual rules.
 - **Abroad** a suggestion joins every record of its root, year and `country`, whatever the gap. With none, or only records of this month, it stays in the month: `<root>/<year>/<month>/<country>/<place>`. When another month, or the year level, holds that country, `month_folder` is `None` and everything goes to `<root>/<year>/<country>/<place>`.
 - **Country wide continuation** sets `continues.country_wide`, titled after the country. `places` merges the placed places of the same name, and `lifted` counts the files of each month folder that moves up. The review shows `Moves 2026/5/USA into 2026/USA (34 files)`. Renaming a place keeps the continuation.
-- **Lifted files** `plan_continued_moves` plans every file of those records into the year level folder of the same trip or outing and place. A place the new scan also has takes its day layout, so a span over 31 days gets `<month>/<day>`. Others follow their placed span. The run records them at year level and drops the emptied month records. Emptied folders go up to the month folder, so `2026/5/USA` goes too.
+- **Lifted files** `planner::plan_continued_moves` plans every file of those records into the year level folder of the same trip or outing and place. A place the new scan also has takes its day layout, so a span over 31 days gets `<month>/<day>`. Others follow their placed span. The run records them at year level and drops the emptied month records. Emptied folders go up to the month folder, so `2026/5/USA` goes too.
 - **Registry** records keep `month_folder`, `None` for year level. Records from before it load as year level.
-- **Rescans** of a folder that holds placed files keep them where they are. `create_move_plan` looks up the batch's files under the place folder root in the registry (`planner::placed_files_under`). A batch with no file under the root skips the registry. A placed file in no accepted suggestion stays in its folder in both modes, keeps its `placement`, and only gets the planned name. Detection takes placed files out of the suggestions first, so a suggestion of placed files only is dropped, and new files beside them continue the placed folder.
+- **Rescans** of a folder that holds placed files keep them where they are. Each planning pass looks up its files under the place folder root in the registry (`planner::placed_files_under`). A batch with no file under the root skips the registry. A placed file in no accepted suggestion stays in its folder in both modes, keeps its `placement`, and only gets the planned name. Detection takes placed files out of the suggestions first, so a suggestion of placed files only is dropped, and new files beside them continue the placed folder.
 - **Undo** puts each undone file that came from a place folder of the same record back in that record, at its level or in the month folder it was lifted from. Other undone files are dropped.
 
 ## Frontend Modules

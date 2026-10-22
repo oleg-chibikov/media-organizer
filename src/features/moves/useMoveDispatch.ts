@@ -54,7 +54,7 @@ export function useMoveDispatch({
         continue;
       }
       updateExecution({ executing: true, completed: false });
-      void executeMovePlan(selectedFolder, scanId, batch.plans).catch((error: unknown) => {
+      void executeMovePlan(selectedFolder, scanId, batch.fileIds).catch((error: unknown) => {
         reportError(`Failed to execute move plan: ${String(error)}`);
         updateExecution(releaseFailedBatch(queueRef.current, batch.fileIds, error));
         queueMicrotask(() => pumpRef.current());

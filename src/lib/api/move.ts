@@ -1,10 +1,10 @@
-import type { MoveFileEvent, MoveFinishedEvent, MovePlan, MoveProgressEvent } from "../types";
+import type { MoveFileEvent, MoveFinishedEvent, MoveProgressEvent } from "../types";
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
-// The backend looks each plan's file and date up in scan `scanId`.
-export const executeMovePlan = (selectedPath: string, scanId: number, plans: MovePlan[]) =>
-  invokeCommand<void>("execute_move_plan", { selectedPath, scanId, plans });
+// Moves the files of scan `scanId` by their current plans in the backend.
+export const executeMovePlan = (selectedPath: string, scanId: number, fileIds: string[]) =>
+  invokeCommand<void>("execute_move_plan", { selectedPath, scanId, fileIds });
 
 // Stops the running batch after the file moving now. Files it didn't reach get no result.
 export const pauseMoveRun = () => invokeCommand<void>("pause_move_run");

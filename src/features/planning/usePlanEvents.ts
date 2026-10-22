@@ -1,40 +1,43 @@
+import type { RefObject } from "react";
 import { attachPlanListeners, useBackendEvents } from "../../lib/api";
-import type { MovePlan } from "../../lib/types";
+import type {
+  MovePlan,
+  PlacedFilesEvent,
+  PlacedMove,
+  PlanErrorEvent,
+  PlanFileEvent
+} from "../../lib/types";
 
 interface PlanEventsOptions {
-  isActive: (requestId: number) => boolean;
+  scanIdRef: RefObject<number | null>;
   addPlan: (plan: MovePlan) => void;
-  addError: (fileId: string, error: string) => void;
-  flushPlans: () => void;
-  finishRequest: (requestId: number) => void;
+  setError: (fileId: string, error: string) => void;
+  clearPlans: () => void;
+  onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
+  onSettled: () => void;
   reportError: (message: string) => void;
 }
 
-// Takes streamed plans and errors of the requests in flight. A reset forgets older ones.
+// Mirrors the backend's plans for the scan on screen. The backend sends them in order,
+// so applying each event as it lands keeps the plans it has. Older scans' events are dropped.
 export function usePlanEvents(options: PlanEventsOptions) {
-  const { isActive, addPlan, addError, flushPlans, finishRequest, reportError } = options;
+  const { scanIdRef, addPlan, setError, clearPlans, onPlacedFiles, onSettled } = options;
+  const forScan =
+    <T extends { scan_id: number }>(apply: (payload: T) => void) =>
+    (payload: T) => {
+      if (payload.scan_id === scanIdRef.current) {
+        apply(payload);
+      }
+    };
   useBackendEvents(
     attachPlanListeners,
     {
-      onFile: ({ request_id, plan }) => {
-        if (isActive(request_id)) {
-          addPlan(plan);
-        }
-      },
-      onError: ({ request_id, file_id, error }) => {
-        if (isActive(request_id)) {
-          addError(file_id, error);
-        }
-      },
-      onFinished: ({ request_id }) => {
-        if (!isActive(request_id)) {
-          return;
-        }
-        // Plans land before the request count drops, so planning never looks done too early.
-        flushPlans();
-        finishRequest(request_id);
-      }
+      onFile: forScan(({ plan }: PlanFileEvent) => addPlan(plan)),
+      onError: forScan(({ file_id, error }: PlanErrorEvent) => setError(file_id, error)),
+      onCleared: forScan(clearPlans),
+      onPlaced: forScan(({ added, dropped }: PlacedFilesEvent) => onPlacedFiles(added, dropped)),
+      onSettled: forScan(onSettled)
     },
-    (error) => reportError(`Failed to attach plan listeners: ${String(error)}`)
+    (error) => options.reportError(`Failed to attach plan listeners: ${String(error)}`)
   );
 }

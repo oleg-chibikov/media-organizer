@@ -1,61 +1,42 @@
 import type {
   MoveConfirmationSummary,
-  MovePlan,
   PlaceSuggestion,
-  PlacedMove,
+  PlacedFilesEvent,
+  PlanClearedEvent,
   PlanErrorEvent,
   PlanFileEvent,
-  PlanFinishedEvent
+  PlanSettledEvent
 } from "../types";
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
-/** Plans the files of scan `scanId` by id. The backend kept their records and dates.
- * Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders.
- * Every `plan:*` event of the request carries `requestId`. */
-export const createMovePlan = (
-  requestId: number,
-  selectedPath: string,
-  scanId: number,
-  fileIds: string[],
-  placeSuggestions: PlaceSuggestion[]
-) =>
-  invokeCommand<void>("create_move_plan", {
-    requestId,
-    selectedPath,
-    scanId,
-    fileIds,
-    placeSuggestions
-  });
+/** Plans every dated file of scan `scanId` for the accepted place folders, and moves the
+ * placed files they continue. Files read later are planned as they come. Ends with
+ * `plan:settled`. */
+export const applyPlaceSuggestions = (scanId: number, placeSuggestions: PlaceSuggestion[]) =>
+  invokeCommand<void>("apply_place_suggestions", { scanId, placeSuggestions });
 
-/** Files earlier runs placed in the folders the suggestions continue, planned into the
- * new day folders those folders get. Files that stay where they are are left out. */
-export const planContinuedMoves = (
-  selectedPath: string,
-  scanId: number,
-  fileIds: string[],
-  placeSuggestions: PlaceSuggestion[]
-) =>
-  invokeCommand<PlacedMove[]>("plan_continued_moves", {
-    selectedPath,
-    scanId,
-    fileIds,
-    placeSuggestions
-  });
+/** Drops the scan's plans for a new destination. They return once places are applied. */
+export const clearScanPlans = (scanId: number) =>
+  invokeCommand<void>("clear_scan_plans", { scanId });
 
-export const getMoveConfirmationSummary = (scanId: number, plans: MovePlan[]) =>
-  invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", { scanId, plans });
+export const getMoveConfirmationSummary = (scanId: number, fileIds: string[]) =>
+  invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", { scanId, fileIds });
 
 export interface PlanListeners {
   onFile: (payload: PlanFileEvent) => void;
   onError: (payload: PlanErrorEvent) => void;
-  onFinished: (payload: PlanFinishedEvent) => void;
+  onCleared: (payload: PlanClearedEvent) => void;
+  onPlaced: (payload: PlacedFilesEvent) => void;
+  onSettled: (payload: PlanSettledEvent) => void;
 }
 
 const PLAN_EVENTS = {
   onFile: "plan:file",
   onError: "plan:error",
-  onFinished: "plan:finished"
+  onCleared: "plan:cleared",
+  onPlaced: "plan:placed",
+  onSettled: "plan:settled"
 } as const;
 
 export const attachPlanListeners = (handlers: PlanListeners) => listenAll(PLAN_EVENTS, handlers);

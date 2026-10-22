@@ -14,7 +14,7 @@ The React app shows what the Rust backend reports and asks the backend to act. O
 
 The backend streams progress as events instead of returning one big result.
 
-1. A feature hook calls a command, such as `start_scan` or `create_move_plan`.
+1. A feature hook calls a command, such as `start_scan` or `apply_place_suggestions`.
 2. The backend runs the job and emits `scan:*`, `plan:*`, `move:*` or `history:*` events.
 3. `useBackendEvents` attaches the listeners once and hands each event to the handlers from the latest render.
 4. The feature hook stores the payload. Scan rows and plans land in 50 ms batches, so a big folder renders in chunks.
@@ -25,7 +25,7 @@ The hooks keep these rules:
 - **Backend decides** the frontend shows plans and results as the backend sends them. It doesn't guess a destination or an outcome. The destination folder in the toolbar comes from `get_effective_destination_root`.
 - **Ask first** every action that moves files or drops their history waits for a yes. The move dialog shows the destination and the backend's own count from `get_move_confirmation_summary`. While files are still being checked, the dialog offers all files and shows that count as ready now. History actions still use `window.confirm`.
 - **Early start** Move Files turns on once the scan finds a file. The run moves files as their checks finish and ends after the last check. The status bar counts moved files out of every found file that isn't blocked.
-- **Old events** plan events carry no request id, so planning keeps only plans for files it asked for. Dates from an earlier scan are dropped by their `scan_id`.
+- **Old events** dates and plans of an earlier scan are dropped by their `scan_id`.
 - **Locks** the destination root locks once moves are confirmed. Choose Folder is disabled while a batch runs.
 
 ## Import rules
@@ -68,7 +68,7 @@ flowchart TD
   session["app/useAppSession<br/>wires the features, resets them on a new scan"] -.-> scanHook
   scanHook["features/scan<br/>starts the scan, adds rows every 50 ms"] -->|rows| plan
   meta["features/metadata<br/>keeps the dates the backend reads during the scan"] -->|dates| plan
-  plan["features/planning<br/>asks for plans, keeps only the ones it asked for"] -->|plans| moves
+  plan["features/planning<br/>mirrors the plans the backend makes"] -->|plans| moves
   moves["features/moves<br/>backend summary, confirm, dispatch queue"] -->|confirmed batch| api
   history["features/history<br/>confirm, then undo, redo or delete"] -->|run id| api
   toolbar -->|opens Settings| settings["features/destination-settings<br/>media root, a Processed folder<br/>or rename only"]

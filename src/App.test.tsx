@@ -28,7 +28,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
   chooseFolder: vi.fn(async () => "C:\\in"),
   startScan: vi.fn(async () => undefined),
   setMetadataPaused: vi.fn(async () => undefined),
-  createMovePlan: vi.fn(async () => undefined),
+  applyPlaceSuggestions: vi.fn(async () => undefined),
   detectPlaceSuggestions: vi.fn(async () => ({
     suggestions: [],
     file_places: {},
@@ -74,23 +74,14 @@ describe("App", () => {
       listeners.metadata?.onFinished({ scan_id: 1, cancelled: false });
     });
     // Plans wait for place detection, so no file shows a date folder first.
-    expect(api.createMovePlan).not.toHaveBeenCalled();
-    await waitFor(
-      () =>
-        expect(api.createMovePlan).toHaveBeenCalledWith(
-          expect.any(Number),
-          "C:\\in",
-          1,
-          [RECORD.id],
-          []
-        ),
-      { timeout: 3000 }
-    );
+    expect(api.applyPlaceSuggestions).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.applyPlaceSuggestions).toHaveBeenCalledWith(1, []), {
+      timeout: 3000
+    });
 
-    const request_id = vi.mocked(api.createMovePlan).mock.lastCall?.[0] ?? 0;
     act(() => {
-      listeners.plan?.onFile({ request_id, plan: PLAN });
-      listeners.plan?.onFinished({ request_id, planned: 1, errors: 0 });
+      listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
+      listeners.plan?.onSettled({ scan_id: 1 });
     });
     const statusBar = within(screen.getByRole("contentinfo"));
     expect(statusBar.getByRole("status")).toHaveTextContent("Ready to move");
@@ -100,7 +91,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
     fireEvent.click(await screen.findByRole("button", { name: "Move 1 file" }));
-    await waitFor(() => expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", 1, [PLAN]));
+    await waitFor(() => expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", 1, [RECORD.id]));
 
     const result = {
       file_id: "f1",

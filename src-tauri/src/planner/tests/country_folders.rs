@@ -9,7 +9,7 @@ use super::{
 use crate::{
     events,
     models::{PlaceSuggestion, SuggestionKind},
-    planner::{stream_move_plan, PlaceFolders},
+    planner::{stream_move_plan, PlaceFolders, Reservations},
     test_support::{events::RecordingSink, media::dated_metadata},
 };
 
@@ -34,6 +34,7 @@ fn plan_of(found: PlaceSuggestion) -> Value {
         &[photo_record("a", "jpg")],
         &metadata,
         &folders,
+        &mut Reservations::default(),
     );
     sink.payloads(events::PLAN_FILE)[0]["plan"].clone()
 }

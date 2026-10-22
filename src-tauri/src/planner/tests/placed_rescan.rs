@@ -4,7 +4,9 @@ use super::dated;
 use crate::{
     events,
     models::{FileKind, FileRecord},
-    planner::{placed_files_under, stream_move_plan, DestinationLayout, PlaceFolders},
+    planner::{
+        placed_files_under, stream_move_plan, DestinationLayout, PlaceFolders, Reservations,
+    },
     test_support::{
         events::RecordingSink,
         media::{dated_metadata, file_record},
@@ -43,7 +45,15 @@ fn plan_rescan(
         &files,
     ));
     let sink = RecordingSink::default();
-    stream_move_plan(&sink, 0, layout, &files, &metadata, &folders);
+    stream_move_plan(
+        &sink,
+        0,
+        layout,
+        &files,
+        &metadata,
+        &folders,
+        &mut Reservations::default(),
+    );
     sink.payloads(events::PLAN_FILE)
         .iter()
         .map(|payload| {

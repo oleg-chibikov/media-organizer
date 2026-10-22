@@ -9,7 +9,6 @@ use super::{
 };
 use crate::{
     app_state::AppState,
-    models::MovePlan,
     move_run::{self, MoveBatch},
 };
 
@@ -17,11 +16,11 @@ use crate::{
 pub async fn execute_move_plan(
     selected_path: String,
     scan_id: u64,
-    plans: Vec<MovePlan>,
+    file_ids: Vec<String>,
     app: AppHandle,
 ) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
-    let file_ids: Vec<String> = plans.iter().map(|plan| plan.file_id.clone()).collect();
+    let plans = session.plans(&file_ids)?;
     let files = session.records(&file_ids)?;
     let metadata_results = session.metadata(&file_ids);
     let selected_folder = PathBuf::from(selected_path);
