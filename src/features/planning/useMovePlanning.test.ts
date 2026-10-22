@@ -92,6 +92,24 @@ describe("useMovePlanning reset", () => {
   });
 });
 
+describe("useMovePlanning clear", () => {
+  it("drops plans for the old destination that land after a clear", async () => {
+    const { result } = renderPlanning();
+    await waitFor(() => expect(listeners.plan).not.toBeNull());
+    act(() => result.current.requestPlans([RECORD], [METADATA]));
+    const old = lastRequestId();
+
+    act(() => result.current.clearPlans());
+    act(() => {
+      listeners.plan?.onFile({ request_id: old, plan: PLAN });
+      listeners.plan?.onFinished({ request_id: old, planned: 1, errors: 0 });
+    });
+
+    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.activePlanRequests).toBe(0);
+  });
+});
+
 describe("useMovePlanning place folders", () => {
   const other = { ...RECORD, id: "f2" };
   const otherMetadata = { ...METADATA, file_id: "f2" };

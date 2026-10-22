@@ -95,19 +95,20 @@ export function useMovePlanning({
   });
 
   // A new destination or scan drops the place folders along with the plans.
+  // Answers to requests in flight carry the old destination, so they are forgotten too.
   const clearPlans = useCallback(() => {
     signaturesRef.current = new Map();
     placesRef.current = acceptPlaces([]);
     dropPlaced();
     dropPlans();
+    resetRequests();
     setPlanErrorsByFileId({});
-  }, [dropPlaced, dropPlans]);
+  }, [dropPlaced, dropPlans, resetRequests]);
 
   const resetPlanning = useCallback(() => {
     clearPlans();
     resetPlaced();
-    resetRequests();
-  }, [clearPlans, resetRequests, resetPlaced]);
+  }, [clearPlans, resetPlaced]);
 
   return {
     movePlansByFileId,
