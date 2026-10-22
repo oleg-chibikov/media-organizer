@@ -97,7 +97,7 @@ flowchart LR
   scanner -.->|"scan:* events"| scanF
   metaF -->|read_metadata_for_files| metaQ
   metaQ -.->|"capture dates, as the result"| metaF
-  planF -->|"create_move_plan,<br/>detect_place_suggestions"| planner
+  planF -->|"create_move_plan,<br/>detect_place_suggestions,<br/>plan_continued_moves"| planner
   homeF -->|"search_home_cities,<br/>set_home_location"| settings
   planner -.->|"plan:* events"| planF
   movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan,<br/>remove_empty_source_folders"| mover
@@ -146,6 +146,7 @@ Each layer may depend only on the layers below it.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
 - `home_location/`: reads the saved home for place suggestions, learns it from large scans, and finds cities by name.
+- `placements/`: the registry of trip and outing folders that runs filled. Detection matches new suggestions against it. See Continued Place Folders.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `geo/`: offline reverse geocoding. See Offline Places.
 - `trips/`: groups files into trip and outing suggestions. See Place Suggestions.
@@ -165,7 +166,7 @@ Each layer may depend only on the layers below it.
 
 ## Place Suggestions
 
-`detect_place_suggestions(files, metadata_results)` returns `PlaceSuggestion[]`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
+`detect_place_suggestions(selected_path, files, metadata_results)` returns `PlaceSuggestion[]`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
 
 - **Home** is the saved home when settings hold one. The scan files don't change it.
 - **Learned home** with no saved home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`. A saved home stays until the person changes or clears it.
@@ -175,7 +176,7 @@ Each layer may depend only on the layers below it.
 - **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
 - **Files with no GPS** join the trip place of a geotagged file within 3 hours, else the trip root. Outside trips they join an outing with a file within 1 hour on the same day.
 
-`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places` and `root_file_ids`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
+`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids` and `continues`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
 
 `create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
@@ -184,10 +185,23 @@ Each layer may depend only on the layers below it.
 - **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
 - **Other files** keep `<root>/<year>/<month>/<day>`. Same folder mode ignores suggestions.
+- **Plans** carry `placement` (`kind`, `year`, `title`, `place`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
 
 `features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, and skips it with Rename only. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
 
 Place folders are desktop only. The Android app keeps dated folders.
+
+## Continued Place Folders
+
+A person who sorted files by month scans one month folder at a time. A trip from Oct 28 to Nov 2 then shows up in two scans. The registry lets the second scan add to the folder the first one filled.
+
+- **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`) and `root_files`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
+- **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
+- **Undo** drops the undone files, and records left empty. Redo doesn't add them back.
+- **Matching** `detect_place_suggestions` loads the records under the effective root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name.
+- **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
+- **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
+- **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
 
 ## Frontend Modules
 
@@ -213,10 +227,11 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 ## Data And Persistence
 
+- **Placed suggestions** are `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. See Continued Place Folders.
 - **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`. `home` holds `name`, `country`, `latitude`, `longitude` and `source` (`learned` or `manual`). Files saved before `home` existed load with no home.
 - **History** is `<appData>/history/runs/*.jsonl` plus `index.json`, written by `HistoryStore`.
 - **App log** goes to stdout and the OS log folder through `tauri-plugin-log`, set up in `main.rs`. The emit helpers in `events.rs` and `events/log_lines.rs` write one line per event. Per-file scan and plan lines are `debug` and stay out of the default `info` level.
-- **Writes** to settings and the history index take a process lock and replace the file through a temp file.
+- **Writes** to settings, placed suggestions and the history index take a process lock and replace the file through a temp file.
 - **ExifTool** ships as a sidecar under `src-tauri/binaries/`. On macOS the sidecar is a launcher that runs the Perl script with the system Perl. Details are in `docs/exiftool-sidecar.md`.
 - **Specs** with feature intent and acceptance criteria live in `specs/`.
 
@@ -230,7 +245,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **Deletes need proof.** Undo of a copy deletes it only when a different regular file at the source has the same bytes (`remove_verified_duplicate`). Source cleanup walks the selected folder deepest first and calls only `remove_dir`, which refuses a folder that holds anything. It removes the selected folder too once it is empty, skips links, and skips the destination root with everything inside it (`remove_empty_folders`).
 - **Duplicates are kept.** The planner blocks a file whose bytes match a file already at its destination name or a numbered `(n)` variant of it. Neither file is touched.
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
-- **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it and destinations inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
+- **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it, or inside the effective root for a placed file that moves to a new day folder. Destinations must sit inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
 - **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A move run or a replay stops moving files once its log can't record a step. One move, replay or delete works on a run at a time (`history::RunLease`).
 - **ExifTool is read-only.** Requests carry only `-charset filename=utf8`, `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
 - **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
