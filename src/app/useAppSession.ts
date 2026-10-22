@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { attachScanListeners, revealFileInExplorer, useBackendEvents } from "../lib/api";
 import {
   useDestinationSettings,
@@ -50,6 +50,7 @@ export function useAppSession() {
     completed &&
     !cancelled &&
     metadata.activeMetadataRequests === 0 &&
+    !metadata.paused &&
     planning.activePlanRequests === 0;
   const stillChecking = !planCompleted && !cancelled;
   const moves = useMoveExecution({
@@ -62,6 +63,10 @@ export function useAppSession() {
     movePlansByFileId: planning.movePlansByFileId,
     reportError: setFolderError
   });
+  // Pausing the run also stops reading dates, so the computer gets its CPU back.
+  const { setPaused: setMetadataPaused } = metadata;
+  const movesPaused = moves.execution.paused;
+  useEffect(() => setMetadataPaused(movesPaused), [movesPaused, setMetadataPaused]);
   const places = usePlaceSuggestions({
     selectedFolder: scan.selectedFolder,
     rows: scan.rows,

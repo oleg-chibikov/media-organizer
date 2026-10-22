@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
-import { isDispatchDrained, recordMoveResult, releaseFailedBatch } from "./moveDispatchCompletion";
+import {
+  finishBatch,
+  isDispatchDrained,
+  recordMoveResult,
+  releaseFailedBatch
+} from "./moveDispatchCompletion";
 import { createMoveDispatchQueue, enqueueReadyPlans, takeMoveBatch } from "./moveDispatchQueue";
 
 const plan = (fileId: string, status: MovePlan["plan_status"] = "ready") =>
@@ -40,6 +45,19 @@ describe("moveDispatchQueue", () => {
     expect(queue.inflightIds.size).toBe(0);
     expect(recordMoveResult(queue, "a")).toBe(true);
     expect(recordMoveResult(queue, "a")).toBe(false);
+  });
+
+  it("queues the files a paused run didn't reach again", () => {
+    const queue = createMoveDispatchQueue();
+    const rows = new Map([...ROWS, ["b", { id: "b" } as FileRecord]]);
+    enqueueReadyPlans(queue, PLANS, {});
+    takeMoveBatch(queue, rows, METADATA, PLANS);
+    recordMoveResult(queue, "a");
+    finishBatch(queue);
+    expect(queue.activeRequests).toBe(0);
+    expect(queue.pending).toEqual(["b"]);
+    expect(isDispatchDrained(queue)).toBe(false);
+    expect(takeMoveBatch(queue, rows, METADATA, PLANS).fileIds).toEqual(["b"]);
   });
 
   it("keeps a run open while files are still being checked", () => {

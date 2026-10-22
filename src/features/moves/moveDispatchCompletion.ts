@@ -27,6 +27,16 @@ export function releaseFailedBatch(
   };
 }
 
+// Mutates the queue: closes the finished batch. Files a paused run didn't reach go back to
+// the front of the queue, so resuming moves them next.
+export function finishBatch(queue: MoveDispatchQueue): void {
+  queue.activeRequests = Math.max(0, queue.activeRequests - 1);
+  const unfinished = [...queue.inflightIds];
+  queue.inflightIds.clear();
+  unfinished.forEach((fileId) => queue.queuedIds.add(fileId));
+  queue.pending.unshift(...unfinished);
+}
+
 // Mutates the queue: returns false when the file already had a result.
 export function recordMoveResult(queue: MoveDispatchQueue, fileId: string): boolean {
   const isFirstResult = !queue.completedIds.has(fileId);

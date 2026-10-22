@@ -39,6 +39,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     suffix_applied: 0
   })),
   executeMovePlan: vi.fn(async () => undefined),
+  pauseMoveRun: vi.fn(async () => undefined),
   removeEmptySourceFolders: vi.fn(async () => false),
   revealFileInExplorer: vi.fn(async () => undefined),
   attachScanListeners: vi.fn(async (handlers: ScanListeners) => ((listeners.scan = handlers), [])),

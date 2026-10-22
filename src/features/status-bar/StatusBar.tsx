@@ -79,7 +79,7 @@ export function StatusBar({
         <p className={`mt-1 ${execution.paused ? "text-amber-400" : "text-emerald-400"}`}>
           {moveProgressCount(scan.discovered, planning.planErrors, summary, moveCounts)}{" "}
           {execution.paused
-            ? "Paused. Files already moving will finish."
+            ? "Paused. The file moving now will finish."
             : (execution.statusMessage ?? "Starting...")}
         </p>
       ) : null}

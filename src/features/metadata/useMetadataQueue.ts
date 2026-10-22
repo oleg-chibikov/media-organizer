@@ -8,6 +8,7 @@ import {
   toMetadataRequest,
   type MetadataQueue
 } from "./metadataQueue";
+import { useMetadataResults } from "./useMetadataResults";
 
 interface MetadataQueueOptions {
   rows: FileRecord[];
@@ -26,10 +27,13 @@ export function useMetadataQueue({
   reportError,
   onMetadataRead
 }: MetadataQueueOptions) {
-  const [metadataByFileId, setMetadataByFileId] = useState<Record<string, MetadataResult>>({});
+  const results = useMetadataResults(onMetadataRead);
+  const { metadataByFileId, addRead, flushReads, clearResults } = results;
   const [activeMetadataRequests, setActiveMetadataRequests] = useState(0);
   const queueRef = useRef(createMetadataQueue());
   const pumpRef = useRef<() => void>(() => undefined);
+  const pausedRef = useRef(false);
+  const [paused, setPausedState] = useState(false);
 
   const changeActiveRequests = useCallback((queue: MetadataQueue, delta: number) => {
     queue.activeRequests += delta;
@@ -47,10 +51,7 @@ export function useMetadataQueue({
           if (!isCurrent()) {
             return;
           }
-          const byFileId = Object.fromEntries(results.map((result) => [result.file_id, result]));
-          // A file's own read error shows in its row, not as an app error.
-          setMetadataByFileId((prev) => ({ ...prev, ...byFileId }));
-          onMetadataRead(batchRows, results);
+          addRead({ rows: batchRows, results });
         })
         .catch((error: unknown) => {
           if (isCurrent()) {
@@ -59,17 +60,21 @@ export function useMetadataQueue({
         })
         .finally(() => {
           if (isCurrent()) {
+            // Planning hears of the last results before the reads count as done.
+            if (queue.activeRequests === 1) {
+              flushReads();
+            }
             changeActiveRequests(queue, -1);
             pumpRef.current();
           }
         });
     },
-    [changeActiveRequests, onMetadataRead, reportError]
+    [addRead, changeActiveRequests, flushReads, reportError]
   );
 
   const pump = useCallback(() => {
     const queue = queueRef.current;
-    while (queue.activeRequests < concurrency && queue.pending.length > 0) {
+    while (!pausedRef.current && queue.activeRequests < concurrency && queue.pending.length > 0) {
       const batchRows = takeMetadataBatch(queue, rowByIdRef.current);
       if (batchRows.length > 0) {
         readBatch(batchRows);
@@ -86,27 +91,28 @@ export function useMetadataQueue({
     pump();
   }, [metadataByFileId, queueCapacity, pump, rows]);
 
-  // Placed files come with the date their record kept, so they need no read.
-  const addResults = useCallback((results: MetadataResult[]) => {
-    if (results.length > 0) {
-      const byFileId = Object.fromEntries(results.map((result) => [result.file_id, result]));
-      setMetadataByFileId((prev) => ({ ...prev, ...byFileId }));
-    }
-  }, []);
-
-  const removeResults = useCallback((fileIds: string[]) => {
-    if (fileIds.length > 0) {
-      setMetadataByFileId((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([fileId]) => !fileIds.includes(fileId)))
-      );
+  // Reads already running finish; the next ones wait for the resume.
+  const setPaused = useCallback((nextPaused: boolean) => {
+    pausedRef.current = nextPaused;
+    setPausedState(nextPaused);
+    if (!nextPaused) {
+      pumpRef.current();
     }
   }, []);
 
   const resetMetadata = useCallback(() => {
+    clearResults();
     queueRef.current = createMetadataQueue();
-    setMetadataByFileId({});
     setActiveMetadataRequests(0);
-  }, []);
+  }, [clearResults]);
 
-  return { metadataByFileId, activeMetadataRequests, addResults, removeResults, resetMetadata };
+  return {
+    metadataByFileId,
+    activeMetadataRequests,
+    paused,
+    addResults: results.addResults,
+    removeResults: results.removeResults,
+    setPaused,
+    resetMetadata
+  };
 }

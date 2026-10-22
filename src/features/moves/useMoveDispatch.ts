@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
-import { executeMovePlan } from "../../lib/api";
+import { executeMovePlan, pauseMoveRun } from "../../lib/api";
 import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { FINISHED_RUN, isDispatchDrained, releaseFailedBatch } from "./moveDispatchCompletion";
 import {
@@ -99,11 +99,13 @@ export function useMoveDispatch({
 
   const togglePaused = useCallback((): boolean => {
     pausedRef.current = !pausedRef.current;
-    if (!pausedRef.current) {
+    if (pausedRef.current) {
+      pauseMoveRun().catch((error: unknown) => reportError(`Failed to pause: ${String(error)}`));
+    } else {
       queueMicrotask(() => pumpRef.current());
     }
     return pausedRef.current;
-  }, []);
+  }, [reportError]);
 
   return { queueRef, pumpRef, resetDispatch, startDispatch, togglePaused };
 }

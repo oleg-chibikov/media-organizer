@@ -100,7 +100,7 @@ flowchart LR
   planF -->|"create_move_plan,<br/>detect_place_suggestions,<br/>plan_continued_moves"| planner
   homeF -->|"search_home_cities,<br/>set_home_location"| settings
   planner -.->|"plan:* events"| planF
-  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan,<br/>remove_empty_source_folders"| mover
+  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan, pause_move_run,<br/>remove_empty_source_folders"| mover
   mover -.->|"move:* events"| movesF
   histF -->|"list, get, delete,<br/>undo, redo history run"| hist
   hist -.->|"history:* events"| histF
@@ -110,7 +110,7 @@ flowchart LR
 ```
 
 - **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.
-- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`.
+- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events and metadata reads go through `lib/useBufferedFlush.ts`. Scan rows and plans have their own buffers. A large folder costs a few renders a second instead of one per file.
 - **Arrows inside the frontend** pass data between features through `app/useAppSession.ts`.
 - **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_processing_config`.
 
@@ -138,7 +138,7 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
-- `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits.
+- `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
 - `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run.
@@ -248,6 +248,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
 - **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it, or inside the effective root for a placed file that moves to a new day folder. Destinations must sit inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
 - **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A move run or a replay stops moving files once its log can't record a step. One move, replay or delete works on a run at a time (`history::RunLease`).
+- **Pause stops between files.** `pause_move_run` cancels the running batch after the file moving now. The files it didn't reach keep no result and stay at the source. The frontend queues them again and holds new metadata reads until the person resumes. A paused run doesn't finish, so source cleanup waits for the resume.
 - **ExifTool is read-only.** Requests carry only `-charset filename=utf8`, `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
 - **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
 - **Crashes lose nothing.** An interrupted move leaves the file at the source, at the destination, or under both names of one hard link. An interrupted copy leaves a hidden `.media-organizer-copying-*.tmp` file and the source. History recovery only reads logs.

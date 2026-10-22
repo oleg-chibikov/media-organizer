@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MetadataResult } from "../../lib/types";
 import { METADATA, RECORD } from "../../test/pipelineFixtures";
+import { readMetadataForFiles } from "../../lib/api";
 import { useMetadataQueue } from "./useMetadataQueue";
 
 const pending = vi.hoisted(() => ({
@@ -65,5 +66,31 @@ describe("useMetadataQueue", () => {
 
     expect(result.current.metadataByFileId[RECORD.id]).toEqual(failed);
     expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("waits for the resume before it reads more files", async () => {
+    const rowByIdRef = { current: new Map([[RECORD.id, RECORD]]) };
+    vi.mocked(readMetadataForFiles).mockClear();
+    const { result, rerender } = renderHook(
+      ({ rows }) =>
+        useMetadataQueue({
+          rows,
+          rowByIdRef,
+          concurrency: 1,
+          queueCapacity: 10,
+          reportError: vi.fn(),
+          onMetadataRead: vi.fn()
+        }),
+      { initialProps: { rows: [] as (typeof RECORD)[] } }
+    );
+
+    act(() => result.current.setPaused(true));
+    rerender({ rows: [RECORD] });
+    expect(result.current.paused).toBe(true);
+    expect(readMetadataForFiles).not.toHaveBeenCalled();
+
+    act(() => result.current.setPaused(false));
+    await waitFor(() => expect(result.current.activeMetadataRequests).toBe(1));
+    expect(readMetadataForFiles).toHaveBeenCalledTimes(1);
   });
 });
