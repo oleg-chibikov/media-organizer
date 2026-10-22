@@ -19,7 +19,8 @@ Use this file as the default conventions contract for AI-assisted changes in thi
 - Keep cross-feature wiring in `src/app/` and layout in `src/App.tsx`; avoid hidden shared mutable state.
 - Derive tallies from state you already hold instead of keeping a second counter.
 - Keep UI accessible by default: semantic elements, clear labels, keyboard operation, visible focus, and usable contrast.
-- Avoid unnecessary re-renders by keeping derived state local, memoizing only when it removes measured or obvious churn, and not duplicating backend state.
+- Avoid unnecessary re-renders by keeping derived state local and not duplicating backend state.
+- React Compiler (`babel-plugin-react-compiler` in `vite.config.ts`) memoizes components and hooks. Skip new `useMemo`, `useCallback` and `React.memo` unless a value must stay stable for an effect.
 
 ## File And Feature Shape
 
