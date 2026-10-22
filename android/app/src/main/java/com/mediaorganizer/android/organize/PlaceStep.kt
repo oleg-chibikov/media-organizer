@@ -45,6 +45,10 @@ private fun sourceText(source: HomeSource) = when (source) {
     HomeSource.TIME_ZONE -> "from time zone"
 }
 
+/** The place part of the file name of [file], home's city included. */
+internal fun placeLabelOf(file: DatedFile, layout: PlaceLayout?): String? =
+    layout?.detection?.filePlaces?.get(file.file.path)?.let { placeLabel(it.place, it.country) }
+
 /** The place folder of [file], else `<year>/<month>/<day>`. */
 internal fun folderOf(file: DatedFile, root: Path, layout: PlaceLayout?): Path =
     layout?.folders?.relativeDir(file.file.path, file.date.toLocalDate())?.let(root::resolve)

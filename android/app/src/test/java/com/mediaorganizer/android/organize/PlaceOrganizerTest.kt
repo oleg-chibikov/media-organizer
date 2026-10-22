@@ -42,7 +42,7 @@ class PlaceOrganizerTest {
         val moved = organize(OrganizeRequest(source, destination), readMetadata, RunProgress(), places) { false }
 
         val month = destination.resolve("2026/3/Japan/Kyoto")
-        assertTrue(month.resolve("5/2026-03-05 07-20-17 (IMG_1) - Pixel 7.jpg").exists())
+        assertTrue(month.resolve("5/2026-03-05 07-20-17 Kyoto, Japan (IMG_1) - Pixel 7.jpg").exists())
         assertTrue(month.resolve("3/old.jpg").exists())
         assertFalse("emptied earlier day is removed", destination.resolve("2026/3/3").exists())
         assertEquals(2, moved.size)

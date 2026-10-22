@@ -37,7 +37,7 @@ fun organize(
             break
         }
         val result = try {
-            moveDated(file, root, folderOf(file, root, layout))
+            moveDated(file, root, folderOf(file, root, layout), placeLabelOf(file, layout))
         } catch (error: Exception) {
             FileResult(FileOutcome.FAILED, "${file.file.path.fileName}: $error")
         }

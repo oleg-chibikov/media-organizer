@@ -6,6 +6,7 @@ mod in_place;
 mod in_place_places;
 mod nearby_folders;
 mod place_levels;
+mod place_names;
 mod streaming;
 
 use std::{

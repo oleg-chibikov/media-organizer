@@ -29,6 +29,7 @@ flowchart TD
 - **Years** don't share a folder. Dec 31 and Jan 1 go to `2025/.../Kyoto` and `2026/.../Kyoto`.
 - **Two places with one name** get their region: `Central Park (New York)`.
 - **Names** get the Windows-safe form, so the folders copy to a PC or NAS.
+- **File names** carry the place and country after the date, home's city included: `2026-03-05 10-00-00 Sydney, Australia (IMG_1234) - Pixel 7.jpg`. A place named like its country appears once: `Singapore`.
 
 ## How a GPS point gets its name
 
@@ -184,17 +185,18 @@ Each row gives the folders before, the new photos and the result. Paths sit unde
 
 ### Where one photo goes
 
-| Case                           | Photo                          | Result                                            | Proved by                                                                                           |
-| ------------------------------ | ------------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Home's city                    | Sydney, Mar 5                  | `2026/3/5`                                        | D `a_place_in_home_city_matches_home_city` · A `UseCasesTest`                                       |
-| Home's country                 | Melbourne, Mar 6               | `2026/3/6/Melbourne`                              | D `a_place_in_home_country_matches_home_country` · A `UseCasesTest`                                 |
-| Abroad                         | Frechen, Germany               | `.../Germany/Frechen`                             | D `every_geotagged_file_gets_its_place_with_a_foreign_country` · A `FilePlacesParityTest`           |
-| No home known                  | a park by Liverpool, Australia | country and place folders: `.../Australia/<park>` | D `with_no_home_every_place_is_away` · A `FilePlacesParityTest`                                     |
-| No GPS, same phone 2.5 h later | after a Frechen photo          | Frechen's folder                                  | D `a_file_without_gps_joins_the_place_of_the_same_device_within_3_hours` · A `FilePlacesParityTest` |
-| No GPS, same phone 3.5 h later | after a Frechen photo          | date folders                                      | the same tests                                                                                      |
-| No GPS, another camera or none | 10 min after a Frechen photo   | date folders                                      | D `a_file_without_gps_from_another_device_stays_out` · A `FilePlacesParityTest`                     |
-| No GPS in any file             | 6 photos                       | date folders                                      | D `files_without_gps_report_no_gps` · A `FilePlacesParityTest`                                      |
-| Group by place off             | Kyoto, Mar 5                   | `2026/3/5`                                        | A `PlaceOrganizerTest`                                                                              |
+| Case                           | Photo                          | Result                                              | Proved by                                                                                           |
+| ------------------------------ | ------------------------------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Home's city                    | Sydney, Mar 5                  | `2026/3/5`                                          | D `a_place_in_home_city_matches_home_city` · A `UseCasesTest`                                       |
+| Home's country                 | Melbourne, Mar 6               | `2026/3/6/Melbourne`                                | D `a_place_in_home_country_matches_home_country` · A `UseCasesTest`                                 |
+| Abroad                         | Frechen, Germany               | `.../Germany/Frechen`                               | D `every_geotagged_file_gets_its_place_with_a_foreign_country` · A `FilePlacesParityTest`           |
+| No home known                  | a park by Liverpool, Australia | country and place folders: `.../Australia/<park>`   | D `with_no_home_every_place_is_away` · A `FilePlacesParityTest`                                     |
+| No GPS, same phone 2.5 h later | after a Frechen photo          | Frechen's folder                                    | D `a_file_without_gps_joins_the_place_of_the_same_device_within_3_hours` · A `FilePlacesParityTest` |
+| No GPS, same phone 3.5 h later | after a Frechen photo          | date folders                                        | the same tests                                                                                      |
+| No GPS, another camera or none | 10 min after a Frechen photo   | date folders                                        | D `a_file_without_gps_from_another_device_stays_out` · A `FilePlacesParityTest`                     |
+| No GPS in any file             | 6 photos                       | date folders                                        | D `files_without_gps_report_no_gps` · A `FilePlacesParityTest`                                      |
+| Group by place off             | Kyoto, Mar 5                   | `2026/3/5`                                          | A `PlaceOrganizerTest`                                                                              |
+| File name                      | Sydney, Mar 5                  | `2026-03-05 10-00-00 Sydney, Australia (IMG_1).jpg` | D `file_names_carry_the_place_and_country_home_city_included` · A `DestinationTest`, `TripTest`     |
 
 ### How the point gets its name
 

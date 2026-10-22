@@ -29,10 +29,10 @@ internal fun readDate(file: MediaFile, readMetadata: MetadataReader): DateRead {
 }
 
 /** Moves [dated] into [directory] under its desktop file name, without replacing anything. */
-internal fun moveDated(dated: DatedFile, destinationRoot: Path, directory: Path): FileResult {
+internal fun moveDated(dated: DatedFile, destinationRoot: Path, directory: Path, placeLabel: String?): FileResult {
     val path = dated.file.path
     val originalName = sanitizeForWindowsFilename(parseOriginalName(path.name))
-    val stem = destinationStem(dated.date, originalName, dated.metadata.deviceName)
+    val stem = destinationStem(dated.date, placeLabel, originalName, dated.metadata.deviceName)
     val destination = allocateDestination(path, directory, stem, path.extension)
     val shownDestination = destinationRoot.relativize(destination.path)
 

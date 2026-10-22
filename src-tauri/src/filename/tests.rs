@@ -1,4 +1,4 @@
-use crate::filename::{parse_original_name, sanitize_for_windows_filename};
+use crate::filename::{parse_original_name, place_label, sanitize_for_windows_filename};
 
 #[test]
 fn parses_parenthesized_original_name() {
@@ -73,4 +73,28 @@ fn parses_most_nested_parenthesized_original_name() {
 fn sanitizes_invalid_windows_characters() {
     assert_eq!(sanitize_for_windows_filename("A<B>C:foo?"), "A_B_C_foo_");
     assert_eq!(sanitize_for_windows_filename("name. "), "name");
+}
+
+#[test]
+fn parses_original_name_after_a_place_with_brackets() {
+    assert_eq!(
+        parse_original_name(
+            "2026-03-05 07-20-17 Central Park (New York), United States (IMG_1234) - iPhone.jpg"
+        ),
+        "IMG_1234"
+    );
+}
+
+#[test]
+fn labels_place_then_country_once() {
+    assert_eq!(
+        place_label("Kyoto", "Japan").as_deref(),
+        Some("Kyoto, Japan")
+    );
+    assert_eq!(
+        place_label("Singapore", "Singapore").as_deref(),
+        Some("Singapore")
+    );
+    assert_eq!(place_label("Kyoto", " ").as_deref(), Some("Kyoto"));
+    assert_eq!(place_label("", ""), None);
 }

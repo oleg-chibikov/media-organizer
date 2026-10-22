@@ -5,7 +5,7 @@ use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use super::place_level::{dated_dir, DaySpan, PlaceLevel};
 use crate::{
     file_places::CHOSEN_DATE_FORMAT,
-    filename::validated_folder_name,
+    filename::{place_label, validated_folder_name},
     models::{FilePlace, HomeMatch, MetadataResult},
 };
 
@@ -21,10 +21,12 @@ pub(super) type PlaceKey = (i32, Option<String>, String);
 
 /// The place folder of each file, under `<year>` and the date folders the country and the
 /// place span within that year. Spans count only the files of this scan. Files in home's
-/// city have no place folders.
+/// city have no place folders, though their file names still name the place.
 #[derive(Debug, Default)]
 pub(crate) struct PlaceFolders {
     pub(super) by_file: HashMap<String, (FilePlace, PlaceKey)>,
+    /// `<place>, <country>` for the file name of each file with a place, home's city included.
+    labels: HashMap<String, String>,
     pub(super) countries: HashMap<CountryKey, FolderSpan>,
     pub(super) places: HashMap<PlaceKey, FolderSpan>,
 }
@@ -44,16 +46,20 @@ impl PlaceFolders {
             })
             .collect();
         let mut by_file = HashMap::new();
+        let mut labels = HashMap::new();
         let mut countries: HashMap<CountryKey, DaySpan> = HashMap::new();
         let mut places: HashMap<PlaceKey, DaySpan> = HashMap::new();
         for (file_id, found) in file_places {
             let Some(&date) = dates.get(file_id.as_str()) else {
                 continue;
             };
+            let place = validated(found)?;
+            if let Some(label) = place_label(&place.place, &place.country) {
+                labels.insert(file_id.clone(), label);
+            }
             if found.home == HomeMatch::City {
                 continue;
             }
-            let place = validated(found)?;
             let year = date.year();
             let country = place.country_folder().map(str::to_owned);
             if let Some(country) = &country {
@@ -68,6 +74,7 @@ impl PlaceFolders {
         }
         Ok(Self {
             by_file,
+            labels,
             countries: leveled(countries),
             places: leveled(places),
         })
@@ -82,17 +89,20 @@ impl PlaceFolders {
         self.by_file.get(file_id).map(|(place, _)| place)
     }
 
+    /// The place part of the file name of `file_id`.
+    pub(super) fn label(&self, file_id: &str) -> Option<&str> {
+        self.labels.get(file_id).map(String::as_str)
+    }
+
     /// `<year>`, `<month>` and `<day>` with the country and place folders at their level.
     pub(super) fn relative_dir(&self, file_id: &str, date: &NaiveDateTime) -> Option<PathBuf> {
         Some(dated_dir(date.date(), &self.folders(file_id)?, false))
     }
 
-    /// What decides a file's folder apart from its date, so a file is planned again only
-    /// when it changes.
+    /// What decides a file's folder and name apart from its date, so a file is planned again
+    /// only when it changes.
     pub(crate) fn key(&self, file_id: &str) -> String {
-        self.folders(file_id)
-            .map(|folders| format!("{folders:?}"))
-            .unwrap_or_default()
+        format!("{:?}:{:?}", self.folders(file_id), self.label(file_id))
     }
 
     /// The country folder, when there is one, then the place folder, each with its level.

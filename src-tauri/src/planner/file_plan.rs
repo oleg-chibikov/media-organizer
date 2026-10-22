@@ -12,8 +12,8 @@ use crate::{
     },
 };
 
-/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file. A file with a place goes
-/// to its place folder.
+/// Plans `<folder>/<date>[ <place>, <country>] (<original>)[ - <device>].<ext>` for one file.
+/// A file with a place goes to its place folder.
 pub(super) fn create_plan_for_file(
     layout: &DestinationLayout,
     file: &FileRecord,
@@ -33,7 +33,8 @@ pub(super) fn create_plan_for_file(
     let destination_dir = layout.destination_dir(source_path, &parsed_date, place_dir)?;
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let device_name = metadata.and_then(|metadata| metadata.device_name.as_deref());
-    let stem_base = destination_stem(&parsed_date, &original_name, device_name);
+    let place_label = place_folders.label(&file.id);
+    let stem_base = destination_stem(&parsed_date, place_label, &original_name, device_name);
 
     let (destination_path, destination_filename, conflict_status, plan_status) =
         allocate_destination_path(
@@ -67,12 +68,20 @@ fn plannable_date<'a>(file: &FileRecord, metadata: Option<&'a MetadataResult>) -
     metadata.chosen_date.as_deref()
 }
 
+/// The place sits before the original name, so a place with brackets such as
+/// `Central Park (New York)` doesn't hide the original name from `parse_original_name`.
 fn destination_stem(
     date: &NaiveDateTime,
+    place_label: Option<&str>,
     original_name: &str,
     device_name: Option<&str>,
 ) -> String {
-    let mut stem_base = format!("{} ({original_name})", date.format("%Y-%m-%d %H-%M-%S"));
+    let mut stem_base = date.format("%Y-%m-%d %H-%M-%S").to_string();
+    if let Some(place_label) = place_label {
+        stem_base.push(' ');
+        stem_base.push_str(place_label);
+    }
+    stem_base.push_str(&format!(" ({original_name})"));
     if let Some(device_name) = device_name {
         let sanitized_device_name = filename::sanitize_for_windows_filename(device_name);
         if !sanitized_device_name.is_empty() {

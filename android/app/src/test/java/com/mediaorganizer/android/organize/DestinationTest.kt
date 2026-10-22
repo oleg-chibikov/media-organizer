@@ -18,12 +18,25 @@ class DestinationTest {
 
     @Test fun plansDesktopFolderAndName() {
         assertEquals(Paths.get("root/2026/3/5"), datedDirectory(Paths.get("root"), date))
-        assertEquals(stem, destinationStem(date, "IMG_1001", "iPhone 15 Pro"))
-        assertEquals("2026-03-05 07-20-17 (IMG_1001)", destinationStem(date, "IMG_1001", null))
+        assertEquals(stem, destinationStem(date, null, "IMG_1001", "iPhone 15 Pro"))
+        assertEquals("2026-03-05 07-20-17 (IMG_1001)", destinationStem(date, null, "IMG_1001", null))
     }
 
     @Test fun sanitizesDeviceName() =
-        assertEquals("2026-03-05 07-20-17 (a) - A_B", destinationStem(date, "a", "A/B"))
+        assertEquals("2026-03-05 07-20-17 (a) - A_B", destinationStem(date, null, "a", "A/B"))
+
+    @Test fun putsPlaceAfterDate() {
+        val name = destinationStem(date, "Central Park (New York), United States", "IMG_1", "iPhone")
+        assertEquals("2026-03-05 07-20-17 Central Park (New York), United States (IMG_1) - iPhone", name)
+        assertEquals("IMG_1", parseOriginalName("$name.jpg"))
+    }
+
+    @Test fun labelsPlaceThenCountryOnce() {
+        assertEquals("Kyoto, Japan", placeLabel("Kyoto", "Japan"))
+        assertEquals("Singapore", placeLabel("Singapore", "Singapore"))
+        assertEquals("Kyoto", placeLabel("Kyoto", " "))
+        assertEquals(null, placeLabel("", ""))
+    }
 
     @Test fun addsSuffixWhenNameIsTaken() {
         val (source, directory) = sourceAndExisting("source-bytes", "existing")

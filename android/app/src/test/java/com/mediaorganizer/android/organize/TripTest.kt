@@ -39,14 +39,14 @@ class TripTest {
 
     @Test fun aSecondDayLiftsThePlaceToTheMonthAndASecondMonthToTheYear() {
         shoot("IMG_0305_1.jpg", "IMG_0305_2.jpg")
-        assertEquals(setOf("2026/3/5/Japan/Kyoto/2026-03-05 10-00-00 (IMG_0305_1) - Pixel.jpg", "2026/3/5/Japan/Kyoto/2026-03-05 10-00-00 (IMG_0305_2) - Pixel.jpg"), sortedFiles())
+        assertEquals(setOf("2026/3/5/Japan/Kyoto/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_1) - Pixel.jpg", "2026/3/5/Japan/Kyoto/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_2) - Pixel.jpg"), sortedFiles())
 
         shoot("IMG_0306_1.jpg")
         assertEquals(
             setOf(
-                "2026/3/Japan/Kyoto/5/2026-03-05 10-00-00 (IMG_0305_1) - Pixel.jpg",
-                "2026/3/Japan/Kyoto/5/2026-03-05 10-00-00 (IMG_0305_2) - Pixel.jpg",
-                "2026/3/Japan/Kyoto/6/2026-03-06 10-00-00 (IMG_0306_1) - Pixel.jpg",
+                "2026/3/Japan/Kyoto/5/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_1) - Pixel.jpg",
+                "2026/3/Japan/Kyoto/5/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_2) - Pixel.jpg",
+                "2026/3/Japan/Kyoto/6/2026-03-06 10-00-00 Kyoto, Japan (IMG_0306_1) - Pixel.jpg",
             ),
             sortedFiles(),
         )
@@ -55,10 +55,10 @@ class TripTest {
         shoot("IMG_0402_1.jpg")
         assertEquals(
             setOf(
-                "2026/Japan/Kyoto/3/5/2026-03-05 10-00-00 (IMG_0305_1) - Pixel.jpg",
-                "2026/Japan/Kyoto/3/5/2026-03-05 10-00-00 (IMG_0305_2) - Pixel.jpg",
-                "2026/Japan/Kyoto/3/6/2026-03-06 10-00-00 (IMG_0306_1) - Pixel.jpg",
-                "2026/Japan/Kyoto/4/2/2026-04-02 10-00-00 (IMG_0402_1) - Pixel.jpg",
+                "2026/Japan/Kyoto/3/5/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_1) - Pixel.jpg",
+                "2026/Japan/Kyoto/3/5/2026-03-05 10-00-00 Kyoto, Japan (IMG_0305_2) - Pixel.jpg",
+                "2026/Japan/Kyoto/3/6/2026-03-06 10-00-00 Kyoto, Japan (IMG_0306_1) - Pixel.jpg",
+                "2026/Japan/Kyoto/4/2/2026-04-02 10-00-00 Kyoto, Japan (IMG_0402_1) - Pixel.jpg",
             ),
             sortedFiles(),
         )
