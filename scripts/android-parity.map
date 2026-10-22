@@ -1,0 +1,16 @@
+# Desktop logic the Android app copies, and the Kotlin packages that copy it.
+# scripts/check-android-parity.sh reads this file. Packages sit in
+# android/app/src/{main,test}/java/com/mediaorganizer/android/.
+#
+# desktop path prefix                       Android packages, comma separated
+src-tauri/src/geo/                          geo
+src-tauri/src/file_places/                  places
+src-tauri/src/planner/                      organize,places
+src-tauri/src/home_location/                places,location
+src-tauri/src/settings/home_precedence.rs   places
+src-tauri/src/filename/                     organize
+src-tauri/src/metadata/date_selection.rs    organize
+src-tauri/src/metadata/timestamp.rs         organize
+src-tauri/src/metadata/gps.rs               metadata
+src-tauri/src/scanner/classification.rs     organize
+src-tauri/src/scanner/media_identity.rs     organize

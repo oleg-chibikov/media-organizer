@@ -121,7 +121,7 @@ flowchart TD
   job --> saved
 ```
 
-The sorting code is a copy of `src-tauri/src/planner`, `filename` and `metadata/date_selection.rs`. A rule change there needs the same change in `app/src/main/java/com/mediaorganizer/android/organize`. The same goes for `src-tauri/src/geo` and `geo/`, and for `file_places` and `places/`.
+The sorting code is a copy of `src-tauri/src/planner`, `filename` and `metadata/date_selection.rs`. A rule change there needs the same change in `app/src/main/java/com/mediaorganizer/android/organize`. The same goes for `src-tauri/src/geo` and `geo/`, and for `file_places` and `places/`. `docs/agent/android-parity.md` lists every pair and how to carry a change over.
 
 ## Release signing
 
