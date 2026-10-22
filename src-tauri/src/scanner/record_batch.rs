@@ -10,16 +10,18 @@ const MAX_BATCH_AGE: Duration = Duration::from_millis(100);
 
 /// Groups scanned records into one event each, so a folder of 50k files costs
 /// a few hundred IPC messages instead of 50k.
-pub(super) struct RecordBatch {
+pub(super) struct RecordBatch<F> {
     records: Vec<FileRecord>,
     started: Instant,
+    on_flush: F,
 }
 
-impl RecordBatch {
-    pub(super) fn new() -> Self {
+impl<F: FnMut(&[FileRecord])> RecordBatch<F> {
+    pub(super) fn new(on_flush: F) -> Self {
         Self {
             records: Vec::new(),
             started: Instant::now(),
+            on_flush,
         }
     }
 
@@ -36,7 +38,13 @@ impl RecordBatch {
     pub(super) fn flush(&mut self, sink: &impl EventSink) {
         if !self.records.is_empty() {
             let records = std::mem::take(&mut self.records);
-            events::scan_files(sink, ScanFilesEvent { records });
+            events::scan_files(
+                sink,
+                ScanFilesEvent {
+                    records: records.clone(),
+                },
+            );
+            (self.on_flush)(&records);
         }
     }
 }

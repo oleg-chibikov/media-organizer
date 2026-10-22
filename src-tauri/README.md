@@ -22,7 +22,7 @@ Each layer uses only the layers below it.
 ## Main flows
 
 1. **Scan.** `start_scan` cancels any older scan and walks the folder off the UI thread. `scanner` streams `scan:*` events and marks files under `Processed` as skipped.
-2. **Metadata.** `read_metadata_for_files` reads each small batch on a long-lived ExifTool process. `metadata` picks the capture date by tag priority.
+2. **Metadata.** `scan_metadata` reads each scanned batch of photos and videos on long-lived ExifTool processes and streams `metadata:*` events. `metadata` picks the capture date by tag priority.
 3. **Plan.** `create_move_plan` is a dry run. `planner` streams `plan:*` events with names like `<root>/2024/3/5/<date> (<original>) - <device>.jpg`. It adds `(n)` on a name clash and blocks a file whose bytes already sit there. In rename only mode the name is the same and the folder is the file's own.
 4. **Move.** `execute_move_plan` starts only from a folder picked in the native dialog. `move_run` opens a history run, checks and moves each file through `mover`, logs one line per file and streams `move:*` events.
 5. **History, undo and redo.** `history` keeps one JSONL log per run in appData plus an index of the newest 200. `undo_redo` replays a run in either direction, checks each step against the disk and logs it to the same file.
@@ -57,7 +57,8 @@ flowchart TD
   ui["React app<br/>calls commands, listens to events"] --> cmd
   cmd["commands/<br/>thin handlers, work runs off the UI thread"] -->|start_scan| scan
   scan["scanner/<br/>walks the folder, streams files"] -->|scan events| ui
-  cmd -->|read_metadata_for_files| meta["metadata_queue/ and metadata/<br/>ExifTool workers read capture dates"]
+  scan -->|scanned photos and videos| meta["scan_metadata/, metadata_queue/ and metadata/<br/>ExifTool workers read capture dates"]
+  meta -->|metadata events| ui
   cmd -->|create_move_plan| plan["planner/<br/>dated names, suffixes, duplicate check"]
   cmd -->|execute_move_plan| run["move_run/<br/>checks, moves and logs each file"]
   run --> mover["mover/<br/>root checks, conflict recheck, move or verified copy"]

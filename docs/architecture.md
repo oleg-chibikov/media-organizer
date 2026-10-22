@@ -43,9 +43,8 @@ sequenceDiagram
   Person->>UI: Picks a TODO folder
   UI->>Rust: start_scan
   Rust-->>UI: scan:files batches
-  UI->>Rust: read_metadata_for_files, in batches
-  Rust->>Exif: reads tags
-  Rust-->>UI: capture dates
+  Rust->>Exif: reads tags of each batch
+  Rust-->>UI: metadata:results with capture dates
   UI->>Rust: create_move_plan
   Rust-->>UI: plan:file events with destinations
   Person->>UI: Confirms the move
@@ -62,7 +61,7 @@ sequenceDiagram
 
 1. The user picks a TODO folder. `features/scan` clears the old folder's rows, metadata, plans and moves, then calls `start_scan`. Events from the replaced scan are dropped until the new one starts.
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
-3. `features/metadata` batches media rows into `read_metadata_for_files`. `metadata_queue` reads them through persistent ExifTool workers. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
+3. `scan_metadata` takes each batch of photos and videos right after its `scan:files` event and reads them through the persistent ExifTool workers of `metadata_queue`. It streams `metadata:results` and ends with `metadata:finished`. Both carry the `scan_id` from `scan:started`, so `features/metadata` drops dates of a replaced scan. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
 4. `features/planning` sends rows with metadata to `create_move_plan`. `planner` streams `plan:*` events with destination previews. Each event carries the call's `request_id`, so `features/planning` drops events of requests made before a reset. The call also takes the place suggestions the person accepted, see Place Suggestions.
 5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
@@ -95,8 +94,8 @@ flowchart LR
   end
   scanF -->|"choose_folder, start_scan, cancel_scan"| scanner
   scanner -.->|"scan:* events"| scanF
-  metaF -->|read_metadata_for_files| metaQ
-  metaQ -.->|"capture dates, as the result"| metaF
+  metaF -->|set_metadata_paused| metaQ
+  metaQ -.->|"metadata:* events"| metaF
   planF -->|"create_move_plan,<br/>detect_place_suggestions,<br/>plan_continued_moves"| planner
   homeF -->|"search_home_cities,<br/>set_home_location,<br/>use_current_location"| settings
   planner -.->|"plan:* events"| planF
@@ -110,9 +109,9 @@ flowchart LR
 ```
 
 - **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.
-- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events and metadata reads go through `lib/useBufferedFlush.ts`. Scan rows and plans have their own buffers. A large folder costs a few renders a second instead of one per file.
+- **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events and metadata results go through `lib/useBufferedFlush.ts`. Scan rows and plans have their own buffers. A large folder costs a few renders a second instead of one per file.
 - **Arrows inside the frontend** pass data between features through `app/useAppSession.ts`.
-- **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_processing_config`.
+- **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_destination_settings`.
 
 ## Layering
 
@@ -138,6 +137,7 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
+- `scan_metadata/`: reader threads that read the dates of a running scan's photos and videos, pause with `set_metadata_paused`, and stop with the scan.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files in an accepted place folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
@@ -239,7 +239,7 @@ A library already sorted by date has `<root>/<year>/<month>/<day>` folders, as t
 ## Frontend Modules
 
 - `app/useAppSession.ts`: composes the scan, metadata, planning, moves, history and destination hooks.
-- `app/useBackendBootstrap.ts`: loads health, processing limits and settings at startup.
+- `app/useBackendBootstrap.ts`: loads health and settings at startup.
 - `app/useDestinationChange.ts`: applies a destination change and replans before any move starts.
 - `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `home-location`, `toolbar`.
 - `features/home-location`: the Home section in the settings menu. It shows where home came from, such as `from your location`. It searches cities 200 ms after typing stops. Use current location calls `use_current_location` and shows `Locating…` until the fix or the error. Opening the menu reloads settings, so a learned or device home shows up. A new home makes `features/place-suggestions` detect again.
@@ -280,7 +280,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
 - **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it, or inside the effective root for a placed file that moves to a new day folder. Destinations must sit inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
 - **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A move run or a replay stops moving files once its log can't record a step. One move, replay or delete works on a run at a time (`history::RunLease`).
-- **Pause stops between files.** `pause_move_run` cancels the running batch after the file moving now. The files it didn't reach keep no result and stay at the source. The frontend queues them again and holds new metadata reads until the person resumes. A paused run doesn't finish, so source cleanup waits for the resume.
+- **Pause stops between files.** `pause_move_run` cancels the running batch after the file moving now. The files it didn't reach keep no result and stay at the source. The frontend queues them again and calls `set_metadata_paused`, so `scan_metadata` starts no new reads until the person resumes. A paused run doesn't finish, so source cleanup waits for the resume.
 - **ExifTool is read-only.** Requests carry only `-charset filename=utf8`, `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
 - **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
 - **Crashes lose nothing.** An interrupted move leaves the file at the source, at the destination, or under both names of one hard link. An interrupted copy leaves a hidden `.media-organizer-copying-*.tmp` file and the source. History recovery only reads logs.

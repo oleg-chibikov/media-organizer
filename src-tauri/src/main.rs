@@ -21,6 +21,7 @@ mod picked_folders;
 mod placements;
 mod planner;
 mod safe_fs;
+mod scan_metadata;
 mod scanner;
 mod settings;
 mod system_explorer;
@@ -32,8 +33,8 @@ mod test_support;
 
 use app_state::AppState;
 use commands::{
-    destination, history as history_commands, home, metadata as metadata_commands, move_execution,
-    places, plan, scan, system, undo_redo as undo_redo_commands,
+    destination, history as history_commands, home, move_execution, places, plan, scan, system,
+    undo_redo as undo_redo_commands,
 };
 use tauri::Manager;
 
@@ -88,7 +89,6 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             system::health_check,
-            system::get_processing_config,
             system::choose_folder,
             destination::get_destination_settings,
             destination::get_effective_destination_root,
@@ -99,7 +99,7 @@ pub fn run() {
             destination::set_group_by_place,
             scan::start_scan,
             scan::cancel_scan,
-            metadata_commands::read_metadata_for_files,
+            scan::set_metadata_paused,
             plan::create_move_plan,
             plan::plan_continued_moves,
             plan::get_move_confirmation_summary,

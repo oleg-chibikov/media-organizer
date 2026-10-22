@@ -36,6 +36,8 @@ pub struct FileRecord {
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ScanStartedEvent {
     pub root: String,
+    /// Tells this scan's metadata events from those of the scan it replaced.
+    pub scan_id: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]

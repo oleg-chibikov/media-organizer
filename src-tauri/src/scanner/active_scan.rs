@@ -21,6 +21,12 @@ pub(crate) struct ScanTicket {
     pub token: CancellationToken,
 }
 
+impl ScanTicket {
+    pub(crate) fn scan_id(&self) -> u64 {
+        self.generation
+    }
+}
+
 impl ActiveScan {
     pub(crate) fn begin(&self) -> ScanTicket {
         let ticket = ScanTicket {

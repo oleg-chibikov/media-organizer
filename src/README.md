@@ -25,7 +25,7 @@ The hooks keep these rules:
 - **Backend decides** the frontend shows plans and results as the backend sends them. It doesn't guess a destination or an outcome. The destination folder in the toolbar comes from `get_effective_destination_root`.
 - **Ask first** every action that moves files or drops their history waits for a yes. The move dialog shows the destination and the backend's own count from `get_move_confirmation_summary`. While files are still being checked, the dialog offers all files and shows that count as ready now. History actions still use `window.confirm`.
 - **Early start** Move Files turns on once the scan finds a file. The run moves files as their checks finish and ends after the last check. The status bar counts moved files out of every found file that isn't blocked.
-- **Old events** plan events carry no request id, so planning keeps only plans for files it asked for. A metadata batch from an earlier scan is dropped.
+- **Old events** plan events carry no request id, so planning keeps only plans for files it asked for. Dates from an earlier scan are dropped by their `scan_id`.
 - **Locks** the destination root locks once moves are confirmed. Choose Folder is disabled while a batch runs.
 
 ## Import rules
@@ -66,8 +66,8 @@ flowchart LR
 flowchart TD
   toolbar["features/toolbar<br/>Choose Folder, History and Settings buttons"] -->|picks a folder| scanHook
   session["app/useAppSession<br/>wires the features, resets them on a new scan"] -.-> scanHook
-  scanHook["features/scan<br/>starts the scan, adds rows every 50 ms"] -->|rows| meta
-  meta["features/metadata<br/>bounded queue, reads 8 files per call"] -->|dates| plan
+  scanHook["features/scan<br/>starts the scan, adds rows every 50 ms"] -->|rows| plan
+  meta["features/metadata<br/>keeps the dates the backend reads during the scan"] -->|dates| plan
   plan["features/planning<br/>asks for plans, keeps only the ones it asked for"] -->|plans| moves
   moves["features/moves<br/>backend summary, confirm, dispatch queue"] -->|confirmed batch| api
   history["features/history<br/>confirm, then undo, redo or delete"] -->|run id| api

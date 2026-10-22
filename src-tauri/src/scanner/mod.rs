@@ -17,21 +17,26 @@ use walkdir::WalkDir;
 
 use crate::{
     events::{self, EventSink},
-    models::{ScanErrorEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
+    models::{FileRecord, ScanErrorEvent, ScanFinishedEvent, ScanStartedEvent, ScanStatus},
 };
 pub(crate) use active_scan::ActiveScan;
 use record_batch::RecordBatch;
 pub(crate) use scanned_file::record_for_path;
 
+/// Streams the folder's records as `scan:*` events. `on_records` gets each batch right
+/// after its event, so later steps can't answer for a file the webview hasn't seen.
 pub(crate) fn scan_folder(
     sink: &impl EventSink,
     root: &Path,
     cancellation_token: &CancellationToken,
+    scan_id: u64,
+    on_records: impl FnMut(&[FileRecord]),
 ) {
     events::scan_started(
         sink,
         ScanStartedEvent {
             root: root.to_string_lossy().to_string(),
+            scan_id,
         },
     );
 
@@ -41,7 +46,7 @@ pub(crate) fn scan_folder(
         errors: 0,
         cancelled: false,
     };
-    let mut batch = RecordBatch::new();
+    let mut batch = RecordBatch::new(on_records);
 
     for entry in WalkDir::new(root) {
         if cancellation_token.is_cancelled() {

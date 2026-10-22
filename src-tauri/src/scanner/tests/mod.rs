@@ -99,10 +99,14 @@ fn streams_discovered_and_skipped_files_then_totals() {
     std::fs::write(root.join("Processed").join("done.jpg"), b"done").expect("write done");
     let sink = crate::test_support::events::RecordingSink::default();
 
-    crate::scanner::scan_folder(&sink, root, &tokio_util::sync::CancellationToken::new());
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut fed = 0;
+    crate::scanner::scan_folder(&sink, root, &token, 7, |records| fed += records.len());
 
     let names = sink.names();
     assert_eq!(names.first(), Some(&crate::events::SCAN_STARTED));
+    assert_eq!(sink.payloads(crate::events::SCAN_STARTED)[0]["scan_id"], 7);
+    assert_eq!(fed, 3, "every streamed record goes on to the next step");
     assert_eq!(names.last(), Some(&crate::events::SCAN_FINISHED));
     let batches = sink.payloads(crate::events::SCAN_FILES);
     assert_eq!(batches.len(), 1, "a small folder arrives in one batch");

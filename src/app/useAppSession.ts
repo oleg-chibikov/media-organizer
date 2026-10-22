@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import { attachScanListeners, revealFileInExplorer, useBackendEvents } from "../lib/api";
+import {
+  attachMetadataListeners,
+  attachScanListeners,
+  revealFileInExplorer,
+  useBackendEvents
+} from "../lib/api";
 import {
   groupsByPlace,
   useDestinationSettings,
   useEffectiveDestinationRoot
 } from "../features/destination-settings";
 import { useHistory } from "../features/history";
-import { metadataResultsFor, useMetadataQueue } from "../features/metadata";
+import { metadataResultsFor, useMetadataReads } from "../features/metadata";
 import { useMoveExecution } from "../features/moves";
 import { usePlaceSuggestions } from "../features/place-suggestions";
 import { useMovePlanning } from "../features/planning";
@@ -21,8 +26,7 @@ export function useAppSession() {
   const groupByPlace = groupsByPlace(destination.settings);
   const backend = useBackendBootstrap({
     onSettingsLoaded: destination.settingsLoaded,
-    onSettingsFailed: destination.settingsFailed,
-    reportError: setFolderError
+    onSettingsFailed: destination.settingsFailed
   });
   const scan = useScanSession({
     reportError: setFolderError,
@@ -39,11 +43,10 @@ export function useAppSession() {
       scan.addRows(added.map((move) => move.record));
     }
   });
-  const metadata = useMetadataQueue({
-    rows: scan.rows,
+  const metadata = useMetadataReads({
+    scanId: scan.scanId,
+    scanIdRef: scan.scanIdRef,
     rowByIdRef: scan.rowByIdRef,
-    concurrency: backend.metadataConcurrency,
-    queueCapacity: backend.metadataQueueCapacity,
     reportError: setFolderError,
     onMetadataRead: planning.requestPlans
   });
@@ -54,7 +57,7 @@ export function useAppSession() {
     metadataByFileId: metadata.metadataByFileId,
     scanCompleted: completed && !cancelled,
     scanCancelled: cancelled,
-    metadataBusy: metadata.activeMetadataRequests > 0,
+    metadataBusy: metadata.reading,
     home: destination.settings?.home ?? null,
     groupByPlace,
     reportError: setFolderError,
@@ -74,8 +77,7 @@ export function useAppSession() {
   const planCompleted =
     completed &&
     !cancelled &&
-    metadata.activeMetadataRequests === 0 &&
-    !metadata.paused &&
+    !metadata.reading &&
     planning.activePlanRequests === 0 &&
     !(groupByPlace && places.locating);
   const stillChecking = !planCompleted && !cancelled;
@@ -105,6 +107,9 @@ export function useAppSession() {
 
   useBackendEvents(attachScanListeners, scan.events, (error) =>
     setFolderError(`Failed to attach scan listeners: ${String(error)}`)
+  );
+  useBackendEvents(attachMetadataListeners, metadata.events, (error) =>
+    setFolderError(`Failed to attach metadata listeners: ${String(error)}`)
   );
 
   const effectiveDestination = useEffectiveDestinationRoot(

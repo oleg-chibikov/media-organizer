@@ -62,7 +62,7 @@ fn metadata_result_from_raw(
     }
 }
 
-pub(super) fn metadata_error_result(file_id: String, error: String) -> MetadataResult {
+pub(crate) fn metadata_error_result(file_id: String, error: String) -> MetadataResult {
     MetadataResult {
         file_id,
         chosen_date: None,

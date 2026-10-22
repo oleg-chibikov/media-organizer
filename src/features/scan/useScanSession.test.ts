@@ -24,7 +24,7 @@ async function choose(result: Session, folder: string) {
 
 function scanOneFile(result: Session, root: string) {
   act(() => {
-    result.current.events.onStarted({ root });
+    result.current.events.onStarted({ root, scan_id: 1 });
     result.current.events.onFiles({ records: [{ ...RECORD, source_path: `${root}\\a.jpg` }] });
     result.current.events.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
   });
@@ -88,7 +88,7 @@ describe("useScanSession", () => {
   it("shows the scan as stopped before the backend answers", async () => {
     const { result } = renderSession();
     await choose(result, "C:\\in");
-    act(() => result.current.events.onStarted({ root: "C:\\in" }));
+    act(() => result.current.events.onStarted({ root: "C:\\in", scan_id: 1 }));
 
     vi.mocked(cancelScan).mockReturnValueOnce(new Promise(() => undefined));
     act(() => void result.current.stopScan());
@@ -103,7 +103,7 @@ describe("useScanSession", () => {
     const skipped = { ...RECORD, id: "b", scan_status: "skipped_unsupported" as const };
 
     act(() => {
-      result.current.events.onStarted({ root: "C:\\in" });
+      result.current.events.onStarted({ root: "C:\\in", scan_id: 1 });
       result.current.events.onFiles({ records: [RECORD, skipped, RECORD] });
     });
 

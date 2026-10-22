@@ -1,18 +1,13 @@
 use std::path::{Path, PathBuf};
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 
 use super::{background::run_blocking, folder_dialog::pick_folder};
-use crate::{app_state::AppState, models::ProcessingConfig, system_explorer};
+use crate::{app_state::AppState, system_explorer};
 
 #[tauri::command]
 pub fn health_check() -> String {
     "ok".to_string()
-}
-
-#[tauri::command]
-pub fn get_processing_config(state: State<'_, AppState>) -> ProcessingConfig {
-    state.metadata_queue.processing_config()
 }
 
 #[tauri::command]

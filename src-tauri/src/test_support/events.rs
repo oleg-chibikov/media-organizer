@@ -21,6 +21,13 @@ impl EventSink for RecordingSink {
     }
 }
 
+/// Lets a test keep the sink while background threads emit into it.
+impl EventSink for std::sync::Arc<RecordingSink> {
+    fn emit<P: Serialize + Clone>(&self, event: &'static str, payload: P) {
+        self.as_ref().emit(event, payload);
+    }
+}
+
 impl RecordingSink {
     pub(crate) fn names(&self) -> Vec<&'static str> {
         self.events().into_iter().map(|(name, _)| name).collect()

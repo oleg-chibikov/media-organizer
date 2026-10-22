@@ -18,12 +18,17 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress>(EMPTY_SCAN_PROGRESS);
   const replacedScan = useReplacedScanFilter();
+  // Later steps check events against the ref, since they can land before the next render.
+  const [scanId, setScanId] = useState<number | null>(null);
+  const scanIdRef = useRef<number | null>(null);
   const onNewScanRef = useRef(onNewScan);
   useEffect(() => {
     onNewScanRef.current = onNewScan;
   });
 
-  const clearSession = () => {
+  const clearSession = (nextScanId: number | null) => {
+    scanIdRef.current = nextScanId;
+    setScanId(nextScanId);
     resetRows();
     setProgress(EMPTY_SCAN_PROGRESS);
     onNewScanRef.current();
@@ -43,7 +48,7 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
       reportError(null);
       // The old folder's files leave the screen before the backend starts on the new one.
       replacedScan.awaitScan(chosen);
-      clearSession();
+      clearSession(null);
       setSelectedFolder(chosen);
       setIsScanning(true);
       await startScan(chosen);
@@ -71,10 +76,10 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
 
   const { acceptsStart, isReplaced } = replacedScan;
   const events: ScanListeners = {
-    onStarted: ({ root }) => {
+    onStarted: ({ root, scan_id }) => {
       if (acceptsStart(root)) {
         setIsScanning(true);
-        clearSession();
+        clearSession(scan_id);
       }
     },
     onFiles: ({ records }) => {
@@ -111,6 +116,8 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
   return {
     rows,
     rowByIdRef,
+    scanId,
+    scanIdRef,
     // Placed files from an earlier run join the scanned rows when they move again.
     addRows: (records: FileRecord[]) => records.forEach(addRow),
     removeRows,

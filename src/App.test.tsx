@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import type { MoveListeners, PlanListeners, ScanListeners } from "./lib/api";
+import type { MetadataListeners, MoveListeners, PlanListeners, ScanListeners } from "./lib/api";
 import { METADATA, PLAN, RECORD } from "./test/pipelineFixtures";
 
 const listeners = vi.hoisted(() => ({
   scan: null as ScanListeners | null,
+  metadata: null as MetadataListeners | null,
   plan: null as PlanListeners | null,
   move: null as MoveListeners | null
 }));
@@ -13,11 +14,6 @@ const listeners = vi.hoisted(() => ({
 vi.mock("./lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./lib/api")>()),
   healthCheck: vi.fn(async () => "ok"),
-  getProcessingConfig: vi.fn(async () => ({
-    metadata_concurrency: 1,
-    metadata_queue_capacity: 256,
-    metadata_timeout_ms: 1000
-  })),
   getDestinationSettings: vi.fn(async () => ({
     version: 1,
     root_media_folder: null,
@@ -31,7 +27,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
   listHistoryRuns: vi.fn(async () => []),
   chooseFolder: vi.fn(async () => "C:\\in"),
   startScan: vi.fn(async () => undefined),
-  readMetadataForFiles: vi.fn(async () => [METADATA]),
+  setMetadataPaused: vi.fn(async () => undefined),
   createMovePlan: vi.fn(async () => undefined),
   detectPlaceSuggestions: vi.fn(async () => ({
     suggestions: [],
@@ -49,6 +45,9 @@ vi.mock("./lib/api", async (importOriginal) => ({
   removeEmptySourceFolders: vi.fn(async () => false),
   revealFileInExplorer: vi.fn(async () => undefined),
   attachScanListeners: vi.fn(async (handlers: ScanListeners) => ((listeners.scan = handlers), [])),
+  attachMetadataListeners: vi.fn(
+    async (handlers: MetadataListeners) => ((listeners.metadata = handlers), [])
+  ),
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), [])),
   attachMoveListeners: vi.fn(async (handlers: MoveListeners) => ((listeners.move = handlers), [])),
   attachHistoryListeners: vi.fn(async () => [])
@@ -68,9 +67,11 @@ describe("App", () => {
     await waitFor(() => expect(api.startScan).toHaveBeenCalledWith("C:\\in"));
 
     act(() => {
-      listeners.scan?.onStarted({ root: "C:\\in" });
+      listeners.scan?.onStarted({ root: "C:\\in", scan_id: 1 });
       listeners.scan?.onFiles({ records: [RECORD] });
       listeners.scan?.onFinished({ discovered: 1, skipped: 0, errors: 0, cancelled: false });
+      listeners.metadata?.onResults({ scan_id: 1, results: [METADATA] });
+      listeners.metadata?.onFinished({ scan_id: 1, cancelled: false });
     });
     // Plans wait for place detection, so no file shows a date folder first.
     expect(api.createMovePlan).not.toHaveBeenCalled();

@@ -16,7 +16,8 @@ use std::{
 
 use tokio::sync::Semaphore;
 
-use crate::{metadata::ExifToolWorkerManager, models::ProcessingConfig};
+use crate::metadata::ExifToolWorkerManager;
+pub(crate) use results::metadata_error_result;
 use worker_pick::SharedWorker;
 
 pub(crate) struct MetadataQueue {
@@ -47,11 +48,7 @@ impl Default for MetadataQueue {
 }
 
 impl MetadataQueue {
-    pub(crate) fn processing_config(&self) -> ProcessingConfig {
-        ProcessingConfig {
-            metadata_concurrency: self.workers.len(),
-            metadata_queue_capacity: self.capacity,
-            metadata_timeout_ms: self.timeout.as_millis() as u64,
-        }
+    pub(crate) fn concurrency(&self) -> usize {
+        self.workers.len()
     }
 }
