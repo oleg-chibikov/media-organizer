@@ -1,7 +1,12 @@
+import { lazy, Suspense } from "react";
 import { Button } from "../../components/design-system/Button";
 import { Dialog } from "../../components/design-system/Dialog";
 import type { GpsPoint } from "../../lib/types";
-import { LeafletMap } from "./LeafletMap";
+
+// Leaflet is only needed once the dialog opens, so it stays out of the startup bundle.
+const LeafletMap = lazy(() =>
+  import("./LeafletMap").then(({ LeafletMap }) => ({ default: LeafletMap }))
+);
 
 export interface PlaceMapTarget {
   point: GpsPoint;
@@ -31,7 +36,11 @@ export function PlaceMapDialog({ target, onClose }: PlaceMapDialogProps) {
         </Button>
       }
     >
-      <LeafletMap point={target.point} label={target.label || coordinates} />
+      <Suspense
+        fallback={<div className="h-96 w-full rounded border border-slate-700" aria-busy="true" />}
+      >
+        <LeafletMap point={target.point} label={target.label || coordinates} />
+      </Suspense>
       <p className="mt-2 font-mono text-xs text-slate-400">{coordinates}</p>
     </Dialog>
   );

@@ -13,11 +13,11 @@ afterEach(() => {
 const point = { latitude: -33.856784, longitude: 151.215297 };
 
 describe("PlaceMapDialog", () => {
-  it("shows the place on a map with its coordinates", () => {
+  it("shows the place on a map with its coordinates", async () => {
     render(<PlaceMapDialog target={{ point, label: "Sydney" }} onClose={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "Sydney" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Map of Sydney" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "Map of Sydney" })).toBeInTheDocument();
     expect(screen.getByText("-33.85678, 151.21530")).toBeInTheDocument();
   });
 
