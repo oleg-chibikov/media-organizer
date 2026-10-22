@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use tempfile::tempdir;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     history::HistoryStore,
@@ -67,7 +68,7 @@ fn a_run_records_only_moved_files_and_undo_forgets_them() {
 
     start_move_run(&sink, &settings, &history, &placements, &selected, batch)
         .expect("run starts")
-        .execute(&sink);
+        .execute(&sink, &CancellationToken::new());
 
     let records = placements.load().expect("registry");
     assert_eq!(records.len(), 1);

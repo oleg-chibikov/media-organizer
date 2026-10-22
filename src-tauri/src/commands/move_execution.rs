@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use super::{
     app_dirs::{history_store, placement_store, settings_store},
@@ -21,9 +21,9 @@ pub async fn execute_move_plan(
     app: AppHandle,
 ) -> Result<(), String> {
     let selected_folder = PathBuf::from(selected_path);
-    app.state::<AppState>()
-        .picked_folders
-        .ensure_picked(&selected_folder)?;
+    let state = app.state::<AppState>();
+    state.picked_folders.ensure_picked(&selected_folder)?;
+    let pause = state.move_pause.begin();
     let settings = settings_store(&app)?;
     let history = history_store(&app)?;
     let placements = placement_store(&app)?;
@@ -45,8 +45,14 @@ pub async fn execute_move_plan(
     })
     .await?;
 
-    spawn_job(move || run.execute(&app));
+    spawn_job(move || run.execute(&app, &pause));
     Ok(())
+}
+
+/// Stops the running move after the file moving now. Unreached files keep no result.
+#[tauri::command]
+pub fn pause_move_run(state: State<'_, AppState>) {
+    state.move_pause.pause();
 }
 
 /// Removes the empty folders a finished run left behind, the picked folder included.

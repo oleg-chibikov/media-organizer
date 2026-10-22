@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use tempfile::tempdir;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     history::HistoryStore,
@@ -72,7 +73,7 @@ fn a_relayout_removes_emptied_day_folders_and_keeps_the_rest() {
         batch,
     )
     .expect("run starts")
-    .execute(&sink);
+    .execute(&sink, &CancellationToken::new());
 
     assert!(tokyo.join("10").join("28").join("a.jpg").exists());
     assert!(!tokyo.join("10-28").exists());
@@ -105,7 +106,7 @@ fn a_file_moved_out_of_its_place_folder_keeps_that_folder() {
         batch,
     )
     .expect("run starts")
-    .execute(&sink);
+    .execute(&sink, &CancellationToken::new());
 
     assert!(tokyo.join("10-28").join("a.jpg").exists());
     assert!(tokyo.is_dir());

@@ -1,6 +1,7 @@
 use std::fs;
 
 use tempfile::tempdir;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     events,
@@ -40,7 +41,7 @@ fn moves_a_batch_records_history_and_undoes_it() {
 
     start_move_run(&sink, &settings, &history, &placements, &selected, batch)
         .expect("move run should start")
-        .execute(&sink);
+        .execute(&sink, &CancellationToken::new());
 
     assert!(destination.exists() && !source.exists());
     assert_eq!(sink.payloads(events::MOVE_FINISHED)[0]["moved"], 1);
@@ -99,7 +100,7 @@ fn runs_one_replay_of_a_run_at_a_time() {
         batch,
     )
     .expect("move run should start")
-    .execute(&sink);
+    .execute(&sink, &CancellationToken::new());
     let run_id = history.list_runs().expect("list runs")[0].run_id.clone();
 
     let undo =

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use tokio_util::sync::CancellationToken;
+
 use super::{
     execution::run_move_plan,
     progress::emit_move_progress_message,
@@ -54,8 +56,8 @@ pub(crate) fn start_move_run(
 }
 
 impl StartedMoveRun {
-    /// Moves every ready file; blocks until the batch is finished and recorded.
-    pub(crate) fn execute(self, sink: &impl EventSink) {
-        run_move_plan(sink, self.request, self.history_run);
+    /// Moves every ready file until `pause` is cancelled; blocks until the run is recorded.
+    pub(crate) fn execute(self, sink: &impl EventSink, pause: &CancellationToken) {
+        run_move_plan(sink, self.request, self.history_run, pause);
     }
 }

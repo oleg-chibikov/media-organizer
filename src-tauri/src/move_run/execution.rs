@@ -6,16 +6,20 @@ use super::{
     recorder::MoveRunRecorder,
     request::{MoveRunRequest, RunLookups},
 };
+use tokio_util::sync::CancellationToken;
+
 use crate::{events::EventSink, history::ActiveHistoryRun, models::MoveProgressPhase, mover};
 
 const UNLOGGED_MOVE_REASON: &str =
     "Not moved: the history log stopped recording, so this move couldn't be undone.";
 
-/// Checks, moves and records every operation of one batch.
+/// Checks, moves and records every operation of one batch, until `pause` is cancelled.
+/// Files the run didn't reach get no result and stay at the source.
 pub(super) fn run_move_plan(
     sink: &impl EventSink,
     request: MoveRunRequest,
     history_run: ActiveHistoryRun,
+    pause: &CancellationToken,
 ) {
     let batch = &request.batch;
     let total = batch.plans.len() as u64;
@@ -35,6 +39,9 @@ pub(super) fn run_move_plan(
     recorder.record_all(prepared.skipped);
 
     for operation in prepared.operations {
+        if pause.is_cancelled() {
+            break;
+        }
         progress(
             MoveProgressPhase::Preparing,
             Some(&operation.file_id),

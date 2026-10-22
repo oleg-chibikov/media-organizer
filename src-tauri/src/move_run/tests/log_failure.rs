@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use tempfile::tempdir;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     events,
@@ -64,7 +65,7 @@ fn stops_moving_files_once_the_history_log_fails() {
     };
     let sink = RecordingSink::default();
 
-    run_move_plan(&sink, request, history_run);
+    run_move_plan(&sink, request, history_run, &CancellationToken::new());
 
     assert!(first_target.exists() && !first.exists());
     assert!(second.exists() && !second_target.exists());
