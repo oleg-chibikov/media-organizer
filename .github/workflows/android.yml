@@ -23,5 +23,5 @@ jobs:
             command: powershell -ExecutionPolicy Bypass -File android\build-apk.ps1 test
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: ${{ matrix.command }}
