@@ -182,7 +182,7 @@ Each layer may depend only on the layers below it.
 - **File places** `file_places` maps each geotagged photo or video id to a short label from the same lookups: the matched place, else the city. A country other than home's is added, as in `Louvre, France`. The file table shows it in the Place column.
 - **Status** says why nothing was found, checked in this order: `no_gps`, `home_unknown`, `all_near_home` (with the `home` city name), `too_few_geotagged`. It is `found` when there are suggestions.
 
-`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids`, `country` and `continues`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
+`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids`, `country`, `continues` and `month_folder`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
 
 `create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
@@ -193,7 +193,7 @@ Each layer may depend only on the layers below it.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
 - **Other files** keep `<root>/<year>/<month>/<day>`.
 - **Rename in place** renames the other files in their folder. Files in an accepted suggestion still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks and the registry use it too.
-- **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
+- **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`, `month_folder`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
 
 `features/place-suggestions` calls `detect_place_suggestions` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
 
@@ -209,14 +209,26 @@ Place folders are desktop only. The Android app keeps dated folders.
 
 A person who sorted files by month scans one month folder at a time. A trip from Oct 28 to Nov 2 then shows up in two scans. The registry lets the second scan add to the folder the first one filled.
 
-- **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`), `root_files` and `country`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
+- **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`), `root_files`, `country` and `month_folder`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
 - **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
-- **Undo** drops the undone files, and records left empty. Redo doesn't add them back.
+- **Undo** drops the undone files, and records left empty. A placed file that goes back to its old place folder is recorded there again. Redo doesn't add them back.
 - **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind and `country` at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name. Records from before `country` count as home's country.
 - **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
 - **Emptied day folders** a run removes the folders placed files moved out of once they are empty, walking up parent by parent. It stops below the place folder, or the trip or outing folder for files in no place (`safe_fs::remove_empty_parents`).
+
+## Month Folder Placement
+
+A library already sorted by date has `<root>/<year>/<month>/<day>` folders, as the dated layout writes them. A person can open one month folder and group it by place.
+
+- **Month scans** `placements::MonthFolder` sees a selected folder at `<year>/<month>` or `<year>/<month>/<day>` under the place folder root. The month keeps its name on disk, so `5` and `05` both work. Any other folder keeps the year level rules above.
+- **At home** a suggestion with no `country` gets `month_folder` and goes to `<root>/<year>/<month>/<trip or place>`. It continues only records of the same month, by the usual rules.
+- **Abroad** a suggestion joins every record of its root, year and `country`, whatever the gap. With none, or only records of this month, it stays in the month: `<root>/<year>/<month>/<country>/<place>`. When another month, or the year level, holds that country, `month_folder` is `None` and everything goes to `<root>/<year>/<country>/<place>`.
+- **Country wide continuation** sets `continues.country_wide`, titled after the country. `places` merges the placed places of the same name, and `lifted` counts the files of each month folder that moves up. The review shows `Moves 2026/5/USA into 2026/USA (34 files)`. Renaming a place keeps the continuation.
+- **Lifted files** `plan_continued_moves` plans every file of those records into the year level folder of the same trip or outing and place. A place the new scan also has takes its day layout, so a span over 31 days gets `<month>/<day>`. Others follow their placed span. The run records them at year level and drops the emptied month records. Emptied folders go up to the month folder, so `2026/5/USA` goes too.
+- **Registry** records keep `month_folder`, `None` for year level. Records from before it load as year level.
+- **Undo** puts each undone file that came from a place folder of the same record back in that record, at its level or in the month folder it was lifted from. Other undone files are dropped.
 
 ## Frontend Modules
 
