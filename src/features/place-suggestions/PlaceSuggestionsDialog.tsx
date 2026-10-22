@@ -62,6 +62,9 @@ export function PlaceSuggestionsDialog({
           onChange={(choice) => setDraft((previous) => ({ ...previous, [suggestion.id]: choice }))}
         />
       ))}
+      <p className="mt-4 text-xs text-slate-400">
+        Place names from GeoNames and © OpenStreetMap contributors.
+      </p>
     </Dialog>
   );
 }
