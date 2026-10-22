@@ -50,17 +50,16 @@ export function takeMetadataBatch(
 ): FileRecord[] {
   const batch: FileRecord[] = [];
   while (batch.length < METADATA_BATCH_SIZE && queue.pending.length > 0) {
-    const fileId = queue.pending.shift();
-    if (!fileId) {
-      break;
+    // One splice per batch instead of one shift per file.
+    const fileIds = queue.pending.splice(0, METADATA_BATCH_SIZE - batch.length);
+    for (const fileId of fileIds) {
+      queue.queuedIds.delete(fileId);
+      const row = rowById.get(fileId);
+      if (row) {
+        queue.requestedIds.add(fileId);
+        batch.push(row);
+      }
     }
-    queue.queuedIds.delete(fileId);
-    const row = rowById.get(fileId);
-    if (!row) {
-      continue;
-    }
-    queue.requestedIds.add(fileId);
-    batch.push(row);
   }
   return batch;
 }

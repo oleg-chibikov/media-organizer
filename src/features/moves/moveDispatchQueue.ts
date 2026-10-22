@@ -61,11 +61,9 @@ export function takeMoveBatch(
   plansByFileId: Record<string, MovePlan>
 ): MoveBatch {
   const batch: MoveBatch = { fileIds: [], files: [], metadata: [], plans: [] };
-  while (queue.pending.length > 0) {
-    const fileId = queue.pending.shift();
-    if (!fileId) {
-      continue;
-    }
+  const pending = queue.pending;
+  queue.pending = [];
+  for (const fileId of pending) {
     queue.queuedIds.delete(fileId);
     if (queue.inflightIds.has(fileId) || queue.completedIds.has(fileId)) {
       continue;

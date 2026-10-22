@@ -34,7 +34,8 @@ export function finishBatch(queue: MoveDispatchQueue): void {
   const unfinished = [...queue.inflightIds];
   queue.inflightIds.clear();
   unfinished.forEach((fileId) => queue.queuedIds.add(fileId));
-  queue.pending.unshift(...unfinished);
+  // concat, since spreading thousands of ids into unshift can overflow the call stack.
+  queue.pending = unfinished.concat(queue.pending);
 }
 
 // Mutates the queue: returns false when the file already had a result.

@@ -60,6 +60,16 @@ describe("moveDispatchQueue", () => {
     expect(takeMoveBatch(queue, rows, METADATA, PLANS).fileIds).toEqual(["b"]);
   });
 
+  it("queues a paused run of hundreds of thousands of files again", () => {
+    const queue = createMoveDispatchQueue();
+    const fileIds = Array.from({ length: 300_000 }, (_, index) => `f${index}`);
+    fileIds.forEach((fileId) => queue.inflightIds.add(fileId));
+    queue.pending = ["next"];
+    finishBatch(queue);
+    expect(queue.pending).toHaveLength(300_001);
+    expect(queue.pending.at(-1)).toBe("next");
+  });
+
   it("keeps a run open while files are still being checked", () => {
     const queue = createMoveDispatchQueue();
     queue.awaitingPlans = true;
