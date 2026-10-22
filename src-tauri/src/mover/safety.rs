@@ -8,11 +8,12 @@ use crate::{
     safe_fs::is_plain_file,
 };
 
-/// Keeps sources inside the selected folder or the effective root, and destinations inside
-/// the effective root. A source inside the root is a placed file moving to a new day folder.
+/// Keeps sources inside the selected folder or a destination root, and destinations inside
+/// a destination root. A source inside a root is a placed file moving to a new day folder.
+/// The roots are the effective root and, in rename in place mode, the place folder root.
 pub(crate) fn validate_move_safety_with_roots(
     selected_source_root: &Path,
-    effective_destination_root: &Path,
+    destination_roots: &[&Path],
     operations: Vec<MoveOperation>,
 ) -> CheckedMoves {
     let mut checked = CheckedMoves::default();
@@ -27,10 +28,10 @@ pub(crate) fn validate_move_safety_with_roots(
         } else if paths_equal_case_insensitive(source, destination) {
             Some("Source and destination resolve to the same path.")
         } else if !path_is_within_case_insensitive(source, selected_source_root)
-            && !path_is_within_case_insensitive(source, effective_destination_root)
+            && !within_any(source, destination_roots)
         {
             Some("Source file is outside the selected folder and the destination root.")
-        } else if !path_is_within_case_insensitive(destination, effective_destination_root) {
+        } else if !within_any(destination, destination_roots) {
             Some("Destination file is outside the effective destination root.")
         } else if !is_plain_file(source) {
             Some("Source path is not a regular file at execution time. Links are not moved.")
@@ -45,4 +46,10 @@ pub(crate) fn validate_move_safety_with_roots(
     }
 
     checked
+}
+
+fn within_any(path: &Path, roots: &[&Path]) -> bool {
+    roots
+        .iter()
+        .any(|root| path_is_within_case_insensitive(path, root))
 }

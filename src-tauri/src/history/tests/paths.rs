@@ -73,7 +73,9 @@ fn deletes_a_run_log_and_its_index_entry_once_the_run_is_done() {
         force_processed_folder: false,
         warning: None,
     };
-    let run = store.start_run(temp.path(), &root).expect("start run");
+    let run = store
+        .start_run(temp.path(), &root, Path::new(&root.root_path))
+        .expect("start run");
     let log_path = Path::new(&run.run.history_file_path).to_path_buf();
     let run_id = run.run.run_id.clone();
 

@@ -12,7 +12,7 @@ pub(super) fn recheck_operation(
 ) -> Option<MoveOperation> {
     let safety_checked = mover::validate_move_safety_with_roots(
         &request.selected_folder,
-        &request.destination_root,
+        &[&request.destination_root, &request.place_root],
         vec![operation],
     );
     recorder.record_all(safety_checked.skipped);

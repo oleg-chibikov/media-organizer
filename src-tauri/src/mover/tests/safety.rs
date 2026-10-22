@@ -13,7 +13,7 @@ fn safety_check_rejects_destination_outside_processed_folder() {
 
     let checked = validate_move_safety_with_roots(
         temp.path(),
-        &temp.path().join("Processed"),
+        &[&temp.path().join("Processed")],
         vec![photo_move_operation(&source, &destination)],
     );
 
@@ -41,7 +41,7 @@ fn safety_check_allows_source_inside_processed_folder() {
 
     let checked = validate_move_safety_with_roots(
         temp.path(),
-        &temp.path().join("Processed"),
+        &[&temp.path().join("Processed")],
         vec![photo_move_operation(&source, &destination)],
     );
 
@@ -63,7 +63,7 @@ fn safety_check_with_custom_root_rejects_destination_outside_effective_root() {
 
     let checked = validate_move_safety_with_roots(
         &source_root,
-        &destination_root,
+        &[&destination_root],
         vec![photo_move_operation(&source, &destination)],
     );
 
@@ -89,7 +89,7 @@ fn safety_check_with_custom_root_allows_source_inside_effective_root() {
 
     let checked = validate_move_safety_with_roots(
         &source_root,
-        &destination_root,
+        &[&destination_root],
         vec![photo_move_operation(&source, &destination)],
     );
 
@@ -110,7 +110,7 @@ fn safety_check_allows_a_placed_file_to_move_inside_the_destination_root() {
 
     let checked = validate_move_safety_with_roots(
         &selected,
-        &destination_root,
+        &[&destination_root],
         vec![photo_move_operation(
             &source,
             &place.join("10-31").join("placed.jpg"),

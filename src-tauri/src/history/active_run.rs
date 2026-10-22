@@ -31,6 +31,7 @@ pub(super) fn start_history_run(
     history_root: &Path,
     selected_folder: &Path,
     destination_root: &EffectiveDestinationRoot,
+    place_root: &Path,
 ) -> Result<ActiveHistoryRun, String> {
     let runs_dir = history_runs_dir(history_root);
     fs::create_dir_all(&runs_dir).map_err(|error| {
@@ -49,6 +50,7 @@ pub(super) fn start_history_run(
         run_id,
         selected_folder,
         destination_root,
+        place_root,
         started_at,
         &log_path,
     );

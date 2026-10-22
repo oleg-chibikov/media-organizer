@@ -13,21 +13,19 @@ const SYDNEY = { latitude: -33.87, longitude: 151.21 } as HomeLocation;
 
 interface DetectionProps {
   metadataBusy: boolean;
-  enabled?: boolean;
   home?: HomeLocation | null;
 }
 
 function renderDetection(initial: DetectionProps) {
   const reportError = vi.fn();
   return renderHook(
-    ({ metadataBusy, enabled = true, home = null }: DetectionProps) =>
+    ({ metadataBusy, home = null }: DetectionProps) =>
       usePlaceDetection({
         selectedFolder: "C:\\in",
         rows: [RECORD],
         metadataByFileId: metadataBusy ? {} : { f1: METADATA },
         scanCompleted: true,
         metadataBusy,
-        enabled,
         home,
         reportError
       }),
@@ -88,11 +86,5 @@ describe("usePlaceDetection", () => {
 
     expect(detect).toHaveBeenCalledTimes(2);
     expect(result.current.suggestions).toEqual([SUGGESTION]);
-  });
-
-  it("skips detection when files are renamed in place", () => {
-    renderDetection({ metadataBusy: false, enabled: false });
-    act(() => vi.advanceTimersByTime(2000));
-    expect(detect).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,7 @@ use crate::{
     test_support::media::dated_metadata,
 };
 
+const SAME_FOLDER: DestinationLayout = DestinationLayout::SameFolder { place_root: None };
 const PLANNED_FILENAME: &str = "2026-03-05 07-20-17 (IMG_1001) - iPhone 15 Pro.mp4";
 
 fn record_at(folder: &Path, file_name: &str, bytes: &[u8]) -> FileRecord {
@@ -26,7 +27,7 @@ fn renames_into_the_folder_the_file_is_in() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let plan = create_plan_for_file(
-        &DestinationLayout::SameFolder,
+        &SAME_FOLDER,
         &file,
         Some(&metadata),
         None,
@@ -46,7 +47,7 @@ fn keeps_a_file_that_already_has_its_planned_name() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let plan = create_plan_for_file(
-        &DestinationLayout::SameFolder,
+        &SAME_FOLDER,
         &file,
         Some(&metadata),
         None,
@@ -69,7 +70,7 @@ fn keeps_a_file_that_already_has_a_numbered_name() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let plan = create_plan_for_file(
-        &DestinationLayout::SameFolder,
+        &SAME_FOLDER,
         &file,
         Some(&metadata),
         None,

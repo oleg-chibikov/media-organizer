@@ -26,6 +26,9 @@ pub struct HistoryRun {
     pub destination_root_mode: Option<DestinationRootMode>,
     #[serde(default)]
     pub destination_root_path: Option<String>,
+    /// Where place folders went. Differs from the destination root when renaming in place.
+    #[serde(default)]
+    pub place_root_path: Option<String>,
     pub started_at: String,
     pub completed_at: Option<String>,
     pub run_status: HistoryRunStatus,

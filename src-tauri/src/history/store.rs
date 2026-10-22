@@ -27,8 +27,9 @@ impl HistoryStore {
         &self,
         selected_folder: &Path,
         destination_root: &EffectiveDestinationRoot,
+        place_root: &Path,
     ) -> Result<ActiveHistoryRun, String> {
-        start_history_run(&self.root, selected_folder, destination_root)
+        start_history_run(&self.root, selected_folder, destination_root, place_root)
     }
 
     pub(crate) fn list_runs(&self) -> Result<Vec<HistoryIndexEntry>, String> {

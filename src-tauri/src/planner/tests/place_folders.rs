@@ -22,7 +22,7 @@ fn planned_dirs(suggestions: &[PlaceSuggestion], files: &[(&str, &str)]) -> Vec<
         .map(|(id, date)| dated_metadata(id, date))
         .collect();
     let layout = dated(Path::new("Root"));
-    let folders = PlaceFolders::new(&layout, suggestions, &metadata).expect("valid suggestions");
+    let folders = PlaceFolders::new(suggestions, &metadata).expect("valid suggestions");
     let sink = RecordingSink::default();
     stream_move_plan(&sink, &layout, &records, &metadata, &folders);
     sink.payloads(events::PLAN_FILE)

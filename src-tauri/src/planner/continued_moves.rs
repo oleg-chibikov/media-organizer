@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use super::{placed_moves::plan_placed_moves, DestinationLayout, PlaceFolders};
+use super::{placed_moves::plan_placed_moves, PlaceFolders};
 use crate::{
     models::{MetadataResult, PlaceSuggestion, PlacedMove},
     path_safety,
@@ -18,14 +18,10 @@ pub(crate) fn plan_continued_moves(
     metadata_results: &[MetadataResult],
 ) -> Result<Vec<PlacedMove>, String> {
     path_safety::validate_selected_folder(selected_folder)?;
-    let layout =
-        DestinationLayout::for_root(&settings.effective_destination_root(selected_folder)?);
-    let DestinationLayout::DatedFolders(root) = &layout else {
-        return Ok(Vec::new());
-    };
-    let folders = PlaceFolders::new(&layout, suggestions, metadata_results)?;
+    let folders = PlaceFolders::new(suggestions, metadata_results)?;
     if folders.continued().is_empty() {
         return Ok(Vec::new());
     }
-    Ok(plan_placed_moves(root, &folders, &placements.load()?))
+    let root = settings.place_folder_root(selected_folder)?;
+    Ok(plan_placed_moves(&root, &folders, &placements.load()?))
 }

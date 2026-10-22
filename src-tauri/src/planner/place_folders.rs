@@ -4,7 +4,6 @@ use chrono::NaiveDateTime;
 
 use super::{
     place_dates::parse_date, place_folder::PlaceFolder, suggestion_folders::suggestion_folders,
-    DestinationLayout,
 };
 use crate::models::{MetadataResult, PlaceSuggestion};
 
@@ -17,17 +16,12 @@ pub(crate) struct PlaceFolders {
 }
 
 impl PlaceFolders {
-    /// Checks edited names and recomputes day layouts from the dates. Same
-    /// folder mode ignores the suggestions.
+    /// Checks edited names and recomputes day layouts from the dates.
     pub(crate) fn new(
-        layout: &DestinationLayout,
         suggestions: &[PlaceSuggestion],
         metadata_results: &[MetadataResult],
     ) -> Result<Self, String> {
         let mut folders = Self::default();
-        if matches!(layout, DestinationLayout::SameFolder) {
-            return Ok(folders);
-        }
         let dates: HashMap<&str, NaiveDateTime> = metadata_results
             .iter()
             .filter_map(|result| {

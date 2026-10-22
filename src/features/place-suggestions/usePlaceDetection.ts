@@ -14,7 +14,6 @@ export interface PlaceDetectionOptions {
   metadataByFileId: Record<string, MetadataResult>;
   scanCompleted: boolean;
   metadataBusy: boolean;
-  enabled: boolean;
   // Trips are measured from home, so a new home asks again.
   home: HomeLocation | null;
   reportError: (message: string) => void;
@@ -22,8 +21,7 @@ export interface PlaceDetectionOptions {
 
 // Asks the backend for place folders once per scan and home, after every file's metadata is read.
 export function usePlaceDetection(options: PlaceDetectionOptions) {
-  const { selectedFolder, rows, metadataByFileId, scanCompleted, metadataBusy, enabled, home } =
-    options;
+  const { selectedFolder, rows, metadataByFileId, scanCompleted, metadataBusy, home } = options;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [generation, setGeneration] = useState(0);
   const generationRef = useRef(0);
@@ -38,12 +36,7 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     [rows, metadataByFileId]
   );
   const ready =
-    enabled &&
-    selectedFolder !== null &&
-    scanCompleted &&
-    !metadataBusy &&
-    metadataRead &&
-    rows.length > 0;
+    selectedFolder !== null && scanCompleted && !metadataBusy && metadataRead && rows.length > 0;
   const homeKey = home ? `${home.latitude},${home.longitude}` : "none";
   const key = `${generation}:${rows.length}:${homeKey}`;
 

@@ -7,6 +7,7 @@ use crate::{
 fn roots() -> RecordedRoots {
     RecordedRoots::of(&crate::models::HistoryRun {
         destination_root_path: Some("C:/todo/Processed".to_string()),
+        place_root_path: None,
         selected_folder: "C:/todo".to_string(),
         ..running_history_run("run-1", "run-1.jsonl")
     })

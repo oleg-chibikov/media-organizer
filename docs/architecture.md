@@ -139,12 +139,12 @@ Each layer may depend only on the layers below it.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
-- `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder. A file that already has its planned name gets `already_named` and stays out of the move.
+- `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files in an accepted place folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
 - `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
-- `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder.
+- `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes.
 - `home_location/`: reads the saved home for place suggestions, learns it from large scans, and finds cities by name.
 - `placements/`: the registry of trip and outing folders that runs filled. Detection matches new suggestions against it. See Continued Place Folders.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
@@ -184,10 +184,11 @@ Each layer may depend only on the layers below it.
 - **Outing** `<root>/<year>/<place>/<days>`.
 - **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
-- **Other files** keep `<root>/<year>/<month>/<day>`. Same folder mode ignores suggestions.
+- **Other files** keep `<root>/<year>/<month>/<day>`.
+- **Rename in place** renames the other files in their folder. Files in an accepted suggestion still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks and the registry use it too.
 - **Plans** carry `placement` (`kind`, `year`, `title`, `place`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
 
-`features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, and skips it with Rename only. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
+`features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, in both destination modes. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
 
 Place folders are desktop only. The Android app keeps dated folders.
 
@@ -198,7 +199,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`) and `root_files`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
 - **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
 - **Undo** drops the undone files, and records left empty. Redo doesn't add them back.
-- **Matching** `detect_place_suggestions` loads the records under the effective root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name.
+- **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name.
 - **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.

@@ -117,8 +117,7 @@ impl PlacedOctober {
 pub(super) fn planned_dir(root: &Path, trip: &PlaceSuggestion, id: &str, date: &str) -> PathBuf {
     let layout = dated(root);
     let metadata = [dated_metadata(id, date)];
-    let folders =
-        PlaceFolders::new(&layout, std::slice::from_ref(trip), &metadata).expect("folders");
+    let folders = PlaceFolders::new(std::slice::from_ref(trip), &metadata).expect("folders");
     let sink = RecordingSink::default();
     stream_move_plan(
         &sink,

@@ -28,7 +28,7 @@ pub(super) fn remove_emptied_place_folders(request: &MoveRunRequest, results: &[
             continue;
         };
         let source = Path::new(&result.attempted_source_path);
-        let stop = place_folder(&request.destination_root, placement);
+        let stop = place_folder(&request.place_root, placement);
         if let Some(parent) = source.parent().filter(|parent| parent.starts_with(&stop)) {
             walks.insert((parent.to_path_buf(), stop));
         }

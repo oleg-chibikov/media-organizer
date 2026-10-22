@@ -4,7 +4,7 @@ use std::{
 };
 
 use super::{
-    effective_root::resolve_effective_destination_root,
+    effective_root::{resolve_effective_destination_root, resolve_place_folder_root},
     storage::{load_destination_settings, save_destination_settings},
 };
 use crate::models::{DestinationSettings, EffectiveDestinationRoot};
@@ -43,5 +43,11 @@ impl SettingsStore {
         selected_folder: &Path,
     ) -> Result<EffectiveDestinationRoot, String> {
         resolve_effective_destination_root(selected_folder, &self.load()?)
+    }
+
+    /// The root place folders go under, which differs from the effective root in rename in
+    /// place mode.
+    pub(crate) fn place_folder_root(&self, selected_folder: &Path) -> Result<PathBuf, String> {
+        resolve_place_folder_root(selected_folder, &self.load()?)
     }
 }

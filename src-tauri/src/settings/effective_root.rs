@@ -50,6 +50,19 @@ pub(super) fn resolve_effective_destination_root(
     ))
 }
 
+/// Where accepted place folders go: the root a move uses with rename in place off.
+pub(super) fn resolve_place_folder_root(
+    selected_folder: &Path,
+    settings: &DestinationSettings,
+) -> Result<PathBuf, String> {
+    let moving = DestinationSettings {
+        rename_in_place: false,
+        ..settings.clone()
+    };
+    let root = resolve_effective_destination_root(selected_folder, &moving)?;
+    Ok(PathBuf::from(root.root_path))
+}
+
 fn configured_root(settings: &DestinationSettings) -> Option<&str> {
     settings
         .root_media_folder

@@ -44,12 +44,13 @@ fn stops_moving_files_once_the_history_log_fails() {
     };
     let history = HistoryStore::in_app_data(&temp.path().join("app-data"));
     let mut history_run = history
-        .start_run(&selected, &effective_root)
+        .start_run(&selected, &effective_root, &root)
         .expect("start history run");
     history_run.break_log_for_tests();
     let request = MoveRunRequest {
         selected_folder: selected.clone(),
         destination_root: root.clone(),
+        place_root: root.clone(),
         batch: MoveBatch {
             files: vec![photo("a", &first), photo("b", &second)],
             metadata_results: vec![

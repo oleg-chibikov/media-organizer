@@ -3,26 +3,45 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike, NaiveDateTime};
 
 use super::place_folder::PlaceFolder;
-use crate::models::{DestinationRootMode, EffectiveDestinationRoot};
+use crate::{models::DestinationRootMode, settings::SettingsStore};
 
 /// Where a planned file goes: a dated folder under a root, or the folder it already sits in.
 #[derive(Debug, Clone)]
 pub(crate) enum DestinationLayout {
     DatedFolders(PathBuf),
-    SameFolder,
+    /// Renames in place. Files in an accepted place folder still move under `place_root`.
+    SameFolder {
+        place_root: Option<PathBuf>,
+    },
 }
 
 impl DestinationLayout {
-    pub(crate) fn for_root(root: &EffectiveDestinationRoot) -> Self {
-        match root.mode {
-            DestinationRootMode::InPlace => Self::SameFolder,
-            DestinationRootMode::CustomRoot | DestinationRootMode::ProcessedFolder => {
-                Self::DatedFolders(PathBuf::from(&root.root_path))
-            }
+    /// The layout for `selected_folder`. In rename in place mode the place folder root is
+    /// resolved only `with_places`, so a missing custom root doesn't block plain renames.
+    pub(crate) fn for_folder(
+        settings: &SettingsStore,
+        selected_folder: &Path,
+        with_places: bool,
+    ) -> Result<Self, String> {
+        let root = settings.effective_destination_root(selected_folder)?;
+        if !matches!(root.mode, DestinationRootMode::InPlace) {
+            return Ok(Self::DatedFolders(PathBuf::from(root.root_path)));
+        }
+        let place_root = with_places
+            .then(|| settings.place_folder_root(selected_folder))
+            .transpose()?;
+        Ok(Self::SameFolder { place_root })
+    }
+
+    /// The root place folders go under, when there is one.
+    pub(crate) fn place_root(&self) -> Option<&Path> {
+        match self {
+            Self::DatedFolders(root) => Some(root),
+            Self::SameFolder { place_root } => place_root.as_deref(),
         }
     }
 
-    /// `<root>/<year>/<month>/<day>`, the accepted place folder under the root,
+    /// `<root>/<year>/<month>/<day>`, the accepted place folder under the place root,
     /// or the source file's own folder.
     pub(super) fn destination_dir(
         &self,
@@ -30,13 +49,18 @@ impl DestinationLayout {
         date: &NaiveDateTime,
         place: Option<&PlaceFolder>,
     ) -> Result<PathBuf, String> {
-        match (self, place) {
-            (Self::DatedFolders(root), Some(place)) => Ok(place.dir_under(root, date)),
-            (Self::DatedFolders(root), None) => Ok(root
+        if let Some(place) = place {
+            let root = self
+                .place_root()
+                .ok_or("No root folder for place folders was resolved.")?;
+            return Ok(place.dir_under(root, date));
+        }
+        match self {
+            Self::DatedFolders(root) => Ok(root
                 .join(date.format("%Y").to_string())
                 .join(date.month().to_string())
                 .join(date.day().to_string())),
-            (Self::SameFolder, _) => source_path
+            Self::SameFolder { .. } => source_path
                 .parent()
                 .map(Path::to_path_buf)
                 .ok_or_else(|| format!("{} has no parent folder.", source_path.display())),

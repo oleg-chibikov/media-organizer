@@ -5,7 +5,7 @@ use super::{
 use crate::{
     events::{self, EventSink},
     history::{HistoryStore, RunLease, RunLogWriter},
-    models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRunStatus},
+    models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRun, HistoryRunStatus},
     placements::PlacementStore,
 };
 
@@ -38,7 +38,7 @@ pub(crate) fn prepare_replay(
         direction,
         run_id: run_id.to_string(),
         roots: RecordedRoots::of(&details.run),
-        placements: UndonePlacements::new(placements, details.run.destination_root_path.as_deref()),
+        placements: UndonePlacements::new(placements, place_root(&details.run)),
         initial_status: details.run.run_status,
         operations,
         log,
@@ -104,4 +104,11 @@ fn completion_status(
         return fully_replayed;
     }
     HistoryRunStatus::PartiallyUndone
+}
+
+/// Runs from before rename in place could place files recorded only the destination root.
+fn place_root(run: &HistoryRun) -> Option<&str> {
+    run.place_root_path
+        .as_deref()
+        .or(run.destination_root_path.as_deref())
 }

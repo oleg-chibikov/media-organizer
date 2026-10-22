@@ -41,18 +41,36 @@ pub(crate) fn start_move_run(
         batch.plans.len() as u64,
     );
     let effective_root = settings.effective_destination_root(selected_folder)?;
-    let history_run = history.start_run(selected_folder, &effective_root)?;
+    let destination_root = PathBuf::from(&effective_root.root_path);
+    let place_root = place_root(settings, selected_folder, &batch, &destination_root)?;
+    let history_run = history.start_run(selected_folder, &effective_root, &place_root)?;
     events::history_index_updated(sink, &history_run.run.run_id);
 
     Ok(StartedMoveRun {
         request: MoveRunRequest {
             selected_folder: selected_folder.to_path_buf(),
-            destination_root: PathBuf::from(&effective_root.root_path),
+            destination_root,
+            place_root,
             batch,
             placements: placements.clone(),
         },
         history_run,
     })
+}
+
+/// Resolved only for a batch with placed files, so a missing custom root doesn't block
+/// plain renames in place.
+fn place_root(
+    settings: &SettingsStore,
+    selected_folder: &Path,
+    batch: &MoveBatch,
+    destination_root: &Path,
+) -> Result<PathBuf, String> {
+    if batch.plans.iter().any(|plan| plan.placement.is_some()) {
+        settings.place_folder_root(selected_folder)
+    } else {
+        Ok(destination_root.to_path_buf())
+    }
 }
 
 impl StartedMoveRun {

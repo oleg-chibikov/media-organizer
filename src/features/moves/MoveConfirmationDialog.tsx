@@ -42,7 +42,10 @@ export function MoveConfirmationDialog({
       }
     >
       {renamesInPlace ? (
-        <p>Each file stays in its folder. Its new name starts with the capture time.</p>
+        <p>
+          Each file stays in its folder unless you grouped it by place. Its new name starts with the
+          capture time.
+        </p>
       ) : (
         <>
           <p className="text-slate-400">To</p>

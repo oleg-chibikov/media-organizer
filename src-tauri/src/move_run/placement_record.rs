@@ -41,7 +41,7 @@ pub(super) fn record_placements(request: &MoveRunRequest, results: &[MoveResult]
     if moves.is_empty() {
         return;
     }
-    let root = &request.destination_root;
+    let root = &request.place_root;
     if let Err(error) = request
         .placements
         .update(|records| record_moves(records, root, &moves))

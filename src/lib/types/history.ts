@@ -35,6 +35,8 @@ interface HistoryRun {
   folder_label: string;
   destination_root_mode?: "custom_root" | "processed_folder" | null;
   destination_root_path?: string | null;
+  /** Where place folders went. Differs from the destination root when renaming in place. */
+  place_root_path?: string | null;
   started_at: string;
   completed_at: string | null;
   run_status: HistoryRunStatus;

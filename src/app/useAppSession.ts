@@ -73,7 +73,6 @@ export function useAppSession() {
     metadataByFileId: metadata.metadataByFileId,
     scanCompleted: completed && !cancelled,
     metadataBusy: metadata.activeMetadataRequests > 0,
-    enabled: destination.settings?.rename_in_place === false,
     home: destination.settings?.home ?? null,
     locked: moves.execution.confirmed || moves.execution.executing,
     reportError: setFolderError,

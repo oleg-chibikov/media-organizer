@@ -36,6 +36,7 @@ fn serializes_history_run_destination_root_fields() {
     let run = HistoryRun {
         destination_root_mode: Some(DestinationRootMode::CustomRoot),
         destination_root_path: Some(r"D:\Media".to_string()),
+        place_root_path: None,
         ..running_history_run(
             "run-custom-root",
             r"C:\appdata\history\runs\run-custom-root.jsonl",

@@ -83,6 +83,7 @@ fn run_from_index_entry(entry: &HistoryIndexEntry) -> HistoryRun {
         folder_label: entry.folder_label.clone(),
         destination_root_mode: None,
         destination_root_path: entry.destination_root_path.clone(),
+        place_root_path: None,
         started_at: entry.started_at.clone(),
         completed_at: entry.completed_at.clone(),
         run_status: entry.run_status.clone(),

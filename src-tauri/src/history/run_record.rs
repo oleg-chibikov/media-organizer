@@ -10,6 +10,7 @@ pub(super) fn new_history_run(
     run_id: String,
     selected_folder: &Path,
     destination_root: &EffectiveDestinationRoot,
+    place_root: &Path,
     started_at: DateTime<Utc>,
     log_path: &Path,
 ) -> HistoryRun {
@@ -21,6 +22,7 @@ pub(super) fn new_history_run(
         folder_label: folder_label_from_path(selected_folder),
         destination_root_mode: Some(destination_root.mode.clone()),
         destination_root_path: Some(destination_root.root_path.clone()),
+        place_root_path: Some(place_root.to_string_lossy().to_string()),
         started_at: started_at.to_rfc3339(),
         completed_at: None,
         run_status: HistoryRunStatus::Running,

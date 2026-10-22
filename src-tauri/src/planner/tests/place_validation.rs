@@ -1,12 +1,7 @@
-use std::path::Path;
-
-use super::{
-    dated,
-    place_fixtures::{group, suggestion},
-};
+use super::place_fixtures::{group, suggestion};
 use crate::{
     models::{PlaceSuggestion, SuggestionKind},
-    planner::{DestinationLayout, PlaceFolders},
+    planner::PlaceFolders,
 };
 
 fn outing_named(name: &str) -> PlaceSuggestion {
@@ -15,7 +10,7 @@ fn outing_named(name: &str) -> PlaceSuggestion {
 }
 
 fn folders_for(suggestions: &[PlaceSuggestion]) -> Result<PlaceFolders, String> {
-    PlaceFolders::new(&dated(Path::new("Root")), suggestions, &[])
+    PlaceFolders::new(suggestions, &[])
 }
 
 #[test]
@@ -51,11 +46,4 @@ fn an_outing_with_two_places_is_rejected() {
 fn a_file_in_two_suggestions_is_rejected() {
     let error = folders_for(&[outing_named("Zoo"), outing_named("Garden")]).expect_err("a twin");
     assert!(error.contains("more than one place folder"), "{error}");
-}
-
-#[test]
-fn same_folder_mode_ignores_suggestions() {
-    let folders = PlaceFolders::new(&DestinationLayout::SameFolder, &[outing_named("..")], &[])
-        .expect("ignored suggestions");
-    assert!(folders.get("a").is_none());
 }

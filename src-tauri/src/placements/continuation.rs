@@ -2,12 +2,12 @@ use std::path::Path;
 
 use super::{matching::find_continued, PlacedSuggestion, PlacementStore};
 use crate::{
-    models::{ContinuedPlace, ContinuedPlacement, DestinationRootMode, PlaceSuggestion},
+    models::{ContinuedPlace, ContinuedPlacement, PlaceSuggestion},
     settings::SettingsStore,
 };
 
 /// Marks each suggestion that continues a placed trip or outing under the destination
-/// root of `selected_folder`. It takes the record's title, year and place folder names.
+/// folder root of `selected_folder`. It takes the record's title, year and place folder names.
 pub(crate) fn continue_placed_suggestions(
     store: &PlacementStore,
     settings: &SettingsStore,
@@ -17,13 +17,10 @@ pub(crate) fn continue_placed_suggestions(
     if suggestions.is_empty() {
         return Ok(suggestions);
     }
-    let root = settings.effective_destination_root(selected_folder)?;
-    if matches!(root.mode, DestinationRootMode::InPlace) {
-        return Ok(suggestions);
-    }
+    let root = settings.place_folder_root(selected_folder)?;
     let records = store.load_existing()?;
     for suggestion in &mut suggestions {
-        if let Some(record) = find_continued(&records, Path::new(&root.root_path), suggestion) {
+        if let Some(record) = find_continued(&records, &root, suggestion) {
             continue_from(suggestion, record);
         }
     }

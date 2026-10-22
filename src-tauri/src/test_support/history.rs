@@ -37,6 +37,7 @@ pub(crate) fn running_history_run(run_id: &str, history_file_path: &str) -> Hist
         folder_label: "todo".to_string(),
         destination_root_mode: None,
         destination_root_path: None,
+        place_root_path: None,
         started_at: "2026-05-24T01:02:03Z".to_string(),
         completed_at: None,
         run_status: HistoryRunStatus::Running,

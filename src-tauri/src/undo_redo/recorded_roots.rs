@@ -12,6 +12,8 @@ use crate::{
 pub(super) struct RecordedRoots {
     selected_folder: PathBuf,
     destination_root: Option<PathBuf>,
+    /// Where place folders went, when it differs from the destination root.
+    place_root: Option<PathBuf>,
 }
 
 impl RecordedRoots {
@@ -19,6 +21,7 @@ impl RecordedRoots {
         Self {
             selected_folder: PathBuf::from(&run.selected_folder),
             destination_root: run.destination_root_path.as_ref().map(PathBuf::from),
+            place_root: run.place_root_path.as_ref().map(PathBuf::from),
         }
     }
 
@@ -38,11 +41,7 @@ impl RecordedRoots {
             Some("recorded source and destination are the same path")
         } else if !self.holds_original(original) {
             Some("recorded source is outside the run's folders")
-        } else if self
-            .destination_root
-            .as_deref()
-            .is_some_and(|root| !path_is_within_case_insensitive(processed, root))
-        {
+        } else if self.destination_root.is_some() && !self.in_destination_roots(processed) {
             Some("recorded destination is outside the run's destination root")
         } else {
             None
@@ -60,9 +59,13 @@ impl RecordedRoots {
     /// moved a placed file to a new day folder.
     fn holds_original(&self, original: &Path) -> bool {
         path_is_within_case_insensitive(original, &self.selected_folder)
-            || self
-                .destination_root
-                .as_deref()
-                .is_some_and(|root| path_is_within_case_insensitive(original, root))
+            || self.in_destination_roots(original)
+    }
+
+    fn in_destination_roots(&self, path: &Path) -> bool {
+        [&self.destination_root, &self.place_root]
+            .into_iter()
+            .flatten()
+            .any(|root| path_is_within_case_insensitive(path, root))
     }
 }

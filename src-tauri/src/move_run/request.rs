@@ -16,6 +16,8 @@ pub(crate) struct MoveBatch {
 pub(super) struct MoveRunRequest {
     pub selected_folder: PathBuf,
     pub destination_root: PathBuf,
+    /// Where place folders go. The destination root unless renaming in place.
+    pub place_root: PathBuf,
     pub batch: MoveBatch,
     /// Where the files moved into place folders get recorded.
     pub placements: PlacementStore,

@@ -16,7 +16,9 @@ fn lists_a_run_in_progress_as_running_until_its_job_stops() {
         force_processed_folder: false,
         warning: None,
     };
-    let run = store.start_run(temp.path(), &root).expect("start run");
+    let run = store
+        .start_run(temp.path(), &root, std::path::Path::new(&root.root_path))
+        .expect("start run");
 
     let listed = store.list_runs().expect("list runs");
     assert_eq!(listed[0].run_status, HistoryRunStatus::Running);
