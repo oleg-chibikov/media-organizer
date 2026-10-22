@@ -6,16 +6,17 @@ export interface PlanCandidates {
   previousSignatures: Map<string, string | undefined>;
 }
 
-// A file is planned again only when the metadata that drives its destination changes.
-function metadataPlanningSignature(metadata: MetadataResult): string {
-  return `${metadata.metadata_status}:${metadata.chosen_date ?? ""}`;
+// A file is planned again only when its metadata or its place folder changes its destination.
+function planningSignature(metadata: MetadataResult, placeKey: string | undefined): string {
+  return `${metadata.metadata_status}:${metadata.chosen_date ?? ""}:${placeKey ?? ""}`;
 }
 
 // Mutates `signatures`: records the new signature for every file it selects.
 export function claimPlanCandidates(
   rows: FileRecord[],
   metadataResults: MetadataResult[],
-  signatures: Map<string, string>
+  signatures: Map<string, string>,
+  placeKeys: Map<string, string>
 ): PlanCandidates {
   const rowsById = new Map(rows.map((row) => [row.id, row]));
   const candidates: PlanCandidates = { files: [], metadata: [], previousSignatures: new Map() };
@@ -25,7 +26,7 @@ export function claimPlanCandidates(
     if (!row || (row.kind !== "photo" && row.kind !== "video")) {
       continue;
     }
-    const nextSignature = metadataPlanningSignature(metadata);
+    const nextSignature = planningSignature(metadata, placeKeys.get(row.id));
     const previousSignature = signatures.get(row.id);
     if (previousSignature === nextSignature) {
       continue;

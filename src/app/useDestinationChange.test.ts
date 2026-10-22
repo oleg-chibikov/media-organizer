@@ -16,7 +16,8 @@ function options(confirmed: boolean, rows = [RECORD]) {
     scan: { selectedFolder: "C:\\in", rows },
     metadataByFileId: { [RECORD.id]: METADATA },
     planning: { clearPlans: vi.fn(), requestPlans: vi.fn() },
-    moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMovesForReplan: vi.fn() }
+    moves: { execution: { ...IDLE_MOVE_EXECUTION, confirmed }, resetMovesForReplan: vi.fn() },
+    placeSuggestions: { reset: vi.fn() }
   } as unknown as Options;
   return { value, applyChange, onChangedRef };
 }
@@ -47,5 +48,6 @@ describe("useDestinationChange", () => {
     first.onChangedRef.current?.();
 
     expect(latest.value.planning.requestPlans).toHaveBeenCalledWith([RECORD], [METADATA]);
+    expect(latest.value.placeSuggestions.reset).toHaveBeenCalledOnce();
   });
 });

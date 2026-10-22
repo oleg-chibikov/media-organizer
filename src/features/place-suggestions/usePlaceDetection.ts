@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
 import type { FileRecord, MetadataResult, PlaceSuggestion } from "../../lib/types";
+import { metadataResultsFor } from "../metadata";
 import { allMetadataRead } from "./allMetadataRead";
 
 // Lets the last metadata batches land before the backend looks at every file.
@@ -41,9 +42,7 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     const timer = setTimeout(() => {
       detectedKeyRef.current = key;
       const latest = latestRef.current;
-      const results = latest.rows
-        .map((row) => latest.metadataByFileId[row.id])
-        .filter((result): result is MetadataResult => result !== undefined);
+      const results = metadataResultsFor(latest.rows, latest.metadataByFileId);
       // A reset while the backend works makes the answer belong to an older scan.
       const isCurrent = () => generationRef.current === generation;
       detectPlaceSuggestions(latest.rows, results).then(

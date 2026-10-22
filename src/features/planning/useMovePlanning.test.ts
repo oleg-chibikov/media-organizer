@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { PlanListeners } from "../../lib/api";
+import { createMovePlan, type PlanListeners } from "../../lib/api";
+import type { PlaceSuggestion } from "../../lib/types";
 import { METADATA, PLAN, RECORD } from "../../test/pipelineFixtures";
 import { useMovePlanning } from "./useMovePlanning";
 
@@ -58,5 +59,44 @@ describe("useMovePlanning", () => {
 
     act(() => result.current.requestPlans([RECORD], [{ ...METADATA, chosen_date: "2026-05-25" }]));
     expect(result.current.planErrorsByFileId).toEqual({});
+  });
+});
+
+describe("useMovePlanning place folders", () => {
+  const other = { ...RECORD, id: "f2" };
+  const otherMetadata = { ...METADATA, file_id: "f2" };
+  const outing = {
+    id: "o1",
+    kind: "outing",
+    places: [{ name: "Gardens", file_ids: ["f1"] }],
+    root_file_ids: []
+  } as unknown as PlaceSuggestion;
+
+  it("plans again only the files whose place folder changed", async () => {
+    const { result } = renderPlanning();
+    await waitFor(() => expect(listeners.plan).not.toBeNull());
+    const rows = [RECORD, other];
+    const metadata = [METADATA, otherMetadata];
+    act(() => result.current.requestPlans(rows, metadata));
+    act(() => {
+      listeners.plan?.onFile({ plan: PLAN });
+      listeners.plan?.onFinished({ planned: 1, errors: 0 });
+    });
+    vi.mocked(createMovePlan).mockClear();
+
+    act(() => result.current.applyPlaceSuggestions([outing], rows, metadata));
+
+    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
+      "C:\\in",
+      [RECORD],
+      [METADATA],
+      [outing]
+    );
+    expect(result.current.movePlansByFileId).toEqual({});
+    expect(result.current.activePlanRequests).toBe(1);
+
+    vi.mocked(createMovePlan).mockClear();
+    act(() => result.current.applyPlaceSuggestions([], rows, metadata));
+    expect(createMovePlan).toHaveBeenCalledExactlyOnceWith("C:\\in", [RECORD], [METADATA], []);
   });
 });

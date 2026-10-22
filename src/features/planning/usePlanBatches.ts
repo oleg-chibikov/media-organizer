@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MovePlan } from "../../lib/types";
+import { withoutFileIds } from "./withoutFileIds";
 
 // Long enough to batch a burst of plan events, short enough to feel live.
 const PLAN_FLUSH_MS = 50;
@@ -41,7 +42,12 @@ export function usePlanBatches() {
     setMovePlansByFileId({});
   }, [cancelScheduledFlush]);
 
+  const dropPlansFor = useCallback((fileIds: string[]) => {
+    pendingRef.current = withoutFileIds(pendingRef.current, fileIds);
+    setMovePlansByFileId((previous) => withoutFileIds(previous, fileIds));
+  }, []);
+
   useEffect(() => cancelScheduledFlush, [cancelScheduledFlush]);
 
-  return { movePlansByFileId, addPlan, flushPlans, dropPlans };
+  return { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor };
 }

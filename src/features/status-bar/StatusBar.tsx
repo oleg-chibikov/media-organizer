@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "../../components/design-system/Button";
 import type { MoveConfirmationSummary } from "../../lib/types";
 import type { MoveCounts, MoveExecutionState } from "../moves";
@@ -18,6 +19,7 @@ interface StatusBarProps {
   destinationRoot: string | null;
   onExecutionAction: () => void;
   onOpenDestination: () => void;
+  placePrompt?: ReactNode;
 }
 
 export function StatusBar({
@@ -30,7 +32,8 @@ export function StatusBar({
   canRunExecutionAction,
   destinationRoot,
   onExecutionAction,
-  onOpenDestination
+  onOpenDestination,
+  placePrompt
 }: StatusBarProps) {
   return (
     <footer className="border-t border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300">
@@ -45,6 +48,7 @@ export function StatusBar({
           showReady={!execution.completed}
           moveCounts={moveCounts}
         />
+        {placePrompt}
         {health === "ok" || health === "checking" ? null : (
           <span className="text-rose-300">Backend: {health}</span>
         )}

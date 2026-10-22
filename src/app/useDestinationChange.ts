@@ -3,6 +3,7 @@ import type {
   DestinationSettingsOperation,
   useDestinationSettings
 } from "../features/destination-settings";
+import { metadataResultsFor } from "../features/metadata";
 import type { useMoveExecution } from "../features/moves";
 import type { useMovePlanning } from "../features/planning";
 import type { useScanSession } from "../features/scan";
@@ -20,6 +21,7 @@ interface DestinationChangeOptions {
   metadataByFileId: Record<string, MetadataResult>;
   planning: ReturnType<typeof useMovePlanning>;
   moves: ReturnType<typeof useMoveExecution>;
+  placeSuggestions: { reset: () => void };
 }
 
 // A new root or mode changes every planned path, so plans are rebuilt before execution starts.
@@ -39,9 +41,9 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     if (!scan.selectedFolder || executing || confirmed) {
       return;
     }
-    const metadataResults = scan.rows
-      .map((row) => metadataByFileId[row.id])
-      .filter((result): result is MetadataResult => result !== undefined);
+    // Place folders were suggested for the old destination.
+    latestRef.current.placeSuggestions.reset();
+    const metadataResults = metadataResultsFor(scan.rows, metadataByFileId);
     if (metadataResults.length === 0) {
       return;
     }

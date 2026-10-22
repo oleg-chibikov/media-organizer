@@ -5,8 +5,9 @@ import {
   useEffectiveDestinationRoot
 } from "../features/destination-settings";
 import { useHistory } from "../features/history";
-import { useMetadataQueue } from "../features/metadata";
+import { metadataResultsFor, useMetadataQueue } from "../features/metadata";
 import { useMoveExecution } from "../features/moves";
+import { usePlaceSuggestions } from "../features/place-suggestions";
 import { useMovePlanning } from "../features/planning";
 import { useScanSession } from "../features/scan";
 import { useBackendBootstrap } from "./useBackendBootstrap";
@@ -54,13 +55,29 @@ export function useAppSession() {
     movePlansByFileId: planning.movePlansByFileId,
     reportError: setFolderError
   });
+  const places = usePlaceSuggestions({
+    rows: scan.rows,
+    metadataByFileId: metadata.metadataByFileId,
+    scanCompleted: completed && !cancelled,
+    metadataBusy: metadata.activeMetadataRequests > 0,
+    enabled: destination.settings?.rename_in_place === false,
+    locked: moves.execution.confirmed || moves.execution.executing,
+    reportError: setFolderError,
+    onApply: (accepted) =>
+      planning.applyPlaceSuggestions(
+        accepted,
+        scan.rows,
+        metadataResultsFor(scan.rows, metadata.metadataByFileId)
+      )
+  });
   const history = useHistory(setFolderError);
 
-  // Metadata, plans and moves belong to the old folder's files.
+  // Metadata, plans, moves and place folders belong to the old folder's files.
   const resetPipeline = () => {
     metadata.resetMetadata();
     planning.resetPlanning();
     moves.resetMoves();
+    places.reset();
   };
 
   useBackendEvents(attachScanListeners, scan.events, (error) =>
@@ -77,7 +94,8 @@ export function useAppSession() {
     scan,
     metadataByFileId: metadata.metadataByFileId,
     planning,
-    moves
+    moves,
+    placeSuggestions: places
   });
 
   return {
@@ -102,6 +120,7 @@ export function useAppSession() {
       stillChecking
     },
     moves,
+    places,
     history,
     destination,
     destinationActions,

@@ -1,19 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { attachPlanListeners, createMovePlan, useBackendEvents } from "../../lib/api";
-import type { FileRecord, MetadataResult } from "../../lib/types";
+import type { FileRecord, MetadataResult, PlaceSuggestion } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
+import { acceptPlaces } from "./acceptedPlaces";
 import { usePlanBatches } from "./usePlanBatches";
-
-function withoutFiles(errors: Record<string, string>, files: FileRecord[]) {
-  if (!files.some((file) => file.id in errors)) {
-    return errors;
-  }
-  const next = { ...errors };
-  for (const file of files) {
-    delete next[file.id];
-  }
-  return next;
-}
+import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
   selectedFolder: string | null;
@@ -21,10 +12,12 @@ interface MovePlanningOptions {
 }
 
 export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOptions) {
-  const { movePlansByFileId, addPlan, flushPlans, dropPlans } = usePlanBatches();
+  const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
   const [activePlanRequests, setActivePlanRequests] = useState(0);
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   const signaturesRef = useRef<Map<string, string>>(new Map());
+  // Accepted place suggestions go with every plan request.
+  const placesRef = useRef(acceptPlaces([]));
   const activeRequestsRef = useRef(0);
 
   const changeActiveRequests = useCallback((delta: number) => {
@@ -37,14 +30,23 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
       if (!selectedFolder) {
         return;
       }
-      const candidates = claimPlanCandidates(rows, metadataResults, signaturesRef.current);
+      const places = placesRef.current;
+      const candidates = claimPlanCandidates(
+        rows,
+        metadataResults,
+        signaturesRef.current,
+        places.keys
+      );
       if (candidates.files.length === 0) {
         return;
       }
-      // A file planned again gets a fresh answer, so its old error goes.
-      setPlanErrorsByFileId((previous) => withoutFiles(previous, candidates.files));
+      // A file planned again gets a fresh answer, so its old plan and error go.
+      const fileIds = candidates.files.map((file) => file.id);
+      dropPlansFor(fileIds);
+      setPlanErrorsByFileId((previous) => withoutFileIds(previous, fileIds));
       changeActiveRequests(1);
-      void createMovePlan(selectedFolder, candidates.files, candidates.metadata, []).catch(
+      const { files, metadata } = candidates;
+      void createMovePlan(selectedFolder, files, metadata, places.suggestions).catch(
         (error: unknown) => {
           changeActiveRequests(-1);
           restorePlanSignatures(signaturesRef.current, candidates.previousSignatures);
@@ -52,7 +54,16 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
         }
       );
     },
-    [changeActiveRequests, reportError, selectedFolder]
+    [changeActiveRequests, dropPlansFor, reportError, selectedFolder]
+  );
+
+  // Plans again only the files whose place folder changed.
+  const applyPlaceSuggestions = useCallback(
+    (suggestions: PlaceSuggestion[], rows: FileRecord[], metadataResults: MetadataResult[]) => {
+      placesRef.current = acceptPlaces(suggestions);
+      requestPlans(rows, metadataResults);
+    },
+    [requestPlans]
   );
 
   // Plan events carry no request id, so a file this session didn't ask for belongs to an older scan.
@@ -80,8 +91,10 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
     (error) => reportError(`Failed to attach plan listeners: ${String(error)}`)
   );
 
+  // A new destination or scan drops the place folders along with the plans.
   const clearPlans = useCallback(() => {
     signaturesRef.current = new Map();
+    placesRef.current = acceptPlaces([]);
     dropPlans();
     setPlanErrorsByFileId({});
   }, [dropPlans]);
@@ -97,6 +110,7 @@ export function useMovePlanning({ selectedFolder, reportError }: MovePlanningOpt
     activePlanRequests,
     planErrorsByFileId,
     requestPlans,
+    applyPlaceSuggestions,
     clearPlans,
     resetPlanning
   };

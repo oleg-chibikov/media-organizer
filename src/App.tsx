@@ -3,13 +3,14 @@ import { DestinationSettingsMenu, RenameInPlaceToggle } from "./features/destina
 import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { MoveConfirmationDialog } from "./features/moves";
+import { PlaceSuggestionPrompt, PlaceSuggestionsDialog } from "./features/place-suggestions";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
 
 export default function App() {
   const session = useAppSession();
-  const { scan, planning, moves, history, destination, destinationActions, effectiveDestination } =
-    session;
+  const { scan, planning, moves, places, history, destination, destinationActions } = session;
+  const { effectiveDestination } = session;
   const { execution } = moves;
   const chooseFolder = () => void scan.chooseFolderAndScan();
   const renamesInPlace = destination.settings?.rename_in_place ?? false;
@@ -95,7 +96,24 @@ export default function App() {
         destinationRoot={effectiveDestination.rootPath}
         onExecutionAction={moves.runExecutionAction}
         onOpenDestination={session.openDestination}
+        placePrompt={
+          <PlaceSuggestionPrompt
+            suggestions={places.pending}
+            onReview={places.openReview}
+            onDismiss={places.dismiss}
+          />
+        }
       />
+
+      {places.reviewOpen ? (
+        <PlaceSuggestionsDialog
+          suggestions={places.pending}
+          choices={places.choices}
+          metadataByFileId={session.metadataByFileId}
+          onApply={places.apply}
+          onCancel={places.closeReview}
+        />
+      ) : null}
 
       {moves.confirmation.summary ? (
         <MoveConfirmationDialog
