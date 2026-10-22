@@ -48,4 +48,16 @@ fun scanMedia(root: Path, destinationRoot: Path): ScanResult {
 fun isInsideProcessed(path: Path): Boolean =
     path.any { it.toString().equals(PROCESSED_FOLDER, ignoreCase = true) }
 
+/**
+ * Whether [scanMedia] of [root] holds [path]. Earlier days of a place outside the scan move with
+ * it, as on desktop. The default destination `<root>/Processed` holds no scan files.
+ */
+fun isScanned(path: Path, root: Path, destinationRoot: Path): Boolean {
+    if (!path.startsWith(root) || path == root) return false
+    val inside = root.relativize(path)
+    if (inside.any { it.toString().equals(PROCESSED_FOLDER, ignoreCase = true) || it.toString().startsWith(".") }) return false
+    val destinationInside = destinationRoot != root && destinationRoot.startsWith(root)
+    return !(destinationInside && path.startsWith(destinationRoot))
+}
+
 private fun isHidden(path: Path) = path.name.startsWith(".")

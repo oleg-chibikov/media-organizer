@@ -26,7 +26,7 @@ fun organize(
 
     val root = request.destinationRoot
     val dated = readDates(scan.media, readMetadata, progress, isCancelled)
-    val layout = dated?.let { placeLayoutOf(it, root, places, progress) }
+    val layout = dated?.let { placeLayoutOf(it, request, places, progress) }
     val library = layout?.let { moveLibrary(it.libraryMoves, root, progress, isCancelled) }.orEmpty()
 
     val moved = mutableListOf<MovedFile>()

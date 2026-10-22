@@ -11,12 +11,20 @@ import kotlin.io.path.extension
 import kotlin.io.path.name
 
 /** The place folders of a run's files. Null when place folders are off, or failed and the files keep date folders. */
-internal fun placeLayoutOf(dated: List<DatedFile>, root: Path, places: PlaceSources?, progress: RunProgress): PlaceLayout? {
+internal fun placeLayoutOf(
+    dated: List<DatedFile>,
+    request: OrganizeRequest,
+    places: PlaceSources?,
+    progress: RunProgress,
+): PlaceLayout? {
     if (places == null || dated.isEmpty()) return null
     progress.log("Finding places")
     val files = dated.map { PlaceInput(it.file.path, it.date, it.metadata.deviceName, it.metadata.gps) }
     return try {
-        planPlaces(files, root, places, ::isVisibleMedia).also { logDetection(it.detection, files.size, progress) }
+        val root = request.destinationRoot
+        // Files the scan holds move with it, so the earlier days skip them.
+        val isEarlierDay = { path: Path -> isVisibleMedia(path) && !isScanned(path, request.sourceRoot, root) }
+        planPlaces(files, root, places, isEarlierDay).also { logDetection(it.detection, files.size, progress) }
     } catch (error: Exception) {
         progress.log("Place folders failed, using date folders: $error")
         null

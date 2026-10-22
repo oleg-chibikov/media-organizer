@@ -22,9 +22,12 @@ interface DeviceLocator {
 fun findHomeFromDevice(homes: HomeStore, locator: DeviceLocator, geocoder: Geocoder) {
     val saved = homes.saved()
     if (saved != null && saved.source != HomeSource.TIME_ZONE) return
-    val home = locatedHome(locator, geocoder) ?: timeZoneHome(locator, geocoder) ?: return
-    homes.offer(home)
+    deviceHome(locator, geocoder)?.let(homes::offer)
 }
+
+/** The city at the device's location, else the city its time zone names. */
+fun deviceHome(locator: DeviceLocator, geocoder: Geocoder): HomeLocation? =
+    locatedHome(locator, geocoder) ?: timeZoneHome(locator, geocoder)
 
 /** The city nearest the device's location fix, else the nearest place. */
 fun locatedHome(locator: DeviceLocator, geocoder: Geocoder): HomeLocation? {

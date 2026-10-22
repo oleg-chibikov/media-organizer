@@ -139,3 +139,14 @@ fn files_in_the_scanned_folder_and_other_files_stay_out_of_the_library_moves() {
 
     assert_eq!(moves, ["2024/3/4/Dubai/a.jpg -> 2024/3/Dubai/4/a.jpg"]);
 }
+
+#[test]
+fn earlier_days_in_the_processed_folder_of_the_scanned_folder_move() {
+    let selected = tempdir().expect("temp dir");
+    let root = selected.path().join("Processed");
+    photo_at(&root, "2024/3/4/Dubai/a.jpg");
+    let (dirs, moves) = plan_with_library(&root, selected.path(), &dubai_on("2024-03-07 10:00:00"));
+
+    assert_eq!(dirs, ["2024/3/Dubai/7"]);
+    assert_eq!(moves, ["2024/3/4/Dubai/a.jpg -> 2024/3/Dubai/4/a.jpg"]);
+}

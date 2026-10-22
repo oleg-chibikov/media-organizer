@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{
     models::{FilePlace, FileRecord, LibraryFolderMove, MovePlan, PlanStatus, ScanStatus},
-    path_safety::path_is_within_case_insensitive,
+    path_safety::{path_contains_processed_segment, path_is_within_case_insensitive},
     scanner::record_for_path,
 };
 
@@ -86,7 +86,7 @@ fn plan_folder(
         .flatten()
         .filter(|entry| entry.file_type().is_file())
         .map(|entry| entry.into_path())
-        .filter(|path| !path_is_within_case_insensitive(path, selected));
+        .filter(|path| !is_scanned(path, selected));
     for source in files {
         let record = record_for_path(root, &source);
         if !matches!(record.scan_status, ScanStatus::Discovered) {
@@ -136,4 +136,13 @@ fn plan_file(
 
 fn path_text(path: &Path) -> String {
     path.to_string_lossy().to_string()
+}
+
+/// Whether the scan of `selected` holds `path`. The scan skips `Processed` folders, so the
+/// default destination `<selected>/Processed` holds earlier days, not scan files.
+fn is_scanned(path: &Path, selected: &Path) -> bool {
+    path_is_within_case_insensitive(path, selected)
+        && !path
+            .strip_prefix(selected)
+            .is_ok_and(path_contains_processed_segment)
 }
