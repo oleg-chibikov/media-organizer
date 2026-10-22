@@ -2,14 +2,10 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager};
 
-use crate::{history::HistoryStore, placements::PlacementStore, settings::SettingsStore};
+use crate::{history::HistoryStore, settings::SettingsStore};
 
 pub(super) fn history_store(app: &AppHandle) -> Result<HistoryStore, String> {
     app_data_dir(app).map(|dir| HistoryStore::in_app_data(&dir))
-}
-
-pub(super) fn placement_store(app: &AppHandle) -> Result<PlacementStore, String> {
-    app_data_dir(app).map(|dir| PlacementStore::in_app_data(&dir))
 }
 
 pub(super) fn settings_store(app: &AppHandle) -> Result<SettingsStore, String> {

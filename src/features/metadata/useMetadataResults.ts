@@ -21,23 +21,10 @@ export function useMetadataResults() {
     METADATA_FLUSH_MS
   );
 
-  // Placed files come with the date their record kept, so they need no read.
-  const addResults = useCallback((results: MetadataResult[]) => {
-    if (results.length > 0) {
-      setMetadataByFileId((prev) => prev.with(results, fileIdOf));
-    }
-  }, []);
-
-  const removeResults = useCallback((fileIds: string[]) => {
-    if (fileIds.length > 0) {
-      setMetadataByFileId((prev) => prev.without(fileIds));
-    }
-  }, []);
-
   const clearResults = useCallback(() => {
     dropReads();
     setMetadataByFileId(FileIdMap.empty());
   }, [dropReads]);
 
-  return { metadataByFileId, addRead, flushReads, addResults, removeResults, clearResults };
+  return { metadataByFileId, addRead, flushReads, clearResults };
 }

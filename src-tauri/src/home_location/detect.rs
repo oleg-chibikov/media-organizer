@@ -1,14 +1,14 @@
 use crate::{
-    geo::{Coordinates, Place},
+    file_places::{Home, PlaceScan},
+    geo::Place,
     models::{FileRecord, HomeLocation, HomeSource, MetadataResult, PlaceDetection},
     settings::{self, SettingsStore},
-    trips::{Home, PlaceScan},
 };
 
-/// Trips and outings measured from the saved home, with file place labels and a status. A scan that
-/// covers enough days learns home from the files and saves it over a time zone guess. Without a saved
-/// home, a smaller scan infers home for itself.
-pub(crate) fn detect_place_suggestions(
+/// The place folder of each file, with a country folder outside the saved home's country. A scan
+/// that covers enough days learns home from the files and saves it over a time zone guess. Without a
+/// saved home, a smaller scan infers home for itself.
+pub(crate) fn detect_file_places(
     store: &SettingsStore,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
@@ -22,7 +22,7 @@ pub(crate) fn detect_place_suggestions(
                 learn(store, learned_home(&city.place));
                 Some(city.home())
             }
-            // A small scan is often one trip, so a time zone guess beats its busiest city.
+            // A small scan is often one holiday, so a time zone guess beats its busiest city.
             inferred => guess.map(home_of).or(inferred.map(|city| city.home())),
         },
     };
@@ -31,8 +31,6 @@ pub(crate) fn detect_place_suggestions(
 
 fn home_of(home: HomeLocation) -> Home {
     Home {
-        name: home.name,
-        point: Coordinates::new(home.latitude, home.longitude),
         country: home.country,
     }
 }

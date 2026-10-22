@@ -1,11 +1,7 @@
-use crate::geo::{nearest_city, nearest_place, notable_place, Coordinates, Place, PlaceKind};
+use crate::geo::{nearest_city, nearest_place, Coordinates, Place, PlaceKind};
 
 fn place_at(latitude: f64, longitude: f64) -> Place {
     nearest_place(Coordinates::new(latitude, longitude)).expect("a place near the point")
-}
-
-fn notable_at(latitude: f64, longitude: f64) -> Place {
-    notable_place(Coordinates::new(latitude, longitude)).expect("a notable place")
 }
 
 #[test]
@@ -46,17 +42,7 @@ fn blue_mountains_towns_and_lookouts_are_the_national_park() {
 fn royal_national_park_beaches_are_the_park() {
     for (latitude, longitude) in [(-34.1700, 151.0650), (-34.1370, 151.1170)] {
         assert_eq!(place_at(latitude, longitude).name, "Royal National Park");
-        assert_eq!(notable_at(latitude, longitude).name, "Royal National Park");
     }
-}
-
-#[test]
-fn a_small_park_inside_sydney_is_an_outing_but_not_a_trip_place() {
-    let north_head = (-33.8200, 151.2960);
-    assert_eq!(place_at(north_head.0, north_head.1).name, "Sydney");
-    let outing = notable_at(north_head.0, north_head.1);
-    assert_eq!(outing.name, "Sydney Harbour National Park");
-    assert_eq!(outing.country_name, "Australia");
 }
 
 #[test]
@@ -71,19 +57,4 @@ fn harbour_suburbs_stay_sydney() {
         let city = nearest_city(Coordinates::new(latitude, longitude)).expect("a city");
         assert_eq!(city.name, "Sydney");
     }
-}
-
-#[test]
-fn a_garden_inside_sydney_is_still_an_outing() {
-    let place = notable_at(-33.8642, 151.2166);
-    assert!(place.name.contains("Botanic"), "{place:?}");
-    assert_eq!(place.kind, PlaceKind::Garden);
-    assert_eq!(place_at(-33.8642, 151.2166).name, "Sydney");
-}
-
-#[test]
-fn kew_gardens_beat_the_palace_inside_them() {
-    let place = notable_at(51.4787, -0.2956);
-    assert!(place.name.contains("Kew"), "{place:?}");
-    assert_eq!(place.kind, PlaceKind::Garden);
 }

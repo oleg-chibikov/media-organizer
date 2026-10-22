@@ -5,19 +5,16 @@ use super::distance::Coordinates;
 use super::index::{Entry, GeoIndex, INDEX};
 use super::kind::PlaceKind;
 use super::nearby::Nearby;
-use super::notable::notable_in;
 use super::parks::PARKS;
 use super::place::Place;
 use super::radius::FALLBACK_RADIUS_KM;
 
 /// Every name a point can get, from one search of its surroundings.
 pub(crate) struct Resolution {
-    /// What a trip folder is named after: see `nearest_place`.
+    /// What a place folder is named after: see `nearest_place`.
     pub(crate) place: Option<Place>,
     /// See `nearest_city`.
     pub(crate) city: Option<Place>,
-    /// What an outing is named after: see `notable_place`.
-    pub(crate) notable: Option<Place>,
 }
 
 pub(crate) fn resolve(point: Coordinates) -> Resolution {
@@ -25,7 +22,6 @@ pub(crate) fn resolve(point: Coordinates) -> Resolution {
     Resolution {
         place: place_in(&nearby),
         city: city_in(&nearby),
-        notable: notable_in(&nearby),
     }
 }
 
@@ -43,7 +39,7 @@ pub(crate) fn nearest_city(point: Coordinates) -> Option<Place> {
 
 /// Country code and English name of the nearest place. Near a border this
 /// can name the neighbour, because GeoNames gives points and no outlines.
-// Trips read the country off `nearest_place`, which they already call.
+// Place detection reads the country off `nearest_place`, which it already calls.
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn country_of(point: Coordinates) -> Option<(String, String)> {
     nearest_place(point).map(|place| (place.country_code, place.country_name))

@@ -124,9 +124,12 @@ describe("FileTable", () => {
   });
 
   it("shows each file's place from the lookup", () => {
-    renderTable({ rows: [createRow("a"), createRow("b")], filePlaces: { a: "Louvre, France" } });
+    const louvre = { place: "Louvre", country: "France" };
+    renderTable({ rows: [createRow("a"), createRow("b")], filePlaces: { a: louvre } });
 
+    expect(screen.getByRole("columnheader", { name: "Country" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Place" })).toBeInTheDocument();
-    expect(screen.getByText("Louvre, France")).toBeInTheDocument();
+    expect(screen.getByText("France")).toBeInTheDocument();
+    expect(screen.getByText("Louvre")).toBeInTheDocument();
   });
 });

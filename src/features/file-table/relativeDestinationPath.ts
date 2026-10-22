@@ -4,7 +4,7 @@ function normalizePath(pathValue: string): string {
 
 // Shows a destination relative to the destination root shown in the toolbar.
 export function relativeDestinationPath(pathValue: string, basePath: string | null): string {
-  if (!basePath || pathValue === "-" || pathValue === "planning...") {
+  if (!basePath) {
     return pathValue;
   }
 

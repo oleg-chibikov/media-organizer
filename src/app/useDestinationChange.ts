@@ -22,7 +22,7 @@ interface DestinationChangeOptions {
   scan: ReturnType<typeof useScanSession>;
   planning: ReturnType<typeof useMovePlanning>;
   moves: ReturnType<typeof useMoveExecution>;
-  placeSuggestions: { reset: () => void };
+  filePlaces: { reset: () => void };
 }
 
 // A new root or mode changes every planned path, so plans are rebuilt before execution starts.
@@ -44,7 +44,7 @@ export function useDestinationChange(options: DestinationChangeOptions) {
     }
     // Place folders were suggested for the old destination. Detection applies them again,
     // and the backend plans every dated file for the new destination then.
-    latestRef.current.placeSuggestions.reset();
+    latestRef.current.filePlaces.reset();
     planning.clearPlans();
     latestMoves.resetMovesForReplan();
   };

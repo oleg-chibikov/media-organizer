@@ -14,7 +14,7 @@ The React app shows what the Rust backend reports and asks the backend to act. O
 
 The backend streams progress as events instead of returning one big result.
 
-1. A feature hook calls a command, such as `start_scan` or `apply_place_suggestions`.
+1. A feature hook calls a command, such as `start_scan` or `apply_file_places`.
 2. The backend runs the job and emits `scan:*`, `plan:*`, `move:*` or `history:*` events.
 3. `useBackendEvents` attaches the listeners once and hands each event to the handlers from the latest render.
 4. The feature hook stores the payload. Scan rows and plans land in 50 ms batches, so a big folder renders in chunks.

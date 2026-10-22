@@ -1,7 +1,5 @@
 use super::{
-    emptied_place_folders::remove_emptied_place_folders,
     file_step::{move_file, recheck_operation},
-    placement_record::record_placements,
     progress::emit_move_progress_message,
     recorder::MoveRunRecorder,
     request::{MoveRunRequest, RunLookups},
@@ -71,8 +69,6 @@ pub(super) fn run_move_plan(
         "Finalizing history.",
         recorder.completed_operations(),
     );
-    record_placements(&request, recorder.results());
-    remove_emptied_place_folders(&request, recorder.results());
     let finished = recorder
         .results()
         .iter()

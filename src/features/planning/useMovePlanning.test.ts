@@ -1,27 +1,25 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { FileIdMap } from "../../lib/fileIdMap";
-import { applyPlaceSuggestions, clearScanPlans, type PlanListeners } from "../../lib/api";
-import type { PlacedMove } from "../../lib/types";
-import { METADATA, PLAN, RECORD } from "../../test/pipelineFixtures";
+import { applyFilePlaces, clearScanPlans, type PlanListeners } from "../../lib/api";
+import { PLAN } from "../../test/pipelineFixtures";
 import { useMovePlanning } from "./useMovePlanning";
 
 const listeners = vi.hoisted(() => ({ plan: null as PlanListeners | null }));
 
 vi.mock("../../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/api")>()),
-  applyPlaceSuggestions: vi.fn(async () => undefined),
+  applyFilePlaces: vi.fn(async () => undefined),
   clearScanPlans: vi.fn(async () => undefined),
   attachPlanListeners: vi.fn(async (handlers: PlanListeners) => ((listeners.plan = handlers), []))
 }));
 
 async function renderPlanning() {
-  const onPlacedFiles = vi.fn();
   const hook = renderHook(() =>
-    useMovePlanning({ scanIdRef: { current: 1 }, reportError: vi.fn(), onPlacedFiles })
+    useMovePlanning({ scanIdRef: { current: 1 }, reportError: vi.fn() })
   );
   await waitFor(() => expect(listeners.plan).not.toBeNull());
-  return { ...hook, onPlacedFiles };
+  return hook;
 }
 
 describe("useMovePlanning", () => {
@@ -29,8 +27,8 @@ describe("useMovePlanning", () => {
     const { result } = await renderPlanning();
     expect(result.current.planning).toBe(true);
 
-    act(() => result.current.applyPlaceSuggestions([]));
-    expect(applyPlaceSuggestions).toHaveBeenCalledWith(1, []);
+    act(() => result.current.applyFilePlaces({}));
+    expect(applyFilePlaces).toHaveBeenCalledWith(1, {});
     act(() => listeners.plan?.onFile({ scan_id: 1, plan: PLAN }));
     expect(result.current.planning).toBe(true);
     act(() => listeners.plan?.onSettled({ scan_id: 1 }));
@@ -71,25 +69,10 @@ describe("useMovePlanning", () => {
     expect(result.current.planErrorsByFileId).toEqual({});
   });
 
-  it("adds placed files with their plans and drops them again", async () => {
-    const { result, onPlacedFiles } = await renderPlanning();
-    const placed: PlacedMove = { record: RECORD, metadata: METADATA, plan: PLAN };
-
-    act(() => {
-      listeners.plan?.onPlaced({ scan_id: 1, added: [placed], dropped: [] });
-      listeners.plan?.onSettled({ scan_id: 1 });
-    });
-    expect(onPlacedFiles).toHaveBeenCalledWith([placed], []);
-    expect(result.current.movePlansByFileId.get("f1")).toEqual(PLAN);
-
-    act(() => listeners.plan?.onPlaced({ scan_id: 1, added: [], dropped: ["f1"] }));
-    expect(result.current.movePlansByFileId.has("f1")).toBe(false);
-  });
-
   it("clears the plans for a new destination and waits for the places again", async () => {
     const { result } = await renderPlanning();
     act(() => {
-      result.current.applyPlaceSuggestions([]);
+      result.current.applyFilePlaces({});
       listeners.plan?.onFile({ scan_id: 1, plan: PLAN });
       listeners.plan?.onSettled({ scan_id: 1 });
     });

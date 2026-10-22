@@ -7,7 +7,6 @@ use crate::{
     history::HistoryStore,
     models::{DateKind, FileKind, FileRecord},
     move_run::{start_move_run, MoveBatch},
-    placements::PlacementStore,
     settings::SettingsStore,
     test_support::{
         events::RecordingSink,
@@ -41,7 +40,6 @@ fn a_paused_run_leaves_unreached_files_at_the_source() {
         &sink,
         &SettingsStore::in_app_data(&app_data),
         &history,
-        &PlacementStore::in_app_data(&app_data),
         &selected,
         batch,
     )

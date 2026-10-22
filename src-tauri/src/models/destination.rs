@@ -20,10 +20,10 @@ pub struct DestinationSettings {
     pub force_processed_folder: bool,
     #[serde(default)]
     pub rename_in_place: bool,
-    /// Trips and outings go to place folders. Rename in place turns this off.
+    /// Photos and videos go to the folder of their place. Rename in place turns this off.
     #[serde(default = "group_by_place_default")]
     pub group_by_place: bool,
-    /// Trips are measured from here. Unset until learned or picked.
+    /// Places in its country get no country folder. Unset until learned or picked.
     #[serde(default)]
     pub home: Option<HomeLocation>,
     pub updated_at: Option<String>,

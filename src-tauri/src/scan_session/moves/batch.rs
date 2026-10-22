@@ -23,14 +23,8 @@ impl ScanSession {
             plans: self.plans(file_ids)?,
         };
         let context = &self.context;
-        let run = move_run::start_move_run(
-            sink,
-            &context.settings,
-            history,
-            &context.placements,
-            &context.folder,
-            batch,
-        )?;
+        let run =
+            move_run::start_move_run(sink, &context.settings, history, &context.folder, batch)?;
         Ok(run.execute(sink, pause))
     }
 }

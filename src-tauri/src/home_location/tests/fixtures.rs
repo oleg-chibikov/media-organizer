@@ -2,10 +2,10 @@ use chrono::{NaiveDateTime, TimeDelta};
 use tempfile::{tempdir, TempDir};
 
 use crate::{
+    file_places::CHOSEN_DATE_FORMAT,
     models::{FileKind, FileRecord, GpsPoint, HomeLocation, HomeSource, MetadataResult},
     settings::{self, SettingsStore},
     test_support::media::{dated_metadata, file_record},
-    trips::CHOSEN_DATE_FORMAT,
 };
 
 pub(super) const HOUSTON: (f64, f64) = (29.76, -95.37);

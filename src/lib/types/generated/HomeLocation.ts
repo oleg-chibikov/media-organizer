@@ -2,6 +2,6 @@
 import type { HomeSource } from "./HomeSource";
 
 /**
- * The city trips are measured from.
+ * Home's city. Places in its country get no country folder.
  */
 export type HomeLocation = { name: string, country: string, latitude: number, longitude: number, source: HomeSource, };

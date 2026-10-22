@@ -1,7 +1,7 @@
 import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useMemo, useState } from "react";
 import { ResizableVirtualTable } from "../../components/design-system/ResizableVirtualTable";
-import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
+import type { FilePlace, FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { FileFilterBar } from "./FileFilterBar";
 import { createFileRowCache } from "./fileRowCache";
 import { fileFilterRange, type FileFilter } from "./fileFilter";
@@ -23,8 +23,8 @@ interface FileTableProps {
   moveResultsByFileId: FileIdMap<MoveResult>;
   activeMoveFileId: string | null;
   destinationRoot: string | null;
-  // Place labels by file id, empty until detection answers.
-  filePlaces: Record<string, string>;
+  // Place folders by file id, empty until detection answers.
+  filePlaces: Record<string, FilePlace>;
   locatingPlaces: boolean;
 }
 

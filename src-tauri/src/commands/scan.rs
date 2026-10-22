@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use tauri::{AppHandle, State};
 
 use super::{
-    app_dirs::{placement_store, resource_dir, settings_store},
+    app_dirs::{resource_dir, settings_store},
     background::{run_blocking, spawn_job},
 };
 use crate::{
@@ -28,7 +28,6 @@ pub async fn start_scan(
     let context = PlanContext {
         folder: selected_folder.clone(),
         settings: settings_store(&app)?,
-        placements: placement_store(&app)?,
     };
     let ticket = active_scan.begin();
     let session = state.current_scan.begin(ticket.scan_id(), context);

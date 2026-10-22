@@ -6,8 +6,8 @@ mod commands;
 mod console_title;
 mod events;
 mod file_ops;
+mod file_places;
 mod filename;
-// Used by the trips module next.
 mod geo;
 mod history;
 mod home_location;
@@ -18,7 +18,6 @@ mod move_run;
 mod mover;
 mod path_safety;
 mod picked_folders;
-mod placements;
 mod planner;
 mod safe_fs;
 mod scan_metadata;
@@ -26,7 +25,6 @@ mod scan_session;
 mod scanner;
 mod settings;
 mod system_explorer;
-mod trips;
 mod undo_redo;
 
 #[cfg(test)]
@@ -101,10 +99,10 @@ pub fn run() {
             scan::start_scan,
             scan::cancel_scan,
             scan::set_metadata_paused,
-            plan::apply_place_suggestions,
+            plan::apply_file_places,
             plan::clear_scan_plans,
             plan::get_move_confirmation_summary,
-            places::detect_place_suggestions,
+            places::detect_file_places,
             home::search_home_cities,
             home::set_home_location,
             home::use_current_location,

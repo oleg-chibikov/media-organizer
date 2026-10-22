@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Datelike, NaiveDateTime};
 
-use super::place_folder::PlaceFolder;
 use crate::{models::DestinationRootMode, settings::SettingsStore};
 
 /// Where a planned file goes: a dated folder under a root, or the folder it already sits in.
@@ -41,19 +40,19 @@ impl DestinationLayout {
         }
     }
 
-    /// `<root>/<year>/<month>/<day>`, the accepted place folder under the place root,
+    /// `<root>/<year>/<month>/<day>`, the file's place folder under the place root,
     /// or the source file's own folder.
     pub(super) fn destination_dir(
         &self,
         source_path: &Path,
         date: &NaiveDateTime,
-        place: Option<&PlaceFolder>,
+        place_dir: Option<PathBuf>,
     ) -> Result<PathBuf, String> {
-        if let Some(place) = place {
+        if let Some(place_dir) = place_dir {
             let root = self
                 .place_root()
                 .ok_or("No root folder for place folders was resolved.")?;
-            return Ok(place.dir_under(root, date));
+            return Ok(root.join(place_dir));
         }
         match self {
             Self::DatedFolders(root) => Ok(root

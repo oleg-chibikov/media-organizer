@@ -1,9 +1,6 @@
-use super::{
-    EventSink, PLAN_CLEARED, PLAN_ERROR, PLAN_FILE, PLAN_FINISHED, PLAN_PLACED, PLAN_SETTLED,
-};
+use super::{EventSink, PLAN_CLEARED, PLAN_ERROR, PLAN_FILE, PLAN_FINISHED, PLAN_SETTLED};
 use crate::models::{
-    PlacedFilesEvent, PlanClearedEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent,
-    PlanSettledEvent,
+    PlanClearedEvent, PlanErrorEvent, PlanFileEvent, PlanFinishedEvent, PlanSettledEvent,
 };
 
 pub(crate) fn plan_file(sink: &impl EventSink, payload: PlanFileEvent) {
@@ -32,15 +29,6 @@ pub(crate) fn plan_finished(sink: &impl EventSink, payload: PlanFinishedEvent) {
 pub(crate) fn plan_cleared(sink: &impl EventSink, payload: PlanClearedEvent) {
     log::info!("Plans cleared for scan {}", payload.scan_id);
     sink.emit(PLAN_CLEARED, payload);
-}
-
-pub(crate) fn plan_placed(sink: &impl EventSink, payload: PlacedFilesEvent) {
-    log::info!(
-        "Placed files: {} join, {} leave",
-        payload.added.len(),
-        payload.dropped.len()
-    );
-    sink.emit(PLAN_PLACED, payload);
 }
 
 pub(crate) fn plan_settled(sink: &impl EventSink, payload: PlanSettledEvent) {

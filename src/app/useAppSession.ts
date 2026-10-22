@@ -13,7 +13,7 @@ import {
 import { useHistory } from "../features/history";
 import { useMetadataReads } from "../features/metadata";
 import { useMoveExecution } from "../features/moves";
-import { usePlaceSuggestions } from "../features/place-suggestions";
+import { useFilePlaces } from "../features/file-places";
 import { useMovePlanning } from "../features/planning";
 import { useScanSession } from "../features/scan";
 import { useBackendBootstrap } from "./useBackendBootstrap";
@@ -34,13 +34,7 @@ export function useAppSession() {
   });
   const planning = useMovePlanning({
     scanIdRef: scan.scanIdRef,
-    reportError: setFolderError,
-    onPlacedFiles: (added, droppedIds) => {
-      metadata.removeResults(droppedIds);
-      metadata.addResults(added.map((move) => move.metadata));
-      scan.removeRows(droppedIds);
-      scan.addRows(added.map((move) => move.record));
-    }
+    reportError: setFolderError
   });
   const metadata = useMetadataReads({
     scanId: scan.scanId,
@@ -48,7 +42,7 @@ export function useAppSession() {
     reportError: setFolderError
   });
   const { completed, cancelled, discovered } = scan.progress;
-  const places = usePlaceSuggestions({
+  const places = useFilePlaces({
     selectedFolder: scan.selectedFolder,
     scanIdRef: scan.scanIdRef,
     rows: scan.rows,
@@ -59,13 +53,13 @@ export function useAppSession() {
     home: destination.settings?.home ?? null,
     groupByPlace,
     reportError: setFolderError,
-    onApply: (accepted) => {
+    onApply: (filePlaces) => {
       // Files confirmed to move keep their folders. Plans still waiting take the first answer.
       const { confirmed, executing } = moves.execution;
       if ((confirmed || executing) && !planning.waitingForPlaces()) {
         return;
       }
-      planning.applyPlaceSuggestions(accepted);
+      planning.applyFilePlaces(filePlaces);
     }
   });
   const planCompleted =
@@ -117,7 +111,7 @@ export function useAppSession() {
     scan,
     planning,
     moves,
-    placeSuggestions: places
+    filePlaces: places
   });
 
   return {

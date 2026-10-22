@@ -8,7 +8,6 @@ import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { HomeLocationSection } from "./features/home-location";
 import { MoveConfirmationDialog } from "./features/moves";
-import { EditPlacesButton, PlaceSuggestionsReview } from "./features/place-suggestions";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
 
@@ -47,18 +46,13 @@ export default function App() {
           />
         }
         placeToggle={
-          <span className="flex items-center gap-2">
-            <GroupByPlaceToggle
-              checked={destination.settings?.group_by_place ?? true}
-              renamesInPlace={renamesInPlace}
-              disabled={settingsLocked}
-              placesHint={places.hint}
-              onChange={destinationActions.setGroupByPlace}
-            />
-            {session.groupByPlace ? (
-              <EditPlacesButton places={places} disabled={destinationActions.locked} />
-            ) : null}
-          </span>
+          <GroupByPlaceToggle
+            checked={destination.settings?.group_by_place ?? true}
+            renamesInPlace={renamesInPlace}
+            disabled={settingsLocked}
+            placesHint={places.hint}
+            onChange={destinationActions.setGroupByPlace}
+          />
         }
         renameToggle={
           <RenameInPlaceToggle
@@ -129,8 +123,6 @@ export default function App() {
         onExecutionAction={moves.runExecutionAction}
         onOpenDestination={session.openDestination}
       />
-
-      <PlaceSuggestionsReview places={places} metadataByFileId={session.metadataByFileId} />
 
       {moves.confirmation.summary ? (
         <MoveConfirmationDialog

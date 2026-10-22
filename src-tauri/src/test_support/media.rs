@@ -29,7 +29,7 @@ pub(crate) fn ready_plan(id: &str, destination_path: &str) -> MovePlan {
         destination_path: destination_path.to_string(),
         conflict_status: ConflictStatus::None,
         plan_status: PlanStatus::Ready,
-        placement: None,
+        place: None,
     }
 }
 

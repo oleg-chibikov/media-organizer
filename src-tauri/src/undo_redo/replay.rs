@@ -1,12 +1,8 @@
-use super::{
-    direction::ReplayDirection, outcome::ReplaySummary, placement_cleanup::UndonePlacements,
-    recorded_roots::RecordedRoots,
-};
+use super::{direction::ReplayDirection, outcome::ReplaySummary, recorded_roots::RecordedRoots};
 use crate::{
     events::{self, EventSink},
     history::{HistoryStore, RunLease, RunLogWriter},
-    models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRun, HistoryRunStatus},
-    placements::PlacementStore,
+    models::{HistoryOperation, HistoryReplayProgressEvent, HistoryRunStatus},
 };
 
 /// An eligible undo or redo whose run log is already open for its replay records.
@@ -19,14 +15,12 @@ pub(crate) struct ReplayJob {
     log: RunLogWriter,
     history: HistoryStore,
     lease: RunLease,
-    placements: UndonePlacements,
 }
 
 /// Fails before any file is touched when the run is unknown, busy, ineligible or its log
 /// cannot open.
 pub(crate) fn prepare_replay(
     history: &HistoryStore,
-    placements: &PlacementStore,
     run_id: &str,
     direction: ReplayDirection,
 ) -> Result<ReplayJob, String> {
@@ -38,7 +32,6 @@ pub(crate) fn prepare_replay(
         direction,
         run_id: run_id.to_string(),
         roots: RecordedRoots::of(&details.run),
-        placements: UndonePlacements::new(placements, place_root(&details.run)),
         initial_status: details.run.run_status,
         operations,
         log,
@@ -60,7 +53,6 @@ impl ReplayJob {
             };
             let record = self.direction.record(&self.run_id, operation, &outcome);
             let logged = self.log.append_operation(record.clone());
-            self.placements.note(self.direction, operation, &record);
             summary.count(&record.status);
             self.direction.emit_progress(
                 sink,
@@ -85,7 +77,6 @@ impl ReplayJob {
         if final_status != self.initial_status {
             let _ = self.history.update_run_status(&self.run_id, final_status);
         }
-        self.placements.forget();
         drop(self.lease);
         events::history_index_updated(sink, &self.run_id);
     }
@@ -104,11 +95,4 @@ fn completion_status(
         return fully_replayed;
     }
     HistoryRunStatus::PartiallyUndone
-}
-
-/// Runs from before rename in place could place files recorded only the destination root.
-fn place_root(run: &HistoryRun) -> Option<&str> {
-    run.place_root_path
-        .as_deref()
-        .or(run.destination_root_path.as_deref())
 }

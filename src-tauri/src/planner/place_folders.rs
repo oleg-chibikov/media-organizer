@@ -1,100 +1,129 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
+use std::{collections::HashMap, path::PathBuf};
+
+use chrono::{Datelike, NaiveDate, NaiveDateTime};
+
+use super::place_level::{DaySpan, PlaceLevel};
+use crate::{
+    file_places::CHOSEN_DATE_FORMAT,
+    filename::validated_folder_name,
+    models::{FilePlace, MetadataResult},
 };
 
-use super::{
-    continued_spans::continued_placement, country_scope::CountryScope, place_dates::dates_by_file,
-    place_folder::PlaceFolder, suggestion_folders::suggestion_folders,
-};
-use crate::models::{MetadataResult, PlaceSuggestion, Placement};
-
-/// Place folders by file id, from the suggestions the person accepted, and the files
-/// earlier runs placed, which stay in their place folder.
-#[derive(Debug, Default)]
-pub(crate) struct PlaceFolders {
-    by_file: HashMap<String, PlaceFolder>,
-    accepted: Vec<PlaceFolder>,
-    /// Folders of suggestions that continue one placed trip or outing.
-    continued: Vec<PlaceFolder>,
-    /// Countries whose placed folders country wide suggestions continue.
-    country_scopes: Vec<CountryScope>,
-    placed: HashMap<PathBuf, Placement>,
+/// One folder of a file's place: its name and the date folder it sits in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Leveled {
+    name: String,
+    level: PlaceLevel,
 }
 
+/// The place folder of each file, under `<year>` and the date folders the country and the
+/// place span within that year. Spans count only the files of this scan.
+#[derive(Debug, Default)]
+pub(crate) struct PlaceFolders {
+    by_file: HashMap<String, (FilePlace, Option<Leveled>, Leveled)>,
+}
+
+type CountryKey = (i32, Option<String>);
+type PlaceKey = (i32, Option<String>, String);
+
 impl PlaceFolders {
-    /// Checks edited names and recomputes day layouts from the dates.
+    /// Fails on a folder name that isn't one plain name.
     pub(crate) fn new(
-        suggestions: &[PlaceSuggestion],
+        file_places: &HashMap<String, FilePlace>,
         metadata_results: &[MetadataResult],
     ) -> Result<Self, String> {
-        let mut folders = Self::default();
-        let dates = dates_by_file(metadata_results);
-        for suggestion in suggestions {
-            let continued = continued_placement(suggestion);
-            for found in suggestion_folders(suggestion, &dates)? {
-                for file_id in found.file_ids {
-                    if folders
-                        .by_file
-                        .insert(file_id.clone(), found.folder.clone())
-                        .is_some()
-                    {
-                        return Err(format!("File {file_id} is in more than one place folder."));
-                    }
-                }
-                if continued.is_some_and(|placed| !placed.country_wide) {
-                    folders.continued.push(found.folder.clone());
-                }
-                folders.accepted.push(found.folder);
+        let dates: HashMap<&str, NaiveDate> = metadata_results
+            .iter()
+            .filter_map(|result| {
+                let date = result.chosen_date.as_deref()?;
+                let taken = NaiveDateTime::parse_from_str(date, CHOSEN_DATE_FORMAT).ok()?;
+                Some((result.file_id.as_str(), taken.date()))
+            })
+            .collect();
+        let mut files = Vec::new();
+        let mut countries: HashMap<CountryKey, DaySpan> = HashMap::new();
+        let mut places: HashMap<PlaceKey, DaySpan> = HashMap::new();
+        for (file_id, found) in file_places {
+            let Some(&date) = dates.get(file_id.as_str()) else {
+                continue;
+            };
+            let place = validated(found)?;
+            let year = date.year();
+            if let Some(country) = &place.country {
+                countries
+                    .entry((year, Some(country.clone())))
+                    .or_default()
+                    .add(date);
             }
-            if let (Some(placed), Some(country)) = (continued, &suggestion.country) {
-                let scope = CountryScope {
-                    year: placed.year,
-                    month_folder: suggestion.month_folder.clone(),
-                    country: country.clone(),
-                    continued: placed.clone(),
+            places
+                .entry((year, place.country.clone(), place.place.clone()))
+                .or_default()
+                .add(date);
+            files.push((file_id.clone(), year, place));
+        }
+        let by_file = files
+            .into_iter()
+            .map(|(file_id, year, place)| {
+                let country = place.country.clone().map(|name| Leveled {
+                    level: countries[&(year, Some(name.clone()))].level(),
+                    name,
+                });
+                let leveled = Leveled {
+                    level: places[&(year, place.country.clone(), place.place.clone())].level(),
+                    name: place.place.clone(),
                 };
-                // A trip and an outing in one country share its placed folders.
-                if placed.country_wide
-                    && !folders
-                        .country_scopes
-                        .iter()
-                        .any(|known| known.same_as(&scope))
-                {
-                    folders.country_scopes.push(scope);
+                (file_id, (place, country, leveled))
+            })
+            .collect();
+        Ok(Self { by_file })
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.by_file.is_empty()
+    }
+
+    /// The place of `file_id`, as the plan records it.
+    pub(super) fn place(&self, file_id: &str) -> Option<&FilePlace> {
+        self.by_file.get(file_id).map(|(place, _, _)| place)
+    }
+
+    /// `<year>`, `<month>` and `<day>` with the country and place folders at their level.
+    pub(super) fn relative_dir(&self, file_id: &str, date: &NaiveDateTime) -> Option<PathBuf> {
+        let (_, country, place) = self.by_file.get(file_id)?;
+        let parts = [
+            (PlaceLevel::Year, date.year().to_string()),
+            (PlaceLevel::Month, date.month().to_string()),
+            (PlaceLevel::Day, date.day().to_string()),
+        ];
+        let mut dir = PathBuf::new();
+        for (level, part) in parts {
+            dir.push(part);
+            for folder in country.iter().chain([place]) {
+                if folder.level == level {
+                    dir.push(&folder.name);
                 }
             }
         }
-        Ok(folders)
+        Some(dir)
     }
 
-    /// Keeps the files at these paths in the place folder they sit in.
-    pub(crate) fn with_placed(self, placed: HashMap<PathBuf, Placement>) -> Self {
-        Self { placed, ..self }
+    /// What decides a file's folder apart from its date, so a file is planned again only
+    /// when it changes.
+    pub(crate) fn key(&self, file_id: &str) -> String {
+        self.by_file
+            .get(file_id)
+            .map(|(_, country, place)| format!("{country:?}/{place:?}"))
+            .unwrap_or_default()
     }
+}
 
-    pub(super) fn placed(&self, source: &Path) -> Option<&Placement> {
-        self.placed.get(source)
-    }
-
-    pub(super) fn get(&self, file_id: &str) -> Option<&PlaceFolder> {
-        self.by_file.get(file_id)
-    }
-
-    pub(super) fn accepted(&self) -> &[PlaceFolder] {
-        &self.accepted
-    }
-
-    pub(super) fn continued(&self) -> &[PlaceFolder] {
-        &self.continued
-    }
-
-    pub(super) fn country_scopes(&self) -> &[CountryScope] {
-        &self.country_scopes
-    }
-
-    /// Whether planning moves placed files at all.
-    pub(super) fn continues_any(&self) -> bool {
-        !self.continued.is_empty() || !self.country_scopes.is_empty()
-    }
+fn validated(place: &FilePlace) -> Result<FilePlace, String> {
+    Ok(FilePlace {
+        place: validated_folder_name(&place.place)?,
+        country: place
+            .country
+            .as_deref()
+            .map(validated_folder_name)
+            .transpose()?,
+    })
 }

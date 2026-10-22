@@ -15,7 +15,7 @@ pub enum HomeSource {
     TimeZone,
 }
 
-/// The city trips are measured from.
+/// Home's city. Places in its country get no country folder.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct HomeLocation {

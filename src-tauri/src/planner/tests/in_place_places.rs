@@ -1,26 +1,18 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
 
-use super::{
-    photo_record,
-    place_fixtures::{group, suggestion},
-};
+use super::{photo_record, place};
 use crate::{
     events,
-    models::{PlaceSuggestion, SuggestionKind},
     planner::{stream_move_plan, DestinationLayout, PlaceFolders, Reservations},
     settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
     test_support::{events::RecordingSink, media::dated_metadata},
 };
 
-fn zoo_outing() -> PlaceSuggestion {
-    let place = group("Zoo", "2025-03-01 10:00:00", "2025-03-01 11:00:00", &["a"]);
-    suggestion(SuggestionKind::Outing, "Zoo", vec![place])
-}
-
-/// Plans `a` (in the outing) and `b` (in none), both inside `selected`.
+/// Plans `a` (at the zoo) and `b` (in no place), both inside `selected`.
 fn planned_dirs(layout: &DestinationLayout, selected: &Path) -> Vec<PathBuf> {
     let mut records = vec![photo_record("a", "jpg"), photo_record("b", "jpg")];
     for record in &mut records {
@@ -33,7 +25,8 @@ fn planned_dirs(layout: &DestinationLayout, selected: &Path) -> Vec<PathBuf> {
         dated_metadata("a", "2025-03-01 10:00:00"),
         dated_metadata("b", "2025-03-01 12:00:00"),
     ];
-    let folders = PlaceFolders::new(&[zoo_outing()], &metadata).expect("valid suggestions");
+    let places = HashMap::from([("a".to_owned(), place("Zoo", None))]);
+    let folders = PlaceFolders::new(&places, &metadata).expect("valid places");
     let sink = RecordingSink::default();
     stream_move_plan(
         &sink,
@@ -61,7 +54,10 @@ fn placed_files_leave_for_the_root_while_the_rest_rename_in_place() {
 
     assert_eq!(
         dirs,
-        [PathBuf::from("Media").join("2025").join("Zoo"), selected]
+        [
+            PathBuf::from("Media").join("2025/3/1").join("Zoo"),
+            selected
+        ]
     );
 }
 
@@ -70,7 +66,8 @@ fn a_placed_file_without_a_resolved_root_is_an_error() {
     let layout = DestinationLayout::SameFolder { place_root: None };
     let sink = RecordingSink::default();
     let metadata = [dated_metadata("a", "2025-03-01 10:00:00")];
-    let folders = PlaceFolders::new(&[zoo_outing()], &metadata).expect("valid suggestions");
+    let places = HashMap::from([("a".to_owned(), place("Zoo", None))]);
+    let folders = PlaceFolders::new(&places, &metadata).expect("valid places");
 
     stream_move_plan(
         &sink,

@@ -27,7 +27,6 @@ pub const PLAN_FILE: &str = "plan:file";
 pub const PLAN_ERROR: &str = "plan:error";
 pub const PLAN_FINISHED: &str = "plan:finished";
 pub const PLAN_CLEARED: &str = "plan:cleared";
-pub const PLAN_PLACED: &str = "plan:placed";
 pub const PLAN_SETTLED: &str = "plan:settled";
 pub const MOVE_FILE: &str = "move:file";
 pub const MOVE_PROGRESS: &str = "move:progress";

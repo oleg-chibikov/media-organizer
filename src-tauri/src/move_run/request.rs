@@ -1,9 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{
-    models::{FileRecord, MetadataResult, MovePlan},
-    placements::PlacementStore,
-};
+use crate::models::{FileRecord, MetadataResult, MovePlan};
 
 /// One confirmed batch as the frontend sends it.
 pub(crate) struct MoveBatch {
@@ -19,8 +16,6 @@ pub(super) struct MoveRunRequest {
     /// Where place folders go. The destination root unless renaming in place.
     pub place_root: PathBuf,
     pub batch: MoveBatch,
-    /// Where the files moved into place folders get recorded.
-    pub placements: PlacementStore,
 }
 
 /// Per-file indexes over the request payload, keyed by file id.

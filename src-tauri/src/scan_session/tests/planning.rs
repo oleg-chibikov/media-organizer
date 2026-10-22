@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{photo_in, session_in};
 use crate::{
     events::{PLAN_CLEARED, PLAN_FILE, PLAN_SETTLED},
@@ -23,12 +25,12 @@ fn waits_for_the_place_folders_then_plans_every_dated_file() {
         "plans wait for the place folders"
     );
 
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     assert_eq!(sink.payloads(PLAN_FILE).len(), 1);
     assert_eq!(sink.names().last(), Some(&PLAN_SETTLED));
     assert!(session.plans(std::slice::from_ref(&photo.id)).is_ok());
 
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     assert_eq!(
         sink.payloads(PLAN_FILE).len(),
         1,
@@ -42,7 +44,7 @@ fn files_planned_apart_never_share_a_destination() {
     let app_data = tempfile::tempdir().expect("app data");
     let session = session_in(temp.path(), app_data.path());
     let sink = RecordingSink::default();
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     let first = photo_in(temp.path(), "a", "IMG_1");
     let second = photo_in(temp.path(), "b", "IMG_1");
 
@@ -69,7 +71,7 @@ fn clearing_drops_every_plan_until_places_apply_again() {
     session.add_records(std::slice::from_ref(&photo));
     let dates = [dated_metadata(&photo.id, DATE)];
     session.add_metadata(&dates);
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
 
     session.clear_plans(&sink);
     assert_eq!(sink.names().last(), Some(&PLAN_CLEARED));
@@ -81,6 +83,6 @@ fn clearing_drops_every_plan_until_places_apply_again() {
         "no plan until places apply again"
     );
 
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     assert_eq!(sink.payloads(PLAN_FILE).len(), 2);
 }

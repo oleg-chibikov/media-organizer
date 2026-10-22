@@ -13,7 +13,7 @@ interface HomeLocationSectionProps {
 
 const smallButton = "px-2 py-1 text-xs disabled:text-slate-500";
 
-// Trips are folders for files taken far from home, so home can be picked, located or cleared here.
+// Places in home's country get no country folder, so home can be picked, located or cleared here.
 export function HomeLocationSection({
   home,
   disabled,
@@ -40,8 +40,8 @@ export function HomeLocationSection({
         Home
       </h2>
       <p className="mt-1 text-xs text-slate-400">
-        Files taken far from home are suggested as trips. Home comes from your location, your time
-        zone or a large scan.
+        Places outside home's country go in a country folder. Home comes from your location, your
+        time zone or a large scan.
       </p>
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-xs text-slate-200" aria-live="polite">

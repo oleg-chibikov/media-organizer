@@ -4,7 +4,7 @@ interface GroupByPlaceToggleProps {
   checked: boolean;
   renamesInPlace: boolean;
   disabled: boolean;
-  // What detection found, or why it found no trips.
+  // What detection found, or why it found no places.
   placesHint: string;
   onChange: (nextValue: boolean) => void;
 }

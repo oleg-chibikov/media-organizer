@@ -4,16 +4,16 @@ use chrono::NaiveDateTime;
 
 use super::{destination_allocation::allocate_destination_path, DestinationLayout, PlaceFolders};
 use crate::{
+    file_places::CHOSEN_DATE_FORMAT,
     filename,
     models::{
         ConflictStatus, FileRecord, MetadataResult, MetadataStatus, MovePlan, PlanStatus,
         ScanStatus,
     },
-    trips::CHOSEN_DATE_FORMAT,
 };
 
-/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file. A file in an accepted
-/// place folder goes there, and a file earlier runs placed stays in its folder.
+/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file. A file with a place goes
+/// to its place folder.
 pub(super) fn create_plan_for_file(
     layout: &DestinationLayout,
     file: &FileRecord,
@@ -29,15 +29,8 @@ pub(super) fn create_plan_for_file(
         .map_err(|error| format!("Invalid chosen date for {}: {error}", file.source_path))?;
 
     let source_path = Path::new(&file.source_path);
-    let place = place_folders.get(&file.id);
-    let placed = place
-        .is_none()
-        .then(|| place_folders.placed(source_path))
-        .flatten();
-    let destination_dir = match (placed, source_path.parent()) {
-        (Some(_), Some(folder)) => folder.to_path_buf(),
-        _ => layout.destination_dir(source_path, &parsed_date, place)?,
-    };
+    let place_dir = place_folders.relative_dir(&file.id, &parsed_date);
+    let destination_dir = layout.destination_dir(source_path, &parsed_date, place_dir)?;
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let device_name = metadata.and_then(|metadata| metadata.device_name.as_deref());
     let stem_base = destination_stem(&parsed_date, &original_name, device_name);
@@ -59,9 +52,7 @@ pub(super) fn create_plan_for_file(
         destination_path: destination_path.to_string_lossy().to_string(),
         conflict_status,
         plan_status,
-        placement: place
-            .map(|place| place.placement.clone())
-            .or_else(|| placed.cloned()),
+        place: place_folders.place(&file.id).cloned(),
     })
 }
 
@@ -101,6 +92,6 @@ fn empty_plan(file: &FileRecord, plan_status: PlanStatus) -> MovePlan {
         destination_path: String::new(),
         conflict_status: ConflictStatus::Blocked,
         plan_status,
-        placement: None,
+        place: None,
     }
 }

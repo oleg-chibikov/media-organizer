@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
-import { applyPlaceSuggestions, clearScanPlans } from "../../lib/api";
-import type { PlaceSuggestion, PlacedMove } from "../../lib/types";
+import { applyFilePlaces, clearScanPlans } from "../../lib/api";
+import type { FilePlace } from "../../lib/types";
 import { usePlanBatches } from "./usePlanBatches";
 import { usePlanEvents } from "./usePlanEvents";
 import { withoutFileIds } from "./withoutFileIds";
@@ -9,12 +9,10 @@ interface MovePlanningOptions {
   // The backend plans the files of this scan as their dates are read.
   scanIdRef: RefObject<number | null>;
   reportError: (message: string) => void;
-  // Placed files that move to new day folders join the rows, and leave them when dropped.
-  onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
 }
 
-// Shows the plans the backend makes, and tells it which place folders the person chose.
-export function useMovePlanning({ scanIdRef, reportError, onPlacedFiles }: MovePlanningOptions) {
+// Shows the plans the backend makes, and tells it the place of each file.
+export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions) {
   const { movePlansByFileId, addPlan, flushPlans, dropPlans, dropPlansFor } = usePlanBatches();
   const [planErrorsByFileId, setPlanErrorsByFileId] = useState<Record<string, string>>({});
   // Plans wait for the place folders until the first apply, so no file shows a date folder first.
@@ -43,11 +41,6 @@ export function useMovePlanning({ scanIdRef, reportError, onPlacedFiles }: MoveP
       setPlanErrorsByFileId((previous) => ({ ...previous, [fileId]: error }));
     },
     clearPlans: forgetPlans,
-    onPlacedFiles: (added, droppedIds) => {
-      dropPlansFor(droppedIds);
-      onPlacedFiles(added, droppedIds);
-      added.forEach((move) => addPlan(move.plan));
-    },
     onSettled: () => {
       // Plans land before planning counts as done.
       flushPlans();
@@ -57,14 +50,14 @@ export function useMovePlanning({ scanIdRef, reportError, onPlacedFiles }: MoveP
   });
 
   const applyPlaces = useCallback(
-    (suggestions: PlaceSuggestion[]) => {
+    (filePlaces: Record<string, FilePlace>) => {
       const scanId = scanIdRef.current;
       if (scanId === null) {
         return;
       }
       wait(false);
       setApplying(true);
-      applyPlaceSuggestions(scanId, suggestions).catch((error: unknown) => {
+      applyFilePlaces(scanId, filePlaces).catch((error: unknown) => {
         if (scanIdRef.current === scanId) {
           setApplying(false);
           reportError(String(error));
@@ -98,7 +91,7 @@ export function useMovePlanning({ scanIdRef, reportError, onPlacedFiles }: MoveP
     planErrorsByFileId,
     // Still planning: waiting for the places, or the backend is planning for them.
     planning: waiting || applying,
-    applyPlaceSuggestions: applyPlaces,
+    applyFilePlaces: applyPlaces,
     waitingForPlaces: useCallback(() => waitingRef.current, []),
     clearPlans,
     resetPlanning

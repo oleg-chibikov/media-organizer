@@ -5,7 +5,7 @@ use crate::{
     events::{self, EventSink},
     models::{FileKind, FileRecord, MetadataResult, PlanErrorEvent},
     path_safety,
-    planner::{self, placed_files_under, DestinationLayout, PlaceFolders},
+    planner::{self, DestinationLayout},
     scan_session::ScanSession,
 };
 
@@ -31,25 +31,61 @@ impl ScanSession {
         for file in &candidates.files {
             planning.plans.remove(&file.id);
         }
-        let places = planning.places.as_deref().unwrap_or_default();
-        match self.plan_inputs(places, &candidates.files) {
-            Ok((layout, folders)) => {
-                let plans = planner::stream_move_plan(
+        let Planning {
+            places,
+            plans,
+            reservations,
+            signatures,
+        } = planning;
+        let Some(folders) = places.as_ref() else {
+            return;
+        };
+        match self.layout(!folders.is_empty()) {
+            Ok(layout) => {
+                let planned = planner::stream_move_plan(
                     sink,
                     self.scan_id,
                     &layout,
                     &candidates.files,
                     &candidates.metadata,
-                    &folders,
-                    &mut planning.reservations,
+                    folders,
+                    reservations,
                 );
-                for plan in plans {
-                    planning.plans.insert(plan.file_id.clone(), plan);
+                for plan in planned {
+                    plans.insert(plan.file_id.clone(), plan);
                 }
                 self.moves_changed.notify_all();
             }
-            Err(error) => self.fail(sink, planning, candidates, &error),
+            Err(error) => {
+                for (file_id, previous) in candidates.previous {
+                    match previous {
+                        Some(signature) => signatures.insert(file_id.clone(), signature),
+                        None => signatures.remove(&file_id),
+                    };
+                    self.plan_error(sink, file_id, &error);
+                }
+            }
         }
+    }
+
+    /// Each file shows the error, and plans again once places are applied.
+    pub(super) fn fail_all(&self, sink: &impl EventSink, file_ids: &[String], error: &str) {
+        for file_id in file_ids {
+            self.plan_error(sink, file_id.clone(), error);
+        }
+    }
+
+    fn plan_error(&self, sink: &impl EventSink, file_id: String, error: &str) {
+        let scan_id = self.scan_id;
+        let error = error.to_string();
+        events::plan_error(
+            sink,
+            PlanErrorEvent {
+                scan_id,
+                file_id,
+                error,
+            },
+        );
     }
 
     fn candidates(&self, planning: &mut Planning, file_ids: &[String]) -> Candidates {
@@ -58,15 +94,15 @@ impl ScanSession {
             metadata: Vec::new(),
             previous: HashMap::new(),
         };
+        let Some(folders) = planning.places.as_ref() else {
+            return candidates;
+        };
         for file in self.known_records(file_ids) {
             let media = matches!(file.kind, FileKind::Photo | FileKind::Video);
             let Some(metadata) = self.metadata_of(&file.id).filter(|_| media) else {
                 continue;
             };
-            if planning.placed_ids.contains(&file.id) {
-                continue;
-            }
-            let signature = plan_signature(&metadata, planning.place_keys.get(&file.id));
+            let signature = plan_signature(&metadata, folders);
             let previous = planning
                 .signatures
                 .insert(file.id.clone(), signature.clone());
@@ -80,55 +116,9 @@ impl ScanSession {
         candidates
     }
 
-    fn plan_inputs(
-        &self,
-        places: &[crate::models::PlaceSuggestion],
-        files: &[FileRecord],
-    ) -> Result<(DestinationLayout, PlaceFolders), String> {
+    fn layout(&self, with_places: bool) -> Result<DestinationLayout, String> {
         let context = &self.context;
         path_safety::validate_selected_folder(&context.folder)?;
-        let with_places = !places.is_empty();
-        let layout =
-            DestinationLayout::for_folder(&context.settings, &context.folder, with_places)?;
-        // Day layouts come from the dates of every file in a place folder.
-        let dates = if with_places {
-            self.all_metadata()
-        } else {
-            Vec::new()
-        };
-        let placed = placed_files_under(
-            &context.settings,
-            &context.placements,
-            &context.folder,
-            files,
-        );
-        let folders = PlaceFolders::new(places, &dates)?.with_placed(placed);
-        Ok((layout, folders))
-    }
-
-    /// Each file shows the error, and plans again on the next try.
-    fn fail(
-        &self,
-        sink: &impl EventSink,
-        planning: &mut Planning,
-        failed: Candidates,
-        error: &str,
-    ) {
-        for (file_id, previous) in failed.previous {
-            match previous {
-                Some(signature) => planning.signatures.insert(file_id.clone(), signature),
-                None => planning.signatures.remove(&file_id),
-            };
-            let scan_id = self.scan_id;
-            let error = error.to_string();
-            events::plan_error(
-                sink,
-                PlanErrorEvent {
-                    scan_id,
-                    file_id,
-                    error,
-                },
-            );
-        }
+        DestinationLayout::for_folder(&context.settings, &context.folder, with_places)
     }
 }

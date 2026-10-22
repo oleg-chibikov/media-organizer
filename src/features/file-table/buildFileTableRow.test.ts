@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FileRecord, MetadataResult } from "../../lib/types";
+import type { FilePlace, FileRecord, MetadataResult, MovePlan } from "../../lib/types";
 import { buildFileTableRow } from "./buildFileTableRow";
 
 const RECORD = {
@@ -8,9 +8,15 @@ const RECORD = {
   kind: "photo",
   scan_status: "discovered"
 } as FileRecord;
-const row = (record: FileRecord, metadata?: MetadataResult, place?: string, locating = false) =>
+const row = (
+  record: FileRecord,
+  metadata?: MetadataResult,
+  place?: FilePlace,
+  locating = false,
+  movePlan?: MovePlan
+) =>
   buildFileTableRow(
-    { record, metadata, movePlan: undefined, moveResult: undefined, planError: undefined },
+    { record, metadata, movePlan, moveResult: undefined, planError: undefined },
     null,
     null,
     place,
@@ -26,9 +32,21 @@ describe("buildFileTableRow", () => {
     expect(row({ ...RECORD, scan_status: "skipped_unsupported" }).date.value).toBe("-");
   });
 
-  it("shows the place label, or an empty cell for a file with no GPS", () => {
-    expect(row(RECORD, undefined, "Louvre, France").place.value).toBe("Louvre, France");
+  it("shows the place and its country, or empty cells for a file with no place", () => {
+    const louvre = row(RECORD, undefined, { place: "Louvre", country: "France" });
+    expect([louvre.country.value, louvre.place.value]).toEqual(["France", "Louvre"]);
+    expect(row(RECORD, undefined, { place: "Sydney", country: null }).country.value).toBe("");
     expect(row(RECORD).place.value).toBe("");
+  });
+
+  it("shows the planned folder, or a spinner while a dated file waits for its plan", () => {
+    const ready = { metadata_status: "ready" } as MetadataResult;
+    expect(row(RECORD, ready).destination).toMatchObject({ value: "Planning...", loading: true });
+    const plan = { destination_path: "/Media/2024/3/15/a.jpg" } as MovePlan;
+    expect(row(RECORD, ready, undefined, false, plan).destination.value).toBe(
+      "/Media/2024/3/15/a.jpg"
+    );
+    expect(row(RECORD).destination.value).toBe("-");
   });
 
   it("shows a spinner in the place cell of photos and videos while locating", () => {

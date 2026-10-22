@@ -12,7 +12,6 @@ use crate::{
     history::{ActiveHistoryRun, HistoryStore},
     models::MoveProgressPhase,
     path_safety,
-    placements::PlacementStore,
     settings::SettingsStore,
 };
 
@@ -27,7 +26,6 @@ pub(crate) fn start_move_run(
     sink: &impl EventSink,
     settings: &SettingsStore,
     history: &HistoryStore,
-    placements: &PlacementStore,
     selected_folder: &Path,
     batch: MoveBatch,
 ) -> Result<StartedMoveRun, String> {
@@ -52,13 +50,12 @@ pub(crate) fn start_move_run(
             destination_root,
             place_root,
             batch,
-            placements: placements.clone(),
         },
         history_run,
     })
 }
 
-/// Resolved only for a batch with placed files, so a missing custom root doesn't block
+/// Resolved only for a batch with files in place folders, so a missing custom root doesn't block
 /// plain renames in place.
 fn place_root(
     settings: &SettingsStore,
@@ -66,7 +63,7 @@ fn place_root(
     batch: &MoveBatch,
     destination_root: &Path,
 ) -> Result<PathBuf, String> {
-    if batch.plans.iter().any(|plan| plan.placement.is_some()) {
+    if batch.plans.iter().any(|plan| plan.place.is_some()) {
         settings.place_folder_root(selected_folder)
     } else {
         Ok(destination_root.to_path_buf())

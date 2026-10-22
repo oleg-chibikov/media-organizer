@@ -3,10 +3,10 @@ import type { HomeLocation } from "./HomeLocation";
 
 export type DestinationSettings = { version: number, root_media_folder: string | null, force_processed_folder: boolean, rename_in_place: boolean, 
 /**
- * Trips and outings go to place folders. Rename in place turns this off.
+ * Photos and videos go to the folder of their place. Rename in place turns this off.
  */
 group_by_place: boolean, 
 /**
- * Trips are measured from here. Unset until learned or picked.
+ * Places in its country get no country folder. Unset until learned or picked.
  */
 home: HomeLocation | null, updated_at: string | null, };

@@ -1,5 +1,5 @@
 import type { FileIdMap } from "../../lib/fileIdMap";
-import type { FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
+import type { FilePlace, FileRecord, MetadataResult, MovePlan, MoveResult } from "../../lib/types";
 import { buildFileTableRow } from "./buildFileTableRow";
 import { fileRowCategory, type FileRowCategory } from "./fileRowCategory";
 import type { FileRowState } from "./fileRowState";
@@ -15,7 +15,7 @@ interface FileRowInputs {
 interface RowContext {
   activeMoveFileId: string | null;
   destinationRoot: string | null;
-  filePlaces: Record<string, string>;
+  filePlaces: Record<string, FilePlace>;
   locatingPlaces: boolean;
 }
 
@@ -23,7 +23,7 @@ interface Entry {
   state: FileRowState;
   category: FileRowCategory;
   row?: FileTableRow;
-  rowPlace?: string;
+  rowPlace?: FilePlace;
   rowActive?: boolean;
   rowGeneration?: number;
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -47,7 +49,7 @@ fn moves_files_as_they_become_ready_then_cleans_the_source() {
         "plans wait for the place folders"
     );
 
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     session.mark_scanned();
     session.mark_dates_read();
 
@@ -69,7 +71,7 @@ fn a_paused_run_waits_for_the_resume() {
     let photo = photo_in(todo.path(), "a", "IMG_1");
     session.add_records(std::slice::from_ref(&photo));
     session.add_metadata(&[dated_metadata(&photo.id, DATE)]);
-    session.set_places(&sink, Vec::new()).expect("places apply");
+    session.set_places(&sink, HashMap::new());
     session.mark_scanned();
     session.mark_dates_read();
 

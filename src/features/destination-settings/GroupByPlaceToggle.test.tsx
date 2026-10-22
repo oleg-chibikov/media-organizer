@@ -10,7 +10,7 @@ const renderToggle = (renamesInPlace: boolean, onChange = vi.fn()) =>
       checked={true}
       renamesInPlace={renamesInPlace}
       disabled={false}
-      placesHint="Found 1 place: Trip to Italy (5 days)."
+      placesHint="3 files have a place."
       onChange={onChange}
     />
   );
@@ -24,10 +24,7 @@ describe("GroupByPlaceToggle", () => {
     fireEvent.click(toggle);
 
     expect(onChange).toHaveBeenCalledWith(false);
-    expect(toggle.closest("label")).toHaveAttribute(
-      "title",
-      "Found 1 place: Trip to Italy (5 days)."
-    );
+    expect(toggle.closest("label")).toHaveAttribute("title", "3 files have a place.");
   });
 
   it("shows off and locked while rename only is on", () => {

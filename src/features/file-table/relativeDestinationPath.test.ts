@@ -6,8 +6,7 @@ describe("relativeDestinationPath", () => {
     expect(relativeDestinationPath("D:\\Media\\2026\\a.jpg", "d:\\media\\")).toBe("2026/a.jpg");
   });
 
-  it("keeps placeholders and paths outside the root", () => {
-    expect(relativeDestinationPath("planning...", "D:\\Media")).toBe("planning...");
+  it("keeps paths outside the root", () => {
     expect(relativeDestinationPath("E:\\Other\\a.jpg", "D:\\Media")).toBe("E:\\Other\\a.jpg");
   });
 });

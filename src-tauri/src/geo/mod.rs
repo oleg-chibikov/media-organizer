@@ -15,7 +15,6 @@ mod index;
 mod kind;
 mod lookup;
 mod nearby;
-mod notable;
 mod parks;
 mod place;
 mod radius;
@@ -24,11 +23,12 @@ mod radius;
 mod tests;
 
 pub(crate) use city_search::search_cities;
-pub(crate) use distance::{distance_km, Coordinates};
+#[cfg(test)]
+pub(crate) use distance::distance_km;
+pub(crate) use distance::Coordinates;
+#[cfg(test)]
 pub(crate) use kind::PlaceKind;
 #[cfg(test)]
 pub(crate) use lookup::country_of;
 pub(crate) use lookup::{nearest_city, nearest_place, resolve, Resolution};
-#[cfg(test)]
-pub(crate) use notable::notable_place;
 pub(crate) use place::Place;

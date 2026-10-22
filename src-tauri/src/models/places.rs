@@ -1,83 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use super::ContinuedPlacement;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// The place folder of one file, as the file table shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub enum SuggestionKind {
-    /// Far from home, possibly across several places and countries.
-    Trip,
-    /// A visit to one notable place, near home or with no known home.
-    Outing,
-}
-
-/// How a place folder splits its files by day.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub enum DayLayout {
-    /// One day: files sit in the place folder itself.
-    Single,
-    /// Up to 31 days: `MM-DD` folders.
-    MonthDay,
-    /// Longer: `<month>/<day>` folders.
-    MonthFolderDay,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlaceGroup {
-    pub name: String,
-    pub place_kind: String,
-    pub day_layout: DayLayout,
-    pub start: String,
-    pub end: String,
-    pub file_ids: Vec<String>,
-}
-
-/// A suggested place folder. Dates use the `chosen_date` format.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlaceSuggestion {
-    pub id: String,
-    pub kind: SuggestionKind,
-    pub year: i32,
-    pub title: String,
-    pub start: String,
-    pub end: String,
-    pub file_count: u32,
-    pub places: Vec<PlaceGroup>,
-    /// Trip files that belong to no place folder.
-    pub root_file_ids: Vec<String>,
-    /// The country folder of a suggestion outside home's country. A trip's title is then
-    /// this country, and an outing's place folder sits inside it.
+pub struct FilePlace {
+    /// The matched place, else the city.
+    pub place: String,
+    /// The country folder above the place, for a place outside home's country.
     #[serde(default)]
     pub country: Option<String>,
-    /// The placed trip or outing this one continues. Its title and year win.
-    #[serde(default)]
-    pub continues: Option<ContinuedPlacement>,
-    /// The month folder the place folders go in, as `<year>/<month_folder>`, when the scan
-    /// is a month folder of the root. `None` puts them at year level.
-    #[serde(default)]
-    pub month_folder: Option<String>,
-}
-
-/// The place folder a planned file goes to, so a finished run can record it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct Placement {
-    pub kind: SuggestionKind,
-    pub year: i32,
-    /// The trip folder, or the outing's place folder.
-    pub title: String,
-    /// The place folder inside a trip, or the outing's place. `None` for trip root files.
-    pub place: Option<String>,
-    /// The suggestion's `country`: the folder above an outing, or a trip's title.
-    #[serde(default)]
-    pub country: Option<String>,
-    /// The month folder between the year and the place folders, as in
-    /// `PlaceSuggestion::month_folder`.
-    #[serde(default)]
-    pub month_folder: Option<String>,
 }

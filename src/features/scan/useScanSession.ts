@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { cancelScan, chooseFolder, startScan, type ScanListeners } from "../../lib/api";
-import type { FileRecord } from "../../lib/types";
 import { isProcessedPath } from "./isProcessedPath";
 import { EMPTY_SCAN_PROGRESS, type ScanProgress } from "./scanProgress";
 import { useReplacedScanFilter } from "./useReplacedScanFilter";
@@ -13,7 +12,7 @@ interface ScanSessionOptions {
 }
 
 export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
-  const { rows, rowByIdRef, addRow, removeRows, flushRows, resetRows } = useScanRows();
+  const { rows, rowByIdRef, addRow, flushRows, resetRows } = useScanRows();
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress>(EMPTY_SCAN_PROGRESS);
@@ -118,9 +117,6 @@ export function useScanSession({ reportError, onNewScan }: ScanSessionOptions) {
     rowByIdRef,
     scanId,
     scanIdRef,
-    // Placed files from an earlier run join the scanned rows when they move again.
-    addRows: (records: FileRecord[]) => records.forEach(addRow),
-    removeRows,
     selectedFolder,
     isScanning,
     progress,

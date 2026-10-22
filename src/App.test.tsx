@@ -28,9 +28,8 @@ vi.mock("./lib/api", async (importOriginal) => ({
   chooseFolder: vi.fn(async () => "C:\\in"),
   startScan: vi.fn(async () => undefined),
   setMetadataPaused: vi.fn(async () => undefined),
-  applyPlaceSuggestions: vi.fn(async () => undefined),
-  detectPlaceSuggestions: vi.fn(async () => ({
-    suggestions: [],
+  applyFilePlaces: vi.fn(async () => undefined),
+  detectFilePlaces: vi.fn(async () => ({
     file_places: {},
     status: { kind: "no_gps" }
   })),
@@ -72,8 +71,8 @@ describe("App", () => {
       listeners.metadata?.onFinished({ scan_id: 1, cancelled: false });
     });
     // Plans wait for place detection, so no file shows a date folder first.
-    expect(api.applyPlaceSuggestions).not.toHaveBeenCalled();
-    await waitFor(() => expect(api.applyPlaceSuggestions).toHaveBeenCalledWith(1, []), {
+    expect(api.applyFilePlaces).not.toHaveBeenCalled();
+    await waitFor(() => expect(api.applyFilePlaces).toHaveBeenCalledWith(1, {}), {
       timeout: 3000
     });
 

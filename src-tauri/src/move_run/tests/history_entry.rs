@@ -50,7 +50,7 @@ fn builds_processing_history_operation_with_required_fields() {
         destination_path: destination_path.to_string_lossy().to_string(),
         conflict_status: ConflictStatus::None,
         plan_status: PlanStatus::Ready,
-        placement: None,
+        place: None,
     };
     let file = FileRecord {
         id: "photo-1".to_string(),

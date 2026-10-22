@@ -1,21 +1,27 @@
+use std::collections::HashMap;
+
 use tauri::AppHandle;
 
 use super::{background::run_blocking, session::scan_session};
 use crate::{
-    models::{MoveConfirmationSummary, PlaceSuggestion},
+    models::{FilePlace, MoveConfirmationSummary},
     mover,
 };
 
-/// Plans every file of the scan with a date for the place folders the person chose, and
-/// moves the placed files they continue. Files read later are planned as they come.
+/// Plans every file of the scan with a date into its place folder, or a date folder when
+/// `file_places` has none for it. Files read later are planned as they come.
 #[tauri::command]
-pub async fn apply_place_suggestions(
+pub async fn apply_file_places(
     scan_id: u64,
-    place_suggestions: Vec<PlaceSuggestion>,
+    file_places: HashMap<String, FilePlace>,
     app: AppHandle,
 ) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
-    run_blocking(move || session.set_places(&app, place_suggestions)).await
+    run_blocking(move || {
+        session.set_places(&app, file_places);
+        Ok(())
+    })
+    .await
 }
 
 /// Drops the scan's plans for a new destination. They come back once places are applied.

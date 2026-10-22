@@ -41,16 +41,6 @@ export function useScanRows() {
     [flushRows]
   );
 
-  // Placed files that leave the plan leave the rows too.
-  const removeRows = useCallback((fileIds: string[]) => {
-    const gone = new Set(fileIds.filter((fileId) => rowByIdRef.current.delete(fileId)));
-    if (gone.size === 0) {
-      return;
-    }
-    pendingRowsRef.current = pendingRowsRef.current.filter((row) => !gone.has(row.id));
-    setRows((previous) => previous.filter((row) => !gone.has(row.id)));
-  }, []);
-
   const resetRows = useCallback(() => {
     cancelScheduledFlush();
     pendingRowsRef.current = [];
@@ -60,5 +50,5 @@ export function useScanRows() {
 
   useEffect(() => cancelScheduledFlush, [cancelScheduledFlush]);
 
-  return { rows, rowByIdRef, addRow, removeRows, flushRows, resetRows };
+  return { rows, rowByIdRef, addRow, flushRows, resetRows };
 }

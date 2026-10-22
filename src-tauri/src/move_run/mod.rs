@@ -1,10 +1,8 @@
 //! Executes a confirmed move plan: safety checks, moves, history logging and progress events.
 
-mod emptied_place_folders;
 mod execution;
 mod file_step;
 mod history_entry;
-mod placement_record;
 mod progress;
 mod recorder;
 mod request;

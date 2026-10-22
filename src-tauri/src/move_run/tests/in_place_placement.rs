@@ -5,14 +5,12 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     history::HistoryStore,
-    models::{FileKind, FileRecord, MovePlan, SuggestionKind},
+    models::{FileKind, FilePlace, FileRecord, MovePlan},
     move_run::{start_move_run, MoveBatch},
-    placements::PlacementStore,
     settings::{set_rename_in_place, set_root_media_folder, SettingsStore},
     test_support::{
         events::RecordingSink,
         media::{dated_metadata, file_record, ready_plan},
-        placements::placement,
     },
     undo_redo::{prepare_replay, ReplayDirection},
 };
@@ -26,7 +24,10 @@ fn photo(id: &str, source: &Path) -> FileRecord {
 
 fn plan(id: &str, destination: &Path, placed: bool) -> MovePlan {
     MovePlan {
-        placement: placed.then(|| placement(SuggestionKind::Outing, 2025, "Zoo", Some("Zoo"))),
+        place: placed.then(|| FilePlace {
+            place: "Zoo".to_owned(),
+            country: None,
+        }),
         ..ready_plan(id, &destination.to_string_lossy())
     }
 }
@@ -59,26 +60,19 @@ fn renaming_in_place_moves_placed_files_to_the_root_and_undoes_them() {
         plans: vec![plan("a", &zoo, true), plan("b", &renamed_to, false)],
     };
     let sink = RecordingSink::default();
-    let (history, placements) = (
-        HistoryStore::in_app_data(&app_data),
-        PlacementStore::in_app_data(&app_data),
-    );
+    let history = HistoryStore::in_app_data(&app_data);
 
-    start_move_run(&sink, &settings, &history, &placements, &selected, batch)
+    start_move_run(&sink, &settings, &history, &selected, batch)
         .expect("run starts")
         .execute(&sink, &CancellationToken::new());
 
     assert!(zoo.exists() && renamed_to.exists());
-    let records = placements.load().expect("registry");
-    let files = &records[0].places[0].files;
-    assert_eq!(files[0].relative_path, "2025/Zoo/a.jpg");
 
     let run_id = history.list_runs().expect("runs")[0].run_id.clone();
-    prepare_replay(&history, &placements, &run_id, ReplayDirection::Undo)
+    prepare_replay(&history, &run_id, ReplayDirection::Undo)
         .expect("undoable")
         .run(&sink);
 
     assert!(placed.exists() && renamed.exists());
     assert!(!zoo.exists() && !renamed_to.exists());
-    assert!(placements.load().expect("registry").is_empty());
 }

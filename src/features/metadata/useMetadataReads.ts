@@ -45,8 +45,6 @@ export function useMetadataReads({ scanId, scanIdRef, reportError }: MetadataRea
     metadataByFileId: results.metadataByFileId,
     reading: scanId !== null && finishedScanId !== scanId,
     events,
-    addResults: results.addResults,
-    removeResults: results.removeResults,
     setPaused,
     resetMetadata: results.clearResults
   };

@@ -1,21 +1,18 @@
 use super::fixtures::{daily, empty_store, saved_home, store_with_home, HOUSTON, LIVERPOOL_NSW};
-use crate::{
-    home_location::detect_place_suggestions,
-    models::{HomeSource, SuggestionKind},
-};
+use crate::{home_location::detect_file_places, models::HomeSource};
 
 #[test]
-fn a_saved_home_finds_the_trip_in_one_month_folder() {
+fn a_saved_home_puts_a_trip_abroad_in_its_country() {
     let (_temp, store) = store_with_home("Sydney", (-33.8679, 151.2073), HomeSource::Manual);
     let (files, metadata) = daily("2025-10-01", 20, HOUSTON);
 
-    let found = detect_place_suggestions(&store, &files, &metadata)
-        .expect("suggestions")
-        .suggestions;
+    let found = detect_file_places(&store, &files, &metadata)
+        .expect("places")
+        .file_places;
 
-    assert_eq!(found.len(), 1, "{found:?}");
-    assert_eq!(found[0].kind, SuggestionKind::Trip);
-    assert_eq!(found[0].title, "United States");
+    assert!(found
+        .values()
+        .all(|place| place.country.as_deref() == Some("United States")));
     assert_eq!(
         saved_home(&store).map(|home| home.name),
         Some("Sydney".to_owned())
@@ -27,7 +24,7 @@ fn a_scan_with_60_days_at_home_saves_it_as_learned() {
     let (_temp, store) = empty_store();
     let (files, metadata) = daily("2025-01-01", 60, LIVERPOOL_NSW);
 
-    detect_place_suggestions(&store, &files, &metadata).expect("suggestions");
+    detect_file_places(&store, &files, &metadata).expect("places");
 
     let home = saved_home(&store).expect("a learned home");
     assert_eq!(home.name, "Liverpool");
@@ -43,16 +40,15 @@ fn a_smaller_scan_infers_home_for_itself_and_saves_none() {
     files.extend(trip_files);
     metadata.extend(trip_metadata);
 
-    let found = detect_place_suggestions(&store, &files, &metadata)
-        .expect("suggestions")
-        .suggestions;
+    let found = detect_file_places(&store, &files, &metadata)
+        .expect("places")
+        .file_places;
 
-    let trips: Vec<&str> = found
-        .iter()
-        .filter(|suggestion| suggestion.kind == SuggestionKind::Trip)
-        .map(|suggestion| suggestion.title.as_str())
+    let countries: std::collections::HashSet<Option<&str>> = found
+        .values()
+        .map(|place| place.country.as_deref())
         .collect();
-    assert_eq!(trips, ["United States"], "{found:?}");
+    assert_eq!(countries, [None, Some("United States")].into(), "{found:?}");
     assert_eq!(saved_home(&store), None);
 }
 
@@ -61,7 +57,7 @@ fn a_large_scan_keeps_the_saved_home() {
     let (_temp, store) = store_with_home("Houston", HOUSTON, HomeSource::Manual);
     let (files, metadata) = daily("2025-01-01", 90, LIVERPOOL_NSW);
 
-    detect_place_suggestions(&store, &files, &metadata).expect("suggestions");
+    detect_file_places(&store, &files, &metadata).expect("places");
 
     let home = saved_home(&store).expect("the saved home");
     assert_eq!(

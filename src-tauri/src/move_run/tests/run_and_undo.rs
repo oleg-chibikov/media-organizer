@@ -8,7 +8,6 @@ use crate::{
     history::HistoryStore,
     models::{DateKind, FileKind, FileRecord, HistoryRunStatus},
     move_run::{start_move_run, MoveBatch},
-    placements::PlacementStore,
     settings::SettingsStore,
     test_support::{
         events::RecordingSink,
@@ -37,9 +36,8 @@ fn moves_a_batch_records_history_and_undoes_it() {
     let sink = RecordingSink::default();
     let settings = SettingsStore::in_app_data(&app_data);
     let history = HistoryStore::in_app_data(&app_data);
-    let placements = PlacementStore::in_app_data(&app_data);
 
-    start_move_run(&sink, &settings, &history, &placements, &selected, batch)
+    start_move_run(&sink, &settings, &history, &selected, batch)
         .expect("move run should start")
         .execute(&sink, &CancellationToken::new());
 
@@ -53,14 +51,9 @@ fn moves_a_batch_records_history_and_undoes_it() {
     assert_eq!(details.operations[0].expected_source_size, image_size);
     assert_eq!(details.operations[0].expected_destination_size, image_size);
 
-    prepare_replay(
-        &history,
-        &placements,
-        &runs[0].run_id,
-        ReplayDirection::Undo,
-    )
-    .expect("run should be undoable")
-    .run(&sink);
+    prepare_replay(&history, &runs[0].run_id, ReplayDirection::Undo)
+        .expect("run should be undoable")
+        .run(&sink);
 
     assert!(source.exists() && !destination.exists());
     assert_eq!(sink.payloads(events::HISTORY_UNDO_PROGRESS).len(), 1);
@@ -90,12 +83,10 @@ fn runs_one_replay_of_a_run_at_a_time() {
         RecordingSink::default(),
         HistoryStore::in_app_data(&app_data),
     );
-    let placements = PlacementStore::in_app_data(&app_data);
     start_move_run(
         &sink,
         &SettingsStore::in_app_data(&app_data),
         &history,
-        &placements,
         &selected,
         batch,
     )
@@ -103,15 +94,14 @@ fn runs_one_replay_of_a_run_at_a_time() {
     .execute(&sink, &CancellationToken::new());
     let run_id = history.list_runs().expect("list runs")[0].run_id.clone();
 
-    let undo =
-        prepare_replay(&history, &placements, &run_id, ReplayDirection::Undo).expect("first undo");
-    assert!(prepare_replay(&history, &placements, &run_id, ReplayDirection::Undo).is_err());
+    let undo = prepare_replay(&history, &run_id, ReplayDirection::Undo).expect("first undo");
+    assert!(prepare_replay(&history, &run_id, ReplayDirection::Undo).is_err());
     assert!(history.delete_run(&run_id).is_err());
     assert!(destination.exists() && !source.exists());
 
     undo.run(&sink);
     assert!(source.exists() && !destination.exists());
-    assert!(prepare_replay(&history, &placements, &run_id, ReplayDirection::Redo).is_ok());
+    assert!(prepare_replay(&history, &run_id, ReplayDirection::Redo).is_ok());
 }
 
 #[test]
@@ -128,7 +118,6 @@ fn refuses_to_start_when_selected_folder_is_missing() {
         &sink,
         &SettingsStore::in_app_data(temp.path()),
         &HistoryStore::in_app_data(temp.path()),
-        &PlacementStore::in_app_data(temp.path()),
         &temp.path().join("missing"),
         batch,
     );

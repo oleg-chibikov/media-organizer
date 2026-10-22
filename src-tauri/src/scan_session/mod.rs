@@ -138,18 +138,6 @@ impl ScanSession {
         stored.keys().cloned().collect()
     }
 
-    fn forget(&self, file_ids: &[String]) {
-        let mut records = self.records.write().unwrap_or_else(PoisonError::into_inner);
-        let mut metadata = self
-            .metadata
-            .write()
-            .unwrap_or_else(PoisonError::into_inner);
-        for file_id in file_ids {
-            records.remove(file_id);
-            metadata.remove(file_id);
-        }
-    }
-
     /// The dates read so far for `file_ids`, in their order. Files still unread are left out.
     pub(crate) fn metadata(&self, file_ids: &[String]) -> Vec<MetadataResult> {
         let stored = self.metadata.read().unwrap_or_else(PoisonError::into_inner);

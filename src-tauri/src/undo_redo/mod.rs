@@ -3,7 +3,6 @@
 mod direction;
 mod eligibility;
 mod outcome;
-mod placement_cleanup;
 mod recorded_roots;
 mod records;
 mod redo;

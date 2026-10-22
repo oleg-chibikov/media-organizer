@@ -34,7 +34,6 @@ fn a_new_scan_replaces_the_old_session() {
     let context = PlanContext {
         folder: temp.path().to_path_buf(),
         settings: crate::settings::SettingsStore::in_app_data(temp.path()),
-        placements: crate::placements::PlacementStore::in_app_data(temp.path()),
     };
     let current = CurrentScan::default();
     current.begin(1, context.clone());

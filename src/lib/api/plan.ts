@@ -1,7 +1,6 @@
 import type {
+  FilePlace,
   MoveConfirmationSummary,
-  PlaceSuggestion,
-  PlacedFilesEvent,
   PlanClearedEvent,
   PlanErrorEvent,
   PlanFileEvent,
@@ -10,11 +9,11 @@ import type {
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
-/** Plans every dated file of scan `scanId` for the accepted place folders, and moves the
- * placed files they continue. Files read later are planned as they come. Ends with
+/** Plans every dated file of scan `scanId` into its place folder, or a date folder when
+ * `filePlaces` has none for it. Files read later are planned as they come. Ends with
  * `plan:settled`. */
-export const applyPlaceSuggestions = (scanId: number, placeSuggestions: PlaceSuggestion[]) =>
-  invokeCommand<void>("apply_place_suggestions", { scanId, placeSuggestions });
+export const applyFilePlaces = (scanId: number, filePlaces: Record<string, FilePlace>) =>
+  invokeCommand<void>("apply_file_places", { scanId, filePlaces });
 
 /** Drops the scan's plans for a new destination. They return once places are applied. */
 export const clearScanPlans = (scanId: number) =>
@@ -27,7 +26,6 @@ export interface PlanListeners {
   onFile: (payload: PlanFileEvent) => void;
   onError: (payload: PlanErrorEvent) => void;
   onCleared: (payload: PlanClearedEvent) => void;
-  onPlaced: (payload: PlacedFilesEvent) => void;
   onSettled: (payload: PlanSettledEvent) => void;
 }
 
@@ -35,7 +33,6 @@ const PLAN_EVENTS = {
   onFile: "plan:file",
   onError: "plan:error",
   onCleared: "plan:cleared",
-  onPlaced: "plan:placed",
   onSettled: "plan:settled"
 } as const;
 

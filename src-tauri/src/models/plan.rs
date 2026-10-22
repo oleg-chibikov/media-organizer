@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{FileRecord, MetadataResult, Placement};
+use super::FilePlace;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -33,17 +33,9 @@ pub struct MovePlan {
     pub destination_path: String,
     pub conflict_status: ConflictStatus,
     pub plan_status: PlanStatus,
+    /// The place folder the file goes to, under the place folder root.
     #[serde(default)]
-    pub placement: Option<Placement>,
-}
-
-/// A file an earlier run placed, planned into the new day layout of its folder.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlacedMove {
-    pub record: FileRecord,
-    pub metadata: MetadataResult,
-    pub plan: MovePlan,
+    pub place: Option<FilePlace>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -76,16 +68,7 @@ pub struct PlanClearedEvent {
     pub scan_id: u64,
 }
 
-/// Files earlier runs placed that join the scan, and the ones that leave it.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
-pub struct PlacedFilesEvent {
-    pub scan_id: u64,
-    pub added: Vec<PlacedMove>,
-    pub dropped: Vec<String>,
-}
-
-/// Every file with a date is planned for the place folders the person chose.
+/// Every file with a date is planned for the place folders found.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlanSettledEvent {

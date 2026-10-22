@@ -1,19 +1,11 @@
 //! Destination planning: dated, place or same folders, original-name filenames and conflict suffixes.
 
-mod continued_moves;
-mod continued_spans;
-mod country_scope;
 mod destination_allocation;
 mod destination_layout;
 mod file_plan;
-mod place_dates;
-mod place_folder;
 mod place_folders;
-mod placed_file;
-mod placed_moves;
-mod placed_under;
+mod place_level;
 mod reservations;
-mod suggestion_folders;
 
 #[cfg(test)]
 mod tests;
@@ -27,11 +19,9 @@ use crate::{
         PlanFinishedEvent,
     },
 };
-pub(crate) use continued_moves::plan_continued_moves;
 pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
 pub(crate) use place_folders::PlaceFolders;
-pub(crate) use placed_under::placed_files_under;
 pub(crate) use reservations::Reservations;
 
 /// Plans every photo/video into `layout`, streaming one event per file tagged with

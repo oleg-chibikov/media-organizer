@@ -1,8 +1,8 @@
 // Generated from src-tauri/src/models by ts-rs. Run `mise x -- cargo test --manifest-path src-tauri/Cargo.toml export_bindings` after a model changes.
-export type { ContinuedPlacement } from "./generated/ContinuedPlacement";
 export type { DestinationSettings } from "./generated/DestinationSettings";
 export type { DetectionStatus } from "./generated/DetectionStatus";
 export type { EffectiveDestinationRoot } from "./generated/EffectiveDestinationRoot";
+export type { FilePlace } from "./generated/FilePlace";
 export type { FileRecord } from "./generated/FileRecord";
 export type { GpsPoint } from "./generated/GpsPoint";
 export type { HistoryIndexEntry } from "./generated/HistoryIndexEntry";
@@ -26,8 +26,6 @@ export type { MoveProgressEvent } from "./generated/MoveProgressEvent";
 export type { MoveResult } from "./generated/MoveResult";
 export type { MoveResultStatus } from "./generated/MoveResultStatus";
 export type { PlaceDetection } from "./generated/PlaceDetection";
-export type { PlaceSuggestion } from "./generated/PlaceSuggestion";
-export type { PlacedMove } from "./generated/PlacedMove";
 export type { PlanErrorEvent } from "./generated/PlanErrorEvent";
 export type { PlanFileEvent } from "./generated/PlanFileEvent";
 export type { PlanStatus } from "./generated/PlanStatus";
@@ -35,7 +33,6 @@ export type { ScanErrorEvent } from "./generated/ScanErrorEvent";
 export type { ScanFilesEvent } from "./generated/ScanFilesEvent";
 export type { ScanFinishedEvent } from "./generated/ScanFinishedEvent";
 export type { ScanStartedEvent } from "./generated/ScanStartedEvent";
-export type { PlacedFilesEvent } from "./generated/PlacedFilesEvent";
 export type { PlanClearedEvent } from "./generated/PlanClearedEvent";
 export type { PlanSettledEvent } from "./generated/PlanSettledEvent";
 export type { MovesDoneEvent } from "./generated/MovesDoneEvent";
