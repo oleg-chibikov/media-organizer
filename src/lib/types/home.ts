@@ -1,4 +1,4 @@
-type HomeSource = "learned" | "manual";
+type HomeSource = "learned" | "manual" | "device" | "time_zone";
 
 export interface HomeLocation {
   name: string;

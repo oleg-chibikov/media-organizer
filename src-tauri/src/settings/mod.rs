@@ -2,6 +2,7 @@
 
 mod custom_root_validation;
 mod effective_root;
+mod home_precedence;
 mod storage;
 mod store;
 mod updates;
@@ -12,8 +13,9 @@ mod tests;
 pub const DESTINATION_SETTINGS_VERSION: u32 = 1;
 
 pub(crate) use custom_root_validation::validate_custom_root_media_folder;
+pub(crate) use home_precedence::{offer_home_location, replace_home_location};
 pub(crate) use store::SettingsStore;
 pub(crate) use updates::{
-    clear_root_media_folder, learn_home_location, set_force_processed_folder, set_home_location,
-    set_rename_in_place, set_root_media_folder,
+    clear_root_media_folder, set_force_processed_folder, set_home_location, set_rename_in_place,
+    set_root_media_folder,
 };

@@ -5,8 +5,9 @@ use crate::{
     trips::{Home, PlaceScan},
 };
 
-/// Trips and outings measured from the saved home, with file place labels and a status. With no saved home, home is
-/// inferred from the files, and saved when the scan covers enough days.
+/// Trips and outings measured from the saved home, with file place labels and a status. A scan that
+/// covers enough days learns home from the files and saves it over a time zone guess. Without a saved
+/// home, a smaller scan infers home for itself.
 pub(crate) fn detect_place_suggestions(
     store: &SettingsStore,
     files: &[FileRecord],
@@ -15,19 +16,25 @@ pub(crate) fn detect_place_suggestions(
     let saved = store.load()?.home;
     let scan = PlaceScan::new(files, metadata_results);
     let home = match saved {
-        Some(home) => Some(Home {
-            name: home.name,
-            point: Coordinates::new(home.latitude, home.longitude),
-            country: home.country,
-        }),
-        None => scan.home_city().map(|city| {
-            if city.worth_saving() {
+        Some(home) if home.source != HomeSource::TimeZone => Some(home_of(home)),
+        guess => match scan.home_city() {
+            Some(city) if city.worth_saving() => {
                 learn(store, learned_home(&city.place));
+                Some(city.home())
             }
-            city.home()
-        }),
+            // A small scan is often one trip, so a time zone guess beats its busiest city.
+            inferred => guess.map(home_of).or(inferred.map(|city| city.home())),
+        },
     };
     Ok(scan.detect(home.as_ref()))
+}
+
+fn home_of(home: HomeLocation) -> Home {
+    Home {
+        name: home.name,
+        point: Coordinates::new(home.latitude, home.longitude),
+        country: home.country,
+    }
 }
 
 fn learned_home(city: &Place) -> HomeLocation {
@@ -43,7 +50,7 @@ fn learned_home(city: &Place) -> HomeLocation {
 // A failed save only means home is inferred again next time.
 fn learn(store: &SettingsStore, home: HomeLocation) {
     let name = home.name.clone();
-    match store.update(|current| settings::learn_home_location(current, home)) {
+    match store.update(|current| settings::offer_home_location(current, home)) {
         Ok(_) => log::info!("Learned home: {name}"),
         Err(error) => log::warn!("Failed to save the learned home {name}: {error}"),
     }

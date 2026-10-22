@@ -56,24 +56,7 @@ pub(crate) fn set_home_location(
     })
 }
 
-/// Saves a learned home only while none is saved, so it overwrites no choice.
-pub(crate) fn learn_home_location(
-    settings: &DestinationSettings,
-    home: HomeLocation,
-) -> DestinationSettings {
-    if settings.home.is_some() {
-        return settings.clone();
-    }
-    stamped(DestinationSettings {
-        home: Some(HomeLocation {
-            source: HomeSource::Learned,
-            ..home
-        }),
-        ..settings.clone()
-    })
-}
-
-fn stamped(settings: DestinationSettings) -> DestinationSettings {
+pub(super) fn stamped(settings: DestinationSettings) -> DestinationSettings {
     DestinationSettings {
         version: DESTINATION_SETTINGS_VERSION,
         updated_at: Some(Utc::now().to_rfc3339()),

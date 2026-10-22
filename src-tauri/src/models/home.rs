@@ -8,6 +8,10 @@ pub enum HomeSource {
     Learned,
     /// Picked by the person in settings.
     Manual,
+    /// Read from the device's current location.
+    Device,
+    /// Guessed from the system time zone, the weakest source.
+    TimeZone,
 }
 
 /// The city trips are measured from.
