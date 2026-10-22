@@ -67,7 +67,7 @@ describe("moveDispatchQueue", () => {
     queue.pending = ["next"];
     finishBatch(queue);
     expect(queue.pending).toHaveLength(300_001);
-    expect(queue.pending.at(-1)).toBe("next");
+    expect(queue.pending[queue.pending.length - 1]).toBe("next");
   });
 
   it("keeps a run open while files are still being checked", () => {
