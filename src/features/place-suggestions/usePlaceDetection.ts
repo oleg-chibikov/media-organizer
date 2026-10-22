@@ -6,7 +6,7 @@ import { allMetadataRead } from "./allMetadataRead";
 // Lets the last metadata batches land before the backend looks at every file.
 const DETECTION_DELAY_MS = 1000;
 
-interface PlaceDetectionOptions {
+export interface PlaceDetectionOptions {
   rows: FileRecord[];
   metadataByFileId: Record<string, MetadataResult>;
   scanCompleted: boolean;

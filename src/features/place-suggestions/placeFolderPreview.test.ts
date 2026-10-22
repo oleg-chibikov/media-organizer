@@ -42,7 +42,7 @@ describe("placeFolderPreview", () => {
 
   it("widens the span by a root file outside the suggested dates", () => {
     const dates = { ...TRIP_DATES, r1: "2025-10-31 08:00:00" };
-    const root = placeFolderPreview(TRIP, dateOf(dates)).at(-1);
+    const root = placeFolderPreview(TRIP, dateOf(dates))[3];
     expect(root).toEqual({ path: "2025/United States/10-31", count: 1 });
   });
 });

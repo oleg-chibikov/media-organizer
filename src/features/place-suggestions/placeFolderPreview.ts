@@ -36,8 +36,8 @@ function foldersFor(base: string, fileIds: string[], start: string, end: string,
     }
   }
   const days = [...countByDay.keys()].sort();
-  const first = [dayOf(start), ...days].sort()[0];
-  const last = [dayOf(end), ...days].sort().at(-1) ?? first;
+  const span = [dayOf(start), dayOf(end), ...days].sort();
+  const [first, last] = [span[0], span[span.length - 1]];
   const countByPath = new Map<string, number>();
   for (const day of days) {
     const folder = dayFolder(first, last, day);

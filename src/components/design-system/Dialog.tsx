@@ -4,11 +4,12 @@ interface DialogProps {
   title: string;
   children: ReactNode;
   actions: ReactNode;
+  wide?: boolean;
   onCancel: () => void;
 }
 
 // A modal shown while mounted. The browser traps focus and Escape calls onCancel.
-export function Dialog({ title, children, actions, onCancel }: DialogProps) {
+export function Dialog({ title, children, actions, wide = false, onCancel }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -24,7 +25,7 @@ export function Dialog({ title, children, actions, onCancel }: DialogProps) {
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className="m-auto w-[32rem] max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl backdrop:bg-black/60"
+      className={`m-auto ${wide ? "w-[44rem]" : "w-[32rem]"} max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-900 p-5 text-slate-100 shadow-2xl backdrop:bg-black/60`}
       onCancel={(event) => {
         event.preventDefault();
         onCancel();
