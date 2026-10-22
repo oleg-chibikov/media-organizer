@@ -115,6 +115,7 @@ export default function App() {
         scan={scan.progress}
         metadata={places.progress}
         planning={planning}
+        groupByPlace={session.groupByPlace}
         summary={moves.confirmationSummary}
         execution={execution}
         moveCounts={moves.moveCounts}
@@ -130,6 +131,7 @@ export default function App() {
           destinationRoot={effectiveDestination.rootPath}
           renamesInPlace={renamesInPlace}
           stillChecking={planning.stillChecking}
+          groupByPlace={session.groupByPlace}
           onConfirm={moves.confirmation.confirm}
           onCancel={moves.confirmation.cancel}
         />

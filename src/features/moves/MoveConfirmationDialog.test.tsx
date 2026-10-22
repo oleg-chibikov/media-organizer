@@ -12,7 +12,7 @@ const SUMMARY = {
   suffix_applied: 0
 } as MoveConfirmationSummary;
 
-function renderDialog(stillChecking: boolean, renamesInPlace = false) {
+function renderDialog(stillChecking: boolean, renamesInPlace = false, groupByPlace = false) {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
   render(
@@ -21,6 +21,7 @@ function renderDialog(stillChecking: boolean, renamesInPlace = false) {
       destinationRoot={"D:\\Media"}
       renamesInPlace={renamesInPlace}
       stillChecking={stillChecking}
+      groupByPlace={groupByPlace}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
@@ -54,6 +55,13 @@ describe("MoveConfirmationDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Move all files" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("says grouped files wait for every date", () => {
+    renderDialog(true, false, true);
+
+    expect(screen.getByText(/move once every date is read/)).toBeInTheDocument();
+    expect(screen.queryByText(/ready now/)).not.toBeInTheDocument();
   });
 
   it("asks to rename when files stay in their folders", () => {

@@ -9,6 +9,8 @@ interface MoveConfirmationDialogProps {
   renamesInPlace: boolean;
   // The summary counts only files checked so far; the rest join the run as they become ready.
   stillChecking: boolean;
+  // Grouped files wait for every date, since their place folders depend on all files.
+  groupByPlace: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -18,6 +20,7 @@ export function MoveConfirmationDialog({
   destinationRoot,
   renamesInPlace,
   stillChecking,
+  groupByPlace,
   onConfirm,
   onCancel
 }: MoveConfirmationDialogProps) {
@@ -67,7 +70,9 @@ export function MoveConfirmationDialog({
       ) : null}
       {stillChecking ? (
         <p className="mt-3 text-amber-200">
-          {ready} ready now. Files still being checked move too when they are ready.
+          {groupByPlace
+            ? "Files move once every date is read, so their place folders are final."
+            : `${ready} ready now. Files still being checked move too when they are ready.`}
         </p>
       ) : null}
       <p className="mt-3 text-slate-400">You can undo this run in History.</p>

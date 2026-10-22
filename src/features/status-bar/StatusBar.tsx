@@ -1,10 +1,12 @@
 import { Button } from "../../components/design-system/Button";
+import { InfoHint } from "../../components/design-system/InfoHint";
 import type { MoveConfirmationSummary } from "../../lib/types";
 import type { MetadataProgress } from "../metadata";
 import type { MoveCounts, MoveExecutionState } from "../moves";
 import type { ScanProgress } from "../scan";
 import { finishSummary } from "./finishSummary";
 import { moveProgressCount } from "./moveProgressCount";
+import { moveWaitHint } from "./moveWaitHint";
 import { executionActionLabel, pipelineStatusLabel, type PlanningStatus } from "./statusBarLabels";
 import { StatusCounts } from "./StatusCounts";
 
@@ -12,7 +14,10 @@ interface StatusBarProps {
   health: string;
   scan: ScanProgress;
   metadata: MetadataProgress;
-  planning: PlanningStatus;
+  // `stillChecking`: the scan, its dates or its places aren't done yet.
+  planning: PlanningStatus & { stillChecking: boolean };
+  // Places decide the destinations, so with grouping on files wait for every date.
+  groupByPlace: boolean;
   summary: MoveConfirmationSummary;
   execution: MoveExecutionState;
   moveCounts: MoveCounts;
@@ -27,6 +32,7 @@ export function StatusBar({
   scan,
   metadata,
   planning,
+  groupByPlace,
   summary,
   execution,
   moveCounts,
@@ -62,14 +68,21 @@ export function StatusBar({
             Open Destination
           </Button>
         ) : (
-          <Button
-            variant="primary"
-            className="ml-auto px-3 py-1.5 text-xs"
-            disabled={!canRunExecutionAction}
-            onClick={onExecutionAction}
-          >
-            {executionActionLabel(execution)}
-          </Button>
+          <>
+            {planning.stillChecking ? (
+              <span className="ml-auto">
+                <InfoHint text={moveWaitHint(groupByPlace)} />
+              </span>
+            ) : null}
+            <Button
+              variant="primary"
+              className={`${planning.stillChecking ? "" : "ml-auto "}px-3 py-1.5 text-xs`}
+              disabled={!canRunExecutionAction}
+              onClick={onExecutionAction}
+            >
+              {executionActionLabel(execution)}
+            </Button>
+          </>
         )}
       </div>
       {execution.completed ? (
