@@ -40,7 +40,14 @@ Choose opens a folder list inside the app. Tap a folder to open it, and "↑ Up"
 
 Choose next to "Move to" creates the folder first when it doesn't exist yet, so the picker opens inside it.
 
-"Group by place" is on by default. Turn it off, and every file goes to its dated folder. The automatic moves read the box too.
+"Group by place" is on by default. Turn it off, and every file goes to its dated folder. The automatic moves read the box too. The text under the box says what it does.
+
+The Home row shows home and where it came from, as on desktop:
+
+- **Change** finds a city by name, or uses the current location.
+- **Clear** forgets home. The next launch finds it again.
+- **On launch** with no home or only a time zone guess, the app asks once for approximate location. Without it, the time zone names home.
+- **The log** of each run names the home it went by and how many files have a place.
 
 ```mermaid
 flowchart LR
@@ -69,6 +76,8 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 
 - **Folders** `<root>/<year>/<month>/<day>/<date> (<original>) - <device>.<ext>`.
 - **Places** a file with GPS goes to the folder of its city, park or sight, as in `2024/Japan/3/Kyoto/15`. Home's city gets no place folder, and home's country no country folder. A file with no GPS joins a file from the same device taken within 3 hours.
+- **Home** picked by you beats your location, which beats one learned from 60 days of photos, which beats the time zone. A weaker source doesn't replace a stronger one.
+- **Trips** the first day in a place goes to `2026/3/5/Japan/Kyoto`. A second day lifts the place to the month: `2026/3/Japan/Kyoto/5` and `/6`. A second month lifts it to the year.
 - **Earlier days** of a place already in "Move to" move into the place's new folder, so a trip shot over days ends in one folder.
 - **Dates** come from the same tags in the same order, ending with the file date.
 - **Conflicts** get a ` (n)` suffix. A file with the same bytes already there stays in place.
@@ -78,6 +87,7 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 ## How the app keeps photos safe
 
 - **No overwrite.** A move checks the name is free right before it renames. A taken name fails the file, and both files stay.
+- **Earlier days** move the same way. A name another file holds gets a ` (n)` suffix, and a file with the same bytes there stays where it was. A run stopped at any point leaves each photo in its old folder or its new one. `TripTest` checks this after every step.
 - **Files still saving stay.** A camera writes a new file under a hidden `.pending-` name, and the app skips hidden files.
 - **Another storage** such as an SD card gets a hidden copy first. The app syncs it, checks the bytes, then gives it the name. The source goes last, and only when no app changed it meanwhile.
 - **Deletes** touch only empty folders and the app's own temporary copies.
@@ -86,7 +96,7 @@ Turn on "Move new photos and videos automatically". The app then moves each new 
 
 - **Metadata** comes from Android's `ExifInterface` and `MediaMetadataRetriever` instead of ExifTool.
 - **Device name** of a file without a camera model is the phone's own model. Android doesn't expose the camera model of a video, so every video gets it.
-- **Home** is the city the phone's time zone names, such as Sydney for `Australia/Sydney`. A run with 60 days of photos in one city learns that city as home and keeps it. There is no home setting and no location access.
+- **Home** is found once on launch, as on desktop on start, with Android's approximate location instead of CoreLocation. Background runs don't look for it.
 - **Place tables** add about 11 MB to the APK. The first run with GPS photos loads them, which takes a few seconds.
 - **Hidden files** such as `.trashed-*` and `.pending-*` stay put. They belong to the Android gallery.
 - **History and undo** don't exist. The log on screen shows the last 300 moves.

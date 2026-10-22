@@ -4,9 +4,10 @@ import com.mediaorganizer.android.geo.Coordinates
 import com.mediaorganizer.android.geo.Place
 import com.mediaorganizer.android.geo.PlaceKind
 import com.mediaorganizer.android.geo.Resolution
-import com.mediaorganizer.android.places.Home
-import com.mediaorganizer.android.places.HomeStore
+import com.mediaorganizer.android.places.HomeSource
+import com.mediaorganizer.android.places.MemoryHomes
 import com.mediaorganizer.android.places.PlaceSources
+import com.mediaorganizer.android.places.homeAt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,11 +23,8 @@ class PlaceOrganizerTest {
     @get:Rule val temp = TemporaryFolder()
 
     private val kyoto = Place("Kyoto", PlaceKind.CITY, null, "JP", "Japan", 35.0, 135.7, 1_400_000)
-    private val places = PlaceSources({ Resolution(kyoto, kyoto) }, object : HomeStore {
-        override fun learned() = Home("Sydney", "Australia")
-        override fun saveLearned(home: Home) = Unit
-        override fun timeZoneGuess() = null
-    })
+    private val sydney = Place("Sydney", PlaceKind.CITY, null, "AU", "Australia", -33.9, 151.2, 5_000_000)
+    private val places = PlaceSources({ Resolution(kyoto, kyoto) }, MemoryHomes(homeAt(sydney, HomeSource.LEARNED)))
     private val readMetadata = MetadataReader { _, _ ->
         RawMetadata(
             dateTimeOriginal = "2026:03:05 07:20:17",

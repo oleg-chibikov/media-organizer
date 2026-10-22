@@ -9,11 +9,11 @@ import com.mediaorganizer.android.places.PlaceSources
 fun appPlaceSources(context: Context): PlaceSources? {
     if (!GroupByPlace.isOn(context)) return null
     val geocoder = AppGeocoder.of(context)
-    return PlaceSources(geocoder::resolve, SavedHome(context, geocoder))
+    return PlaceSources(geocoder::resolve, SavedHome(context))
 }
 
 /** One geocoder per process, so the place tables load once while Android keeps the process. */
-private object AppGeocoder {
+internal object AppGeocoder {
     @Volatile private var geocoder: Geocoder? = null
 
     fun of(context: Context): Geocoder = geocoder ?: synchronized(this) {

@@ -5,8 +5,6 @@ import java.time.LocalDate
 
 /** The city with the most distinct geotagged days. */
 internal class HomeCity(val place: Place, val days: Int) {
-    val home: Home get() = Home(place.name, place.countryName)
-
     /** Enough days to keep as home for later runs, such as one month folder. */
     val worthSaving: Boolean get() = days >= LEARNED_HOME_MIN_DAYS
 }

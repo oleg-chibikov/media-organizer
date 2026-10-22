@@ -19,25 +19,16 @@ class DetectionTest {
         Resolution(place, place)
     }
 
-    private class Homes(var learned: Home? = null, val guess: Home? = null) : HomeStore {
-        override fun learned() = learned
-        override fun saveLearned(home: Home) { learned = home }
-        override fun timeZoneGuess() = guess
-    }
+    private fun home(place: Place, source: HomeSource) = homeAt(place, source)
 
     @Test fun aFileWithNoGpsJoinsTheSameDeviceWithinThreeHours() {
-        val places = detectFilePlaces(
-            PlaceScan(
-                listOf(
-                    shot("a", "2024-03-15T10:00", "Pixel", kyoto),
-                    shot("b", "2024-03-15T12:30", "Pixel", null),
-                    shot("c", "2024-03-15T14:00", "Pixel", null),
-                    shot("d", "2024-03-15T10:30", "Canon", null),
-                ),
-                geocode,
-            ),
-            Homes(guess = Home("Sydney", "Australia")),
-        )
+        val places = detect(
+            MemoryHomes(home(sydney, HomeSource.TIME_ZONE)),
+            shot("a", "2024-03-15T10:00", "Pixel", kyoto),
+            shot("b", "2024-03-15T12:30", "Pixel", null),
+            shot("c", "2024-03-15T14:00", "Pixel", null),
+            shot("d", "2024-03-15T10:30", "Canon", null),
+        ).filePlaces
         assertEquals(FilePlace("Kyoto", "Japan", HomeMatch.AWAY), places[Path.of("a")])
         assertEquals(places[Path.of("a")], places[Path.of("b")])
         assertNull(places[Path.of("c")])
@@ -45,27 +36,69 @@ class DetectionTest {
     }
 
     @Test fun theTimeZoneGuessMarksHomeCityAndCountry() {
-        val places = detectFilePlaces(
-            PlaceScan(listOf(shot("a", "2024-03-15T10:00", null, sydney), shot("b", "2024-03-16T10:00", null, manly)), geocode),
-            Homes(guess = Home("Sydney", "Australia")),
+        val detection = detect(
+            MemoryHomes(home(sydney, HomeSource.TIME_ZONE)),
+            shot("a", "2024-03-15T10:00", null, sydney),
+            shot("b", "2024-03-16T10:00", null, manly),
         )
-        assertEquals(HomeMatch.CITY, places.getValue(Path.of("a")).home)
-        assertEquals(HomeMatch.COUNTRY, places.getValue(Path.of("b")).home)
+        assertEquals(HomeMatch.CITY, detection.filePlaces.getValue(Path.of("a")).home)
+        assertEquals(HomeMatch.COUNTRY, detection.filePlaces.getValue(Path.of("b")).home)
+        assertEquals(HomeSource.TIME_ZONE, detection.home?.source)
     }
 
-    @Test fun sixtyDaysInOneCityAreLearnedAndBeatTheTimeZone() {
-        val days = (0L until 60L).map { shot("d$it", LocalDateTime.of(2024, 1, 1, 9, 0).plusDays(it).toString(), null, sydney) }
-        val homes = Homes(guess = Home("Kyoto", "Japan"))
+    @Test fun sixtyDaysInOneCityAreLearnedOverTheTimeZone() {
+        val homes = MemoryHomes(home(kyoto, HomeSource.TIME_ZONE))
 
-        val places = detectFilePlaces(PlaceScan(days, geocode), homes)
+        val detection = detect(homes, *sixtyDaysIn(sydney))
 
-        assertEquals(Home("Sydney", "Australia"), homes.learned)
-        assertEquals(HomeMatch.CITY, places.getValue(Path.of("d0")).home)
+        assertEquals(home(sydney, HomeSource.LEARNED), homes.saved())
+        assertEquals(HomeMatch.CITY, detection.filePlaces.getValue(Path.of("d0")).home)
     }
+
+    @Test fun aPickedHomeBeatsWhatThePhotosSay() {
+        val homes = MemoryHomes(home(kyoto, HomeSource.MANUAL))
+
+        val detection = detect(homes, *sixtyDaysIn(sydney))
+
+        assertEquals(home(kyoto, HomeSource.MANUAL), homes.saved())
+        assertEquals(FilePlace("Sydney", "Australia", HomeMatch.AWAY), detection.filePlaces[Path.of("d0")])
+    }
+
+    @Test fun aSmallRunUsesItsBusiestCityWithoutSavingIt() {
+        val homes = MemoryHomes(null)
+
+        val detection = detect(homes, *(0L until 14L).map { day(it, sydney) }.toTypedArray())
+
+        assertNull(homes.saved())
+        assertEquals("Sydney", detection.home?.name)
+    }
+
+    @Test fun strongerSourcesWin() {
+        val manual = home(kyoto, HomeSource.MANUAL)
+        assertEquals(manual, outranking(manual, home(sydney, HomeSource.DEVICE)))
+        assertEquals(home(sydney, HomeSource.DEVICE), outranking(home(kyoto, HomeSource.LEARNED), home(sydney, HomeSource.DEVICE)))
+        assertEquals(home(kyoto, HomeSource.TIME_ZONE), outranking(home(kyoto, HomeSource.TIME_ZONE), home(sydney, HomeSource.TIME_ZONE)))
+    }
+
+    private fun detect(homes: HomeStore, vararg shots: PlaceInput) = detectFilePlaces(PlaceScan(shots.toList(), geocode), homes)
+
+    private fun sixtyDaysIn(place: Place) = (0L until 60L).map { day(it, place) }.toTypedArray()
+
+    private fun day(index: Long, place: Place) =
+        shot("d$index", LocalDateTime.of(2024, 1, 1, 9, 0).plusDays(index).toString(), null, place)
 
     private fun shot(name: String, taken: String, device: String?, at: Place?) =
         PlaceInput(Path.of(name), LocalDateTime.parse(taken), device, at?.let { Coordinates(it.latitude, it.longitude) })
 
     private fun city(name: String, country: String, latitude: Double, longitude: Double) =
         Place(name, PlaceKind.CITY, null, "XX", country, latitude, longitude, 1_000_000)
+}
+
+/** A [HomeStore] in memory, with the desktop ranking. */
+class MemoryHomes(private var home: HomeLocation?) : HomeStore {
+    override fun saved() = home
+
+    override fun offer(home: HomeLocation) {
+        this.home = outranking(this.home, home)
+    }
 }

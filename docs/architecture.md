@@ -238,8 +238,8 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 
 - **`organize/`** copies the scanner, planner, filename and date rules with no Android imports, so JVM tests cover it.
 - **`geo/`** copies `src-tauri/src/geo`. The APK bundles `geodata.tsv.gz` and `parks.tsv.gz` through `assets.srcDir` in `app/build.gradle.kts`.
-- **`places/`** copies `file_places`, the home choice of `home_location/detect.rs`, and the place folder levels, nearby days and library moves of `planner/`.
-- **`location/`** keeps the Group by place box, on by default, and home. Home is a learned home, else the city of the phone's time zone.
+- **`places/`** copies `file_places`, the home choice and ranking of `home_location` and `settings/home_precedence.rs`, and the place folder levels, nearby days and library moves of `planner/`.
+- **`location/`** keeps the Group by place box, on by default, and the Home row. `SavedHome` stores home with its source. `AndroidLocator` gives one approximate location fix and the time zone.
 - **`folders/`** lets the person pick the gallery and Move to folders, and keeps both between launches.
 - **`metadata/`** reads the same tags and GPS with `ExifInterface` and `MediaMetadataRetriever` and prints dates in ExifTool's format.
 - **Moves** read every date first, find places, gather earlier days, then move one file at a time with `Files.move` without replace.
