@@ -20,6 +20,7 @@ pub(crate) fn placement(
         title: title.to_owned(),
         place: place.map(str::to_owned),
         country: None,
+        month_folder: None,
     }
 }
 
@@ -86,5 +87,6 @@ pub(crate) fn detected(
         root_file_ids: Vec::new(),
         country: None,
         continues: None,
+        month_folder: None,
     }
 }

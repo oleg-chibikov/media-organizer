@@ -31,5 +31,6 @@ pub(super) fn suggestion(
         root_file_ids: Vec::new(),
         country: None,
         continues: None,
+        month_folder: None,
     }
 }

@@ -2,10 +2,15 @@
 //! next month continues a folder instead of starting a new one.
 
 mod continuation;
+mod country_continuation;
+mod folders;
 mod lookup;
 mod matching;
+mod month_folder;
+mod month_placement;
 mod placed;
 mod recording;
+mod restoring;
 mod spans;
 mod storage;
 mod store;
@@ -14,6 +19,9 @@ mod store;
 mod tests;
 
 pub(crate) use continuation::continue_placed_suggestions;
-pub(crate) use placed::{top_folder, PlacedFile, PlacedSuggestion};
-pub(crate) use recording::{forget_files, record_moves, MovedIntoPlace};
+pub(crate) use folders::place_folder;
+pub(crate) use month_folder::MonthFolder;
+pub(crate) use placed::{PlacedFile, PlacedSuggestion};
+pub(crate) use recording::{record_moves, MovedIntoPlace};
+pub(crate) use restoring::{restore_files, UndoneMove};
 pub(crate) use store::PlacementStore;

@@ -4,6 +4,7 @@ mod country_folders;
 mod file_plan;
 mod in_place;
 mod in_place_places;
+mod month_places;
 mod place_fixtures;
 mod place_folders;
 mod place_validation;

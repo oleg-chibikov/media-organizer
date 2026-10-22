@@ -68,6 +68,7 @@ pub(super) fn build_suggestion(
         root_file_ids: file_ids(&draft.root, shots),
         country: country.map(|country| sanitize_for_windows_filename(&country)),
         continues: None,
+        month_folder: None,
     })
 }
 

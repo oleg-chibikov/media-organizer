@@ -8,6 +8,17 @@ export interface ContinuedPlacement {
   end: string;
   /** The placed place folders. A place of the same name widens its day layout by them. */
   places: ContinuedPlace[];
+  /** Continues every folder of the suggestion's country in its year, at the suggestion's
+   * level. `title` is then the country folder. */
+  country_wide: boolean;
+  /** Month folders whose files of the country move up into the year folder. */
+  lifted: LiftedMonth[];
+}
+
+/** A month folder holding placed files of a country that move up to the year folder. */
+interface LiftedMonth {
+  month_folder: string;
+  file_count: number;
 }
 
 interface ContinuedPlace {
@@ -45,6 +56,9 @@ export interface PlaceSuggestion {
   country: string | null;
   /** The placed trip or outing this one continues. Its title and year win. */
   continues: ContinuedPlacement | null;
+  /** The month folder the place folders go in, as `<year>/<month_folder>`, when the scan is
+   * a month folder of the root. Null puts them at year level. */
+  month_folder: string | null;
 }
 
 /** The place folder a planned file goes to. The frontend passes it back unchanged. */
@@ -54,4 +68,5 @@ export interface Placement {
   title: string;
   place: string | null;
   country?: string | null;
+  month_folder?: string | null;
 }

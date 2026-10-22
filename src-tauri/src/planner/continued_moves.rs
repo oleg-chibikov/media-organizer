@@ -19,9 +19,9 @@ pub(crate) fn plan_continued_moves(
 ) -> Result<Vec<PlacedMove>, String> {
     path_safety::validate_selected_folder(selected_folder)?;
     let folders = PlaceFolders::new(suggestions, metadata_results)?;
-    if folders.continued().is_empty() {
+    if !folders.continues_any() {
         return Ok(Vec::new());
     }
     let root = settings.place_folder_root(selected_folder)?;
-    Ok(plan_placed_moves(&root, &folders, &placements.load()?))
+    plan_placed_moves(&root, &folders, &placements.load()?)
 }

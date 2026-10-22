@@ -1,5 +1,6 @@
 //! Serializable payloads shared with the frontend (`src/lib/types.ts`).
 
+mod continued_placement;
 mod destination;
 mod gps;
 mod history_operation;
@@ -12,6 +13,7 @@ mod places;
 mod plan;
 mod scan;
 
+pub use continued_placement::*;
 pub use destination::*;
 pub use gps::*;
 pub use history_operation::*;

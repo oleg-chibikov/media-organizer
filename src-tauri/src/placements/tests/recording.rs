@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     models::SuggestionKind,
-    placements::{forget_files, record_moves, MovedIntoPlace},
+    placements::{record_moves, recording::forget_files, MovedIntoPlace},
     test_support::placements::{moved_into, placement},
 };
 

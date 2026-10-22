@@ -31,7 +31,10 @@ fn path_like_names_are_rejected() {
 fn edited_names_get_the_windows_safe_form() {
     let folders = folders_for(&[outing_named(" Zoo: day out? ")]).expect("a valid name");
     let folder = folders.get("a").expect("a folder");
-    assert_eq!(folder.parts, ["2025", "Zoo_ day out_"]);
+    assert_eq!(
+        folder.dir_under(std::path::Path::new(""), &Default::default()),
+        std::path::Path::new("2025").join("Zoo_ day out_")
+    );
 }
 
 #[test]

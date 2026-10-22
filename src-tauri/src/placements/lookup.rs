@@ -25,6 +25,7 @@ pub(super) fn record_for<'a>(
                 places: Vec::new(),
                 root_files: Vec::new(),
                 country: placement.country.clone(),
+                month_folder: placement.month_folder.clone(),
             });
             records.len() - 1
         }

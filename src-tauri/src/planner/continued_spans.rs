@@ -36,6 +36,7 @@ pub(super) fn trip_span<'a>(
 }
 
 /// The placement a suggestion continues, unless the person renamed it in the review.
+/// A country wide continuation is kept, since the country folder can't be renamed.
 pub(super) fn continued_placement(suggestion: &PlaceSuggestion) -> Option<&ContinuedPlacement> {
     let name = match suggestion.kind {
         SuggestionKind::Trip => Some(&suggestion.title),
@@ -44,5 +45,5 @@ pub(super) fn continued_placement(suggestion: &PlaceSuggestion) -> Option<&Conti
     suggestion
         .continues
         .as_ref()
-        .filter(|placed| name == Some(&placed.title))
+        .filter(|placed| placed.country_wide || name == Some(&placed.title))
 }

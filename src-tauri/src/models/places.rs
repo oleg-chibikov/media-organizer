@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::ContinuedPlacement;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SuggestionKind {
@@ -51,24 +53,10 @@ pub struct PlaceSuggestion {
     /// The placed trip or outing this one continues. Its title and year win.
     #[serde(default)]
     pub continues: Option<ContinuedPlacement>,
-}
-
-/// A trip or outing folder an earlier run filled, as a later suggestion continues it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ContinuedPlacement {
-    pub title: String,
-    pub year: i32,
-    pub start: String,
-    pub end: String,
-    /// The placed place folders. A place of the same name widens its day layout by them.
-    pub places: Vec<ContinuedPlace>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ContinuedPlace {
-    pub name: String,
-    pub start: String,
-    pub end: String,
+    /// The month folder the place folders go in, as `<year>/<month_folder>`, when the scan
+    /// is a month folder of the root. `None` puts them at year level.
+    #[serde(default)]
+    pub month_folder: Option<String>,
 }
 
 /// The place folder a planned file goes to, so a finished run can record it.
@@ -83,4 +71,8 @@ pub struct Placement {
     /// The suggestion's `country`: the folder above an outing, or a trip's title.
     #[serde(default)]
     pub country: Option<String>,
+    /// The month folder between the year and the place folders, as in
+    /// `PlaceSuggestion::month_folder`.
+    #[serde(default)]
+    pub month_folder: Option<String>,
 }

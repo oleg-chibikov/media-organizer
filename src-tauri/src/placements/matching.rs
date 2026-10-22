@@ -11,13 +11,13 @@ use crate::{
 /// The record `suggestion` continues: same root, kind and country folder, at most
 /// `TRIP_MAX_GAP` apart, and for an outing the same place. The closest record wins.
 pub(super) fn find_continued<'a>(
-    records: &'a [PlacedSuggestion],
+    records: impl IntoIterator<Item = &'a PlacedSuggestion>,
     root: &Path,
     suggestion: &PlaceSuggestion,
 ) -> Option<&'a PlacedSuggestion> {
     let (start, end) = (parse(&suggestion.start)?, parse(&suggestion.end)?);
     records
-        .iter()
+        .into_iter()
         .filter(|record| record.is_in(root) && record.kind == suggestion.kind)
         .filter(|record| same_country(record, suggestion) && same_outing_place(record, suggestion))
         .filter_map(|record| {

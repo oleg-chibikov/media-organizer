@@ -68,7 +68,7 @@ pub(crate) fn forget_files(records: &mut Vec<PlacedSuggestion>, root: &Path, pat
     records.retain(|record| !is_empty(record));
 }
 
-fn relative_to(root: &Path, path: &Path) -> Option<String> {
+pub(super) fn relative_to(root: &Path, path: &Path) -> Option<String> {
     let relative = path.strip_prefix(root).ok()?;
     let parts: Vec<String> = relative
         .components()

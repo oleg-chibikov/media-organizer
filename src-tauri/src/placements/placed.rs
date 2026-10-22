@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use super::folders::top_folder;
 use crate::{
     models::{Placement, SuggestionKind},
     path_safety::paths_equal_case_insensitive,
@@ -26,6 +27,10 @@ pub(crate) struct PlacedSuggestion {
     /// The country folder outside home's country, as in `Placement::country`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) country: Option<String>,
+    /// The month folder the record sits in, as in `Placement::month_folder`. `None` is
+    /// year level, which records from before month folders are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) month_folder: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,13 +52,19 @@ pub(crate) struct PlacedFile {
 impl PlacedSuggestion {
     /// The trip folder, or the outing's place folder.
     pub(crate) fn folder(&self) -> PathBuf {
-        top_folder(
-            Path::new(&self.root),
-            self.kind,
-            self.year,
-            self.country.as_deref(),
-            &self.title,
-        )
+        top_folder(Path::new(&self.root), &self.placement(None))
+    }
+
+    /// The placement of the files of one place folder, or the trip root files for `None`.
+    pub(crate) fn placement(&self, place: Option<&str>) -> Placement {
+        Placement {
+            kind: self.kind,
+            year: self.year,
+            title: self.title.clone(),
+            place: place.map(str::to_owned),
+            country: self.country.clone(),
+            month_folder: self.month_folder.clone(),
+        }
     }
 
     pub(crate) fn is_in(&self, root: &Path) -> bool {
@@ -67,6 +78,7 @@ impl PlacedSuggestion {
             && self.year == placement.year
             && self.title == placement.title
             && self.country == placement.country
+            && self.month_folder == placement.month_folder
     }
 
     /// The files of one place folder, or the trip root files for `None`.
@@ -79,21 +91,5 @@ impl PlacedSuggestion {
                 .map_or(&[], |placed| placed.files.as_slice()),
             None => &self.root_files,
         }
-    }
-}
-
-/// `<root>/<year>/<title>`, with an outing abroad inside `<country>`. A trip abroad is
-/// titled after its country already.
-pub(crate) fn top_folder(
-    root: &Path,
-    kind: SuggestionKind,
-    year: i32,
-    country: Option<&str>,
-    title: &str,
-) -> PathBuf {
-    let year_folder = root.join(year.to_string());
-    match (kind, country) {
-        (SuggestionKind::Outing, Some(country)) => year_folder.join(country).join(title),
-        _ => year_folder.join(title),
     }
 }

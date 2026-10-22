@@ -35,6 +35,10 @@ fn a_record_without_places_or_root_files_loads() {
 
     assert_eq!(loaded.len(), 1);
     assert!(loaded[0].places.is_empty() && loaded[0].root_files.is_empty());
+    assert_eq!(
+        (&loaded[0].country, &loaded[0].month_folder),
+        (&None, &None)
+    );
 }
 
 #[test]

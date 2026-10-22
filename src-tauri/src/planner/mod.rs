@@ -2,12 +2,14 @@
 
 mod continued_moves;
 mod continued_spans;
+mod country_scope;
 mod destination_allocation;
 mod destination_layout;
 mod file_plan;
 mod place_dates;
 mod place_folder;
 mod place_folders;
+mod placed_file;
 mod placed_moves;
 mod suggestion_folders;
 

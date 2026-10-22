@@ -1,17 +1,18 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::direction::ReplayDirection;
 use crate::{
     models::{HistoryOperation, HistoryOperationStatus},
-    placements::{forget_files, PlacementStore},
+    placements::{restore_files, PlacementStore, UndoneMove},
 };
 
-/// Collects the files an undo took out of the destination root, then drops them from
-/// the placed suggestions. Redo doesn't record them again.
+/// Collects the files an undo took out of the destination root, then updates the placed
+/// suggestions: placed files that went back to a place folder are recorded there again,
+/// the rest are dropped. Redo doesn't record them again.
 pub(super) struct UndonePlacements {
     store: PlacementStore,
     destination_root: Option<PathBuf>,
-    undone: Vec<PathBuf>,
+    undone: Vec<UndoneMove>,
 }
 
 impl UndonePlacements {
@@ -32,7 +33,10 @@ impl UndonePlacements {
     ) {
         if direction == ReplayDirection::Undo && record.status == HistoryOperationStatus::Succeeded
         {
-            self.undone.push(PathBuf::from(&process.destination_path));
+            self.undone.push(UndoneMove {
+                source: PathBuf::from(&process.source_path),
+                destination: PathBuf::from(&process.destination_path),
+            });
         }
     }
 
@@ -43,12 +47,11 @@ impl UndonePlacements {
         if self.undone.is_empty() {
             return;
         }
-        let paths: Vec<&Path> = self.undone.iter().map(PathBuf::as_path).collect();
         if let Err(error) = self
             .store
-            .update(|records| forget_files(records, &root, &paths))
+            .update(|records| restore_files(records, &root, &self.undone))
         {
-            log::warn!("Failed to drop undone files from placed suggestions: {error}");
+            log::warn!("Failed to update placed suggestions after an undo: {error}");
         }
     }
 }
