@@ -11,6 +11,7 @@ import {
   chooseRootMediaFolder,
   clearRootMediaFolder,
   setForceProcessedFolder,
+  setHomeFromCurrentLocation,
   setHomeLocation,
   setRenameInPlace
 } from "../lib/api";
@@ -56,17 +57,17 @@ export function useDestinationChange(options: DestinationChangeOptions) {
   const change = (operation: DestinationSettingsOperation) =>
     void destination.applyChange(operation, { locked, onChanged: replanForDestinationChange });
 
+  // Home moves no file, so it stays editable during moves. Place detection reruns on its own.
+  const changeHome = (operation: DestinationSettingsOperation) =>
+    destination.applyChange(operation, { locked: false, onChanged: () => undefined });
+
   return {
     locked,
     chooseRoot: () => change(chooseRootMediaFolder),
     clearRoot: () => change(clearRootMediaFolder),
     setForceProcessed: (nextValue: boolean) => change(() => setForceProcessedFolder(nextValue)),
     setRenameInPlace: (nextValue: boolean) => change(() => setRenameInPlace(nextValue)),
-    // Home moves no file, so it stays editable during moves. Place detection reruns on its own.
-    setHome: (home: HomeLocation | null) =>
-      void destination.applyChange(() => setHomeLocation(home), {
-        locked: false,
-        onChanged: () => undefined
-      })
+    setHome: (home: HomeLocation | null) => void changeHome(() => setHomeLocation(home)),
+    locateHome: () => changeHome(setHomeFromCurrentLocation)
   };
 }

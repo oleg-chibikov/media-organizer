@@ -1,10 +1,21 @@
-import type { HomeCandidate, HomeLocation } from "../../lib/types";
+import type { HomeCandidate, HomeLocation, HomeSource } from "../../lib/types";
 
 export function homeStatus(home: HomeLocation | null): string {
   if (!home) {
     return "Home: not set";
   }
-  return `Home: ${home.name}, ${home.country} (${home.source})`;
+  return `Home: ${home.name}, ${home.country}`;
+}
+
+const SOURCE_LABELS: Record<HomeSource, string> = {
+  manual: "picked by you",
+  device: "from your location",
+  learned: "learned from photos",
+  time_zone: "from time zone"
+};
+
+export function homeSourceLabel(source: HomeSource): string {
+  return SOURCE_LABELS[source];
 }
 
 export function candidateLabel({ name, region, country }: HomeCandidate): string {

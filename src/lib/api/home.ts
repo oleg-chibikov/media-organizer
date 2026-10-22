@@ -7,3 +7,6 @@ export const searchHomeCities = (query: string) =>
 /** Saves the picked home, or clears it with `null` so a large scan learns it again. */
 export const setHomeLocation = (home: HomeLocation | null) =>
   invokeCommand<DestinationSettings>("set_home_location", { home });
+/** Saves the city at the device's location as home. Waits up to 10 s for a location fix. */
+export const setHomeFromCurrentLocation = () =>
+  invokeCommand<DestinationSettings>("use_current_location");

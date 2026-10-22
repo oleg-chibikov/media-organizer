@@ -73,6 +73,7 @@ export default function App() {
                 home={destination.settings?.home ?? null}
                 disabled={destination.loading || destination.pending}
                 onChange={destinationActions.setHome}
+                onLocate={destinationActions.locateHome}
               />
             }
           />
