@@ -6,25 +6,22 @@ use chrono::Datelike;
 
 use super::{
     draft::{Anchor, Draft, DraftGroup},
-    place_table::{PlaceId, PlaceTable},
+    place_table::PlaceId,
     shots::Shot,
     thresholds::MIN_GROUP_FILES,
 };
-use crate::{geo::PlaceKind, models::SuggestionKind};
+use crate::models::SuggestionKind;
 
 /// One outing per point of interest and year, for geotagged shots outside trips.
-/// Cities make no outing. `shots` must be in time order.
-pub(super) fn find_outings(shots: &[Shot], in_trip: &[bool], places: &PlaceTable) -> Vec<Draft> {
+/// Named after `Resolved::notable`, so cities make no outing. `shots` must be in time order.
+pub(super) fn find_outings(shots: &[Shot], in_trip: &[bool]) -> Vec<Draft> {
     let mut drafts: Vec<Draft> = Vec::new();
     let mut draft_of: HashMap<(PlaceId, i32), usize> = HashMap::new();
     for (index, shot) in shots.iter().enumerate() {
-        let place = shot.location.and_then(|location| location.resolved.place);
+        let place = shot.location.and_then(|location| location.resolved.notable);
         let Some(place) = place.filter(|_| !in_trip[index]) else {
             continue;
         };
-        if places.get(place).kind == PlaceKind::City {
-            continue;
-        }
         let draft = *draft_of
             .entry((place, shot.taken.year()))
             .or_insert_with(|| {

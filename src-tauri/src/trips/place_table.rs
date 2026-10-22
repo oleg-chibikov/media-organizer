@@ -7,11 +7,13 @@ use crate::geo::{self, Coordinates, Place};
 
 pub(super) type PlaceId = usize;
 
-/// The resolved place of a point and the city it sits in.
+/// The resolved place of a point, the city it sits in and the point of
+/// interest an outing there would be named after.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Resolved {
     pub(super) place: Option<PlaceId>,
     pub(super) city: Option<PlaceId>,
+    pub(super) notable: Option<PlaceId>,
 }
 
 #[derive(Default)]
@@ -31,6 +33,7 @@ impl PlaceTable {
         let resolved = Resolved {
             place: geo::nearest_place(point).map(|place| self.intern(place)),
             city: geo::nearest_city(point).map(|place| self.intern(place)),
+            notable: geo::notable_place(point).map(|place| self.intern(place)),
         };
         self.cache.insert(key, resolved);
         resolved

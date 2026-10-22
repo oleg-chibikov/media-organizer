@@ -1,3 +1,5 @@
+mod areas;
+
 use std::time::Instant;
 
 use crate::geo::{
@@ -15,21 +17,6 @@ fn yosemite_valley_is_in_a_yosemite_place() {
     assert!(place.name.contains("Yosemite"), "{place:?}");
     assert_ne!(place.kind, PlaceKind::City);
     assert_eq!(place.country_name, "United States");
-}
-
-#[test]
-fn royal_botanic_garden_sydney_is_found() {
-    let place = place_at(-33.8642, 151.2166);
-    assert!(place.name.contains("Botanic"), "{place:?}");
-    assert_eq!(place.kind, PlaceKind::Garden);
-    assert_eq!(place.country_name, "Australia");
-}
-
-#[test]
-fn kew_gardens_beat_the_palace_inside_them() {
-    let place = place_at(51.4787, -0.2956);
-    assert!(place.name.contains("Kew"), "{place:?}");
-    assert_eq!(place.kind, PlaceKind::Garden);
 }
 
 #[test]

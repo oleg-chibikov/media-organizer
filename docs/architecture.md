@@ -161,7 +161,9 @@ Each layer may depend only on the layers below it.
 - **Loading** happens once, on the first lookup, through a `LazyLock`. Call lookups from a background thread.
 - **Search** uses a one-degree grid, so a lookup scans only nearby cells.
 - **City names** for `search_home_cities` load into a separate list on the first search. Matches ignore case and accents, and `ue` matches `u`, so "Zür" finds "Zuerich". Names that start with the text come first, then names that contain it. Bigger cities rank higher, up to 10 results.
-- **Matching** gives each kind a radius in `geo/radius.rs`, since GeoNames has points and no outlines. The most nested match wins: a garden beats the city and a waterfall beats the national park. With no match, the nearest city within 50 km wins, then any place within 150 km.
+- **Radii** stand in for outlines, since GeoNames has points only. `geo/radius.rs` gives each kind a radius, and a city a reach that grows with population: San Francisco covers about 18 km.
+- **Place names** come from `nearest_place`, used for trips. A covering national park or city wins first, in `geo/area.rs`. The park beats a town under 50,000 people, and beats a bigger city only when the city centre is 3 times farther. So Katoomba names Blue Mountains National Park and Bondi stays Sydney. Next comes the most nested point of interest, then the nearest city within 50 km, then any place within 150 km.
+- **Outing names** come from `notable_place` in `geo/notable.rs`. An attraction such as a zoo, museum or garden wins, then the covering national park, then any other point of interest. A beach in Royal National Park names the park.
 - **Countries** come from the nearest place, so a point near a border can get the neighbour.
 
 ## Place Suggestions
@@ -176,7 +178,7 @@ Each layer may depend only on the layers below it.
 - **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them.
 - **Country folders** `trips/country_split.rs` splits each trip into one suggestion per country outside home's country, plus one for home's country. A foreign part gets `country` and is titled after it. The home part keeps a title from its countries. Trip root files go to the country they were shot in, or the trip's main country with no GPS. An outing abroad gets `country` too. With no known home every country is foreign.
 - **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
-- **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
+- **Outings** are 5 or more files at one notable place outside trips, merged per year. A city makes no outing.
 - **Files with no GPS** join the trip place of a geotagged file within 3 hours, else the trip root. Outside trips they join an outing with a file within 1 hour on the same day.
 
 - **File places** `file_places` maps each geotagged photo or video id to a short label from the same lookups: the matched place, else the city. A country other than home's is added, as in `Louvre, France`. The file table shows it in the Place column.

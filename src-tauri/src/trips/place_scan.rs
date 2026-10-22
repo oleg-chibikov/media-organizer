@@ -48,7 +48,7 @@ impl<'a> PlaceScan<'a> {
                 in_trip[index] = true;
             }
         }
-        drafts.extend(outings::find_outings(shots, &in_trip, places));
+        drafts.extend(outings::find_outings(shots, &in_trip));
         untagged::attach_untagged(shots, &mut drafts);
         let home_country = home.map(|home| home.country.as_str());
         let mut suggestions: Vec<PlaceSuggestion> = drafts
