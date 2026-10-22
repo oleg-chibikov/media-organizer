@@ -42,8 +42,10 @@ export function useMetadataResults(
 
   const removeResults = useCallback((fileIds: string[]) => {
     if (fileIds.length > 0) {
+      // A set keeps dropping thousands of placed files linear.
+      const gone = new Set(fileIds);
       setMetadataByFileId((prev) =>
-        Object.fromEntries(Object.entries(prev).filter(([fileId]) => !fileIds.includes(fileId)))
+        Object.fromEntries(Object.entries(prev).filter(([fileId]) => !gone.has(fileId)))
       );
     }
   }, []);

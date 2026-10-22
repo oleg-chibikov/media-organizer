@@ -93,4 +93,23 @@ describe("useMetadataQueue", () => {
     await waitFor(() => expect(result.current.activeMetadataRequests).toBe(1));
     expect(readMetadataForFiles).toHaveBeenCalledTimes(1);
   });
+
+  it("removes only the given files' results", () => {
+    const { result } = renderHook(() =>
+      useMetadataQueue({
+        rows: [],
+        rowByIdRef: { current: new Map() },
+        concurrency: 1,
+        queueCapacity: 10,
+        reportError: vi.fn(),
+        onMetadataRead: vi.fn()
+      })
+    );
+    const other = { ...METADATA, file_id: "f2" };
+    act(() => result.current.addResults([METADATA, other]));
+
+    act(() => result.current.removeResults([METADATA.file_id]));
+
+    expect(result.current.metadataByFileId).toEqual({ f2: other });
+  });
 });
