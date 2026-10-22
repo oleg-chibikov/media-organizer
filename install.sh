@@ -28,7 +28,12 @@ fi
 work_dir=$(mktemp -d)
 trap 'rm -rf "$work_dir"' EXIT
 
-url="https://github.com/$repo/releases/latest/download/MediaOrganizer-macos-$arch.dmg"
+# releases/latest redirects to the page of the newest tag, so its last path part is the tag.
+tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest")
+version=${tag##*/v}
+echo "Installing Media Organizer $version"
+
+url="https://github.com/$repo/releases/download/v$version/MediaOrganizer-$version-macos-$arch.dmg"
 echo "Downloading $url"
 curl -fsSL -o "$work_dir/MediaOrganizer.dmg" "$url"
 
@@ -44,4 +49,4 @@ mv "$work_dir/$app_name" "$install_dir/"
 # The app is not notarized, so Gatekeeper would block it if anything marked it as downloaded.
 xattr -dr com.apple.quarantine "$install_dir/$app_name" 2>/dev/null || true
 
-echo "Installed $install_dir/$app_name"
+echo "Installed Media Organizer $version to $install_dir/$app_name"

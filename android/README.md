@@ -4,7 +4,7 @@ Moves photos and videos from the phone gallery into folders by year, month and d
 
 ## Install
 
-Download `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest) on the phone and open it. Android asks once to allow installs from the browser.
+Download `MediaOrganizer-<version>-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest) on the phone and open it. Android asks once to allow installs from the browser.
 
 ## Build the APK from scratch
 

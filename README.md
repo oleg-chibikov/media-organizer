@@ -12,10 +12,10 @@ Windows, in PowerShell:
 irm https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/install.ps1 | iex
 ```
 
-Windows, in Command Prompt (`cmd`), with the `curl` that Windows 10 and 11 include:
+Windows, in Command Prompt (`cmd`):
 
 ```bat
-curl -fL -o "%TEMP%\MediaOrganizer-setup.exe" https://github.com/oleg-chibikov/media-organizer/releases/latest/download/MediaOrganizer-windows-x64-setup.exe && start /wait "" "%TEMP%\MediaOrganizer-setup.exe" /S && del "%TEMP%\MediaOrganizer-setup.exe"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/install.ps1 | iex"
 ```
 
 macOS, in Terminal:
@@ -26,6 +26,7 @@ curl -fsSL https://raw.githubusercontent.com/oleg-chibikov/media-organizer/main/
 
 - **Windows** installs for the current user, no admin rights needed.
 - **macOS** puts the app in `/Applications`, or `~/Applications` when `/Applications` is read-only.
+- **Version** each script prints the version it installs. Release files carry it in their names.
 - **Update** by running the same command again.
 
 ## Logs
@@ -74,7 +75,7 @@ Each part has its own flow and code diagrams. The links are under Docs at the en
 
 ## Android
 
-`android/` holds an Android app that moves the phone gallery into dated folders with the same rules. Get `MediaOrganizer-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
+`android/` holds an Android app that moves the phone gallery into dated folders with the same rules. Get `MediaOrganizer-<version>-android.apk` from the [latest release](https://github.com/oleg-chibikov/media-organizer/releases/latest), or build it from scratch with no Android tools installed:
 
 - **macOS or Linux** `./android/build-apk.sh`
 - **Windows** `powershell -ExecutionPolicy Bypass -File android\build-apk.ps1`

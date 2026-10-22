@@ -2,7 +2,7 @@ name: Release
 
 # Each push to main publishes the next patch version as the latest release.
 # Run the workflow by hand to bump the minor or major version instead.
-# install.sh and install.ps1 download these assets by name, so keep the names stable.
+# Asset names carry the version. install.sh and install.ps1 read the latest tag to build them.
 on:
   push:
     branches: [main]
@@ -63,15 +63,15 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bundle: nsis
-            asset: MediaOrganizer-windows-x64-setup.exe
+            suffix: windows-x64-setup.exe
           - os: macos-latest
             target: aarch64-apple-darwin
             bundle: dmg
-            asset: MediaOrganizer-macos-aarch64.dmg
+            suffix: macos-aarch64.dmg
           - os: macos-latest
             target: x86_64-apple-darwin
             bundle: dmg
-            asset: MediaOrganizer-macos-x86_64.dmg
+            suffix: macos-x86_64.dmg
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -88,17 +88,18 @@ jobs:
           key: ${{ matrix.target }}-${{ hashFiles('mise.toml', 'src-tauri/Cargo.lock') }}
           add-rust-environment-hash-key: false
       - run: mise x -- pnpm install --frozen-lockfile
+      - run: echo "ASSET=MediaOrganizer-${TAG#v}-${{ matrix.suffix }}" >> "$GITHUB_ENV"
       - run: mise x -- pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --config "{\"version\":\"${TAG#v}\"}"
 
       - name: Package the Windows installer
         if: runner.os == 'Windows'
-        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "${{ matrix.asset }}"
+        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe "$ASSET"
 
       - name: Package the macOS disk image
         if: runner.os == 'macOS'
-        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "${{ matrix.asset }}"
+        run: cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "$ASSET"
 
-      - run: gh release upload "$TAG" "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY" --clobber
+      - run: gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
 
   android:
     needs: create-release
@@ -120,9 +121,9 @@ jobs:
           ANDROID_VERSION_CODE=$(echo "$ANDROID_VERSION_NAME" | awk -F. '{ print $1 * 1000000 + $2 * 1000 + $3 }')
           export ANDROID_VERSION_CODE
           ./android/build-apk.sh
-          cp android/dist/media-organizer.apk MediaOrganizer-android.apk
+          cp android/dist/media-organizer.apk "MediaOrganizer-$ANDROID_VERSION_NAME-android.apk"
 
-      - run: gh release upload "$TAG" MediaOrganizer-android.apk --repo "$GITHUB_REPOSITORY" --clobber
+      - run: gh release upload "$TAG" "MediaOrganizer-${TAG#v}-android.apk" --repo "$GITHUB_REPOSITORY" --clobber
 
   publish:
     needs: [create-release, build, android]

@@ -5,8 +5,13 @@
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
 
-    $url = 'https://github.com/oleg-chibikov/media-organizer/releases/latest/download/MediaOrganizer-windows-x64-setup.exe'
-    $installer = Join-Path ([System.IO.Path]::GetTempPath()) 'MediaOrganizer-setup.exe'
+    $repo = 'oleg-chibikov/media-organizer'
+    $version = (Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest").tag_name.TrimStart('v')
+    Write-Host "Installing Media Organizer $version"
+
+    $asset = "MediaOrganizer-$version-windows-x64-setup.exe"
+    $url = "https://github.com/$repo/releases/download/v$version/$asset"
+    $installer = Join-Path ([System.IO.Path]::GetTempPath()) $asset
 
     Write-Host "Downloading $url"
     Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
@@ -21,5 +26,5 @@
         Remove-Item $installer -ErrorAction SilentlyContinue
     }
 
-    Write-Host 'Installed Media Organizer. Find it in the Start menu.'
+    Write-Host "Installed Media Organizer $version. Find it in the Start menu."
 }
