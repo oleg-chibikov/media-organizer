@@ -1,0 +1,40 @@
+# Dependabot opens one PR per ecosystem each week for minor and patch updates.
+# Each major update gets its own PR. dependabot-auto-merge.yml merges a PR once its checks pass.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint doesn't support TypeScript 7 yet.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+    groups:
+      cargo-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly
+    groups:
+      gradle-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

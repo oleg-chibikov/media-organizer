@@ -1,0 +1,49 @@
+name: Dependabot auto-merge
+
+# Merges a Dependabot PR without review once every check on its latest commit passes.
+# Each finished check workflow runs this job. The job that sees the last check pass merges.
+# It runs from main, so it gets a write token even though Dependabot opened the PR.
+on:
+  workflow_run:
+    workflows: [Checks, Android, Unused code]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.workflow_run.head_branch }}
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Merge when every check passed
+        run: |
+          pr=$(gh pr view "$BRANCH" --json number,author,headRefOid,state \
+            --jq 'select(.state == "OPEN" and .author.login == "app/dependabot" and .headRefOid == env.SHA) | .number')
+          if [ -z "$pr" ]; then
+            echo "No open Dependabot PR at $SHA."
+            exit 0
+          fi
+
+          states=$(gh api --paginate "repos/$GH_REPO/commits/$SHA/check-runs" \
+            --jq '.check_runs[] | "\(.status) \(.conclusion)"')
+          echo "$states"
+          if echo "$states" | grep -vqE '^completed (success|skipped|neutral)$'; then
+            echo "A check is still running or failed. PR #$pr waits."
+            exit 0
+          fi
+
+          gh pr merge "$pr" --squash --delete-branch

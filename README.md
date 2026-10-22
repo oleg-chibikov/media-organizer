@@ -92,6 +92,14 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - **Early downloads** the release shows up as a pre-release right away. Each asset appears once its build ends. The release becomes latest when all builds pass.
 - **Version in files** `package.json`, `Cargo.toml` and `tauri.conf.json` stay as they are. The build takes the version from the tag.
 
+## Dependency updates
+
+Dependabot opens update PRs each week for npm, Cargo, Gradle and GitHub Actions. The settings are in `.github/dependabot.yml`.
+
+- **Auto-merge** `dependabot-auto-merge.yml` squashes a Dependabot PR once every check on it passes. No review is needed.
+- **Failed checks** the PR stays open for a person to fix.
+- **No release** the merge uses the workflow token, so it doesn't start `Release`. The next push to `main` ships the updates.
+
 ## What It Does
 
 - Scans a selected TODO folder recursively.
