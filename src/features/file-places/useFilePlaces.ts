@@ -6,8 +6,8 @@ import { usePlaceDetection, type PlaceDetectionOptions } from "./usePlaceDetecti
 interface FilePlacesOptions extends PlaceDetectionOptions {
   // Off sends every file to date folders without waiting for detection.
   groupByPlace: boolean;
-  // Gets the places the plans should use, each time they change.
-  onApply: (filePlaces: Record<string, FilePlace>) => void;
+  // Gets the places the plans should use, each time they change. A preview can still change.
+  onApply: (filePlaces: Record<string, FilePlace>, preview: boolean) => void;
 }
 
 const NO_FILE_PLACES: Record<string, FilePlace> = {};
@@ -16,6 +16,7 @@ const NO_FILE_PLACES: Record<string, FilePlace> = {};
 export function useFilePlaces({ groupByPlace, onApply, ...detectionOptions }: FilePlacesOptions) {
   const {
     detection,
+    preview,
     locating,
     settled,
     progress,
@@ -25,20 +26,22 @@ export function useFilePlaces({ groupByPlace, onApply, ...detectionOptions }: Fi
   const applied = groupByPlace ? filePlaces : NO_FILE_PLACES;
   const onApplyRef = useRef(onApply);
   // What planning got last, so a rerender with the same answer changes no plan.
-  const appliedRef = useRef<Record<string, FilePlace> | null>(null);
+  const appliedRef = useRef<{ places: Record<string, FilePlace>; preview: boolean } | null>(null);
   useEffect(() => {
     onApplyRef.current = onApply;
   });
 
   useEffect(() => {
-    if (groupByPlace && !settled) {
+    const final = !groupByPlace || settled;
+    if (!final && !preview) {
       return;
     }
-    if (appliedRef.current !== applied) {
-      appliedRef.current = applied;
-      onApplyRef.current(applied);
+    const last = appliedRef.current;
+    if (last?.places !== applied || last.preview === final) {
+      appliedRef.current = { places: applied, preview: !final };
+      onApplyRef.current(applied, !final);
     }
-  }, [applied, groupByPlace, settled]);
+  }, [applied, groupByPlace, preview, settled]);
 
   return {
     locating,

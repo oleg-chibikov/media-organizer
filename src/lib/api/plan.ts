@@ -10,9 +10,12 @@ import { invokeCommand } from "./tauriRuntime";
 
 /** Plans every dated file of scan `scanId` into its place folder, or a date folder when
  * `filePlaces` has none for it. Files read later are planned as they come. Ends with
- * `plan:settled`. */
-export const applyFilePlaces = (scanId: number, filePlaces: Record<string, FilePlace>) =>
-  invokeCommand<void>("apply_file_places", { scanId, filePlaces });
+ * `plan:settled`. Plans of a `preview` wait for the final places before any file moves. */
+export const applyFilePlaces = (
+  scanId: number,
+  filePlaces: Record<string, FilePlace>,
+  preview: boolean
+) => invokeCommand<void>("apply_file_places", { scanId, filePlaces, preview });
 
 /** Drops the scan's plans for a new destination. They return once places are applied. */
 export const clearScanPlans = (scanId: number) =>

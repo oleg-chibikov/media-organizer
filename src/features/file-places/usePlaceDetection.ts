@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { detectFilePlaces } from "../../lib/api";
 import type { FileRecord, HomeLocation, MetadataResult, PlaceDetection } from "../../lib/types";
 import { metadataProgress } from "../metadata";
+import { usePlacePreview } from "./usePlacePreview";
 
 // Lets the last metadata batches land before the backend looks at every file.
 const DETECTION_DELAY_MS = 1000;
@@ -23,9 +24,11 @@ export interface PlaceDetectionOptions {
 }
 
 // Asks the backend for place folders once per scan and home, after every file's metadata is read.
+// Until then previews show where files will likely go.
 export function usePlaceDetection(options: PlaceDetectionOptions) {
   const { selectedFolder, rows, metadataByFileId, scanCompleted, metadataBusy, home } = options;
   const [detection, setDetection] = useState<PlaceDetection | null>(null);
+  const [preview, setPreview] = useState(false);
   // The key the last answer, or failure, belongs to.
   const [answeredKey, setAnsweredKey] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
@@ -45,6 +48,16 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
   const homeKey = home ? `${home.latitude},${home.longitude}` : "none";
   const key = `${generation}:${rows.length}:${homeKey}`;
 
+  usePlacePreview({
+    active: hasMedia && !ready && !options.scanCancelled,
+    resetKey: `${generation}:${homeKey}`,
+    latestRef,
+    onPreview: (found) => {
+      setDetection(found);
+      setPreview(true);
+    }
+  });
+
   useEffect(() => {
     if (!ready || detectedKeyRef.current === key) {
       return;
@@ -60,15 +73,19 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
         return;
       }
       const fileIds = latest.rows.map((row) => row.id);
-      detectFilePlaces(scanId, fileIds).then(
+      detectFilePlaces(scanId, fileIds, false).then(
         (found) => {
           if (isCurrent()) {
             setDetection(found);
+            setPreview(false);
             setAnsweredKey(key);
           }
         },
         (error: unknown) => {
           if (isCurrent()) {
+            // Files go to date folders, as with no places, rather than to a preview's guess.
+            setDetection(null);
+            setPreview(false);
             setAnsweredKey(key);
             latestRef.current.reportError(`Failed to find places: ${String(error)}`);
           }
@@ -82,11 +99,14 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     generationRef.current += 1;
     setGeneration(generationRef.current);
     setDetection(null);
+    setPreview(false);
   }, []);
 
   const locating = hasMedia && !options.scanCancelled && answeredKey !== key;
   return {
     detection,
+    // The detection came from a preview, so it can still change.
+    preview,
     locating,
     // Detection answered, failed, or has no files to look at.
     settled: !locating && (scanCompleted || options.scanCancelled),

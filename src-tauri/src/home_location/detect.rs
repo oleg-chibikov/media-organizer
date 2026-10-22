@@ -6,12 +6,13 @@ use crate::{
 };
 
 /// The place of each file and how much of it is home. A scan
-/// that covers enough days learns home from the files and saves it over a time zone guess. Without a
-/// saved home, a smaller scan infers home for itself.
+/// that covers enough days learns home from the files and, with `save_learned`, saves it over a
+/// time zone guess. Without a saved home, a smaller scan infers home for itself.
 pub(crate) fn detect_file_places(
     store: &SettingsStore,
     files: &[FileRecord],
     metadata_results: &[MetadataResult],
+    save_learned: bool,
 ) -> Result<PlaceDetection, String> {
     let saved = store.load()?.home;
     let scan = PlaceScan::new(files, metadata_results);
@@ -19,7 +20,9 @@ pub(crate) fn detect_file_places(
         Some(home) if home.source != HomeSource::TimeZone => Some(home_of(home)),
         guess => match scan.home_city() {
             Some(city) if city.worth_saving() => {
-                learn(store, learned_home(&city.place));
+                if save_learned {
+                    learn(store, learned_home(&city.place));
+                }
                 Some(city.home())
             }
             // A small scan is often one holiday, so a time zone guess beats its busiest city.

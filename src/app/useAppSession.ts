@@ -53,13 +53,13 @@ export function useAppSession() {
     home: destination.settings?.home ?? null,
     groupByPlace,
     reportError: setFolderError,
-    onApply: (filePlaces) => {
-      // Files confirmed to move keep their folders. Plans still waiting take the first answer.
+    onApply: (filePlaces, preview) => {
+      // Files confirmed to move keep their folders. Plans still waiting take the final answer.
       const { confirmed, executing } = moves.execution;
       if ((confirmed || executing) && !planning.waitingForPlaces()) {
         return;
       }
-      planning.applyFilePlaces(filePlaces);
+      planning.applyFilePlaces(filePlaces, preview);
     }
   });
   const planCompleted =

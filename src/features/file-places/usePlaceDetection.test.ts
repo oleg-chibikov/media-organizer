@@ -58,7 +58,7 @@ describe("usePlaceDetection", () => {
     expect(detect).not.toHaveBeenCalled();
     await act(async () => vi.advanceTimersByTimeAsync(1));
 
-    expect(detect).toHaveBeenCalledWith(1, [RECORD.id]);
+    expect(detect).toHaveBeenCalledWith(1, [RECORD.id], false);
     expect(result.current.detection?.file_places).toEqual(KYOTO);
     rerender({ metadataBusy: false });
     act(() => vi.advanceTimersByTime(2000));

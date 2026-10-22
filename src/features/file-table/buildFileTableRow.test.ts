@@ -62,4 +62,9 @@ describe("buildFileTableRow", () => {
     const other = row({ ...RECORD, kind: "unsupported" } as FileRecord, undefined, undefined, true);
     expect(other.place.loading).toBeUndefined();
   });
+
+  it("shows a place from a preview while locating goes on", () => {
+    const osaka: FilePlace = { place: "Osaka", country: "Japan", home: "away" };
+    expect(row(RECORD, undefined, osaka, true).place).toMatchObject({ value: "Osaka" });
+  });
 });

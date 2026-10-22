@@ -14,7 +14,7 @@ interface MovePlanningOptions {
 export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions) {
   const { movePlansByFileId, planErrorsByFileId, addPlanned, flushPlans, dropPlans } =
     usePlanBatches();
-  // Plans wait for the place folders until the first apply, so no file shows a date folder first.
+  // Plans wait for the final place folders, so no file moves on a preview's guess.
   const [waiting, setWaiting] = useState(true);
   const waitingRef = useRef(true);
   const [applying, setApplying] = useState(false);
@@ -37,14 +37,14 @@ export function useMovePlanning({ scanIdRef, reportError }: MovePlanningOptions)
   });
 
   const applyPlaces = useCallback(
-    (filePlaces: Record<string, FilePlace>) => {
+    (filePlaces: Record<string, FilePlace>, preview: boolean) => {
       const scanId = scanIdRef.current;
       if (scanId === null) {
         return;
       }
-      wait(false);
+      wait(preview);
       setApplying(true);
-      applyFilePlaces(scanId, filePlaces).catch((error: unknown) => {
+      applyFilePlaces(scanId, filePlaces, preview).catch((error: unknown) => {
         if (scanIdRef.current === scanId) {
           setApplying(false);
           reportError(String(error));

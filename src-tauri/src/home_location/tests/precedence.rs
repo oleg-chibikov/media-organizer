@@ -8,7 +8,7 @@ fn a_scan_with_60_days_at_home_replaces_a_time_zone_guess() {
     let (_temp, store) = store_with_home("Sydney", SYDNEY, HomeSource::TimeZone);
     let (files, metadata) = daily("2025-01-01", 60, LIVERPOOL_NSW);
 
-    detect_file_places(&store, &files, &metadata).expect("places");
+    detect_file_places(&store, &files, &metadata, true).expect("places");
 
     let home = saved_home(&store).expect("a learned home");
     assert_eq!(
@@ -18,11 +18,22 @@ fn a_scan_with_60_days_at_home_replaces_a_time_zone_guess() {
 }
 
 #[test]
+fn a_preview_saves_no_learned_home() {
+    let (_temp, store) = store_with_home("Sydney", SYDNEY, HomeSource::TimeZone);
+    let (files, metadata) = daily("2025-01-01", 60, LIVERPOOL_NSW);
+
+    detect_file_places(&store, &files, &metadata, false).expect("places");
+
+    let home = saved_home(&store).expect("the time zone home");
+    assert_eq!(home.source, HomeSource::TimeZone);
+}
+
+#[test]
 fn a_scan_with_60_days_at_home_keeps_a_device_home() {
     let (_temp, store) = store_with_home("Sydney", SYDNEY, HomeSource::Device);
     let (files, metadata) = daily("2025-01-01", 60, LIVERPOOL_NSW);
 
-    detect_file_places(&store, &files, &metadata).expect("places");
+    detect_file_places(&store, &files, &metadata, true).expect("places");
 
     let home = saved_home(&store).expect("the device home");
     assert_eq!(
@@ -36,7 +47,7 @@ fn a_time_zone_guess_puts_a_trip_abroad_in_its_country() {
     let (_temp, store) = store_with_home("Sydney", SYDNEY, HomeSource::TimeZone);
     let (files, metadata) = daily("2025-10-01", 20, HOUSTON);
 
-    let found = detect_file_places(&store, &files, &metadata)
+    let found = detect_file_places(&store, &files, &metadata, true)
         .expect("places")
         .file_places;
 

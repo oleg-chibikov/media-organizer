@@ -29,6 +29,8 @@ pub(crate) struct PlanContext {
 pub(super) struct Planning {
     /// The place folder of each file. `None` holds plans back until places are known.
     places: Option<PlaceFolders>,
+    /// The places came from a preview while dates are still read, so no file moves yet.
+    preview: bool,
     /// Where the files go, resolved on the first plan after the places are set.
     layout: Option<DestinationLayout>,
     signatures: HashMap<String, String>,
@@ -40,20 +42,23 @@ impl ScanSession {
     /// Plans files whose date was just read, once the place folders are known.
     pub(crate) fn plan_read(&self, sink: &impl EventSink, results: &[MetadataResult]) {
         let mut planning = self.planning();
-        if planning.places.is_some() {
+        // A preview misses the place of a file read after it, so the file waits for the next.
+        if planning.places.is_some() && !planning.preview {
             let file_ids: Vec<String> = results.iter().map(|r| r.file_id.clone()).collect();
             self.plan_files(sink, &mut planning, &file_ids);
         }
     }
 
     /// Plans every file with a date for its place folder, or a date folder when `file_places`
-    /// has none for it.
+    /// has none for it. Plans of a `preview` show where files will likely go, and don't move.
     pub(crate) fn set_places(
         &self,
         sink: &impl EventSink,
         file_places: HashMap<String, FilePlace>,
+        preview: bool,
     ) {
         let mut planning = self.planning();
+        planning.preview = preview;
         let file_ids = self.read_file_ids();
         match PlaceFolders::new(&file_places, &self.all_metadata()) {
             Ok(folders) => {
@@ -96,12 +101,16 @@ impl ScanSession {
     }
 
     pub(super) fn waiting_for_places(&self) -> bool {
-        self.planning().places.is_none()
+        let planning = self.planning();
+        planning.places.is_none() || planning.preview
     }
 
     /// The files whose plan is ready and not in `done`, in a stable order.
     pub(super) fn ready_file_ids(&self, done: &HashSet<String>) -> Vec<String> {
         let planning = self.planning();
+        if planning.preview {
+            return Vec::new();
+        }
         let mut ids: Vec<String> = planning
             .plans
             .values()

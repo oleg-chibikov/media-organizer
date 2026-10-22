@@ -44,7 +44,8 @@ export function buildFileTableRow(
         ? (metadata.chosen_date ?? metadata.raw_metadata_date ?? "No date")
         : "Reading...";
   // Only photos and videos get a place, so other rows stay blank while locating.
-  const locating = locatingPlace && (record.kind === "photo" || record.kind === "video");
+  // A place from a preview shows at once.
+  const locating = !place && locatingPlace && (record.kind === "photo" || record.kind === "video");
 
   return {
     id: record.id,

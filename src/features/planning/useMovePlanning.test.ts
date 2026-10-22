@@ -23,12 +23,23 @@ async function renderPlanning() {
 }
 
 describe("useMovePlanning", () => {
+  it("keeps waiting for the final places after a preview", async () => {
+    const { result } = await renderPlanning();
+
+    act(() => result.current.applyFilePlaces({}, true));
+    act(() => listeners.plan?.onSettled({ scan_id: 1 }));
+
+    expect(applyFilePlaces).toHaveBeenCalledWith(1, {}, true);
+    expect(result.current.waitingForPlaces()).toBe(true);
+    expect(result.current.planning).toBe(true);
+  });
+
   it("waits for the places, then shows the plans once the backend settles", async () => {
     const { result } = await renderPlanning();
     expect(result.current.planning).toBe(true);
 
-    act(() => result.current.applyFilePlaces({}));
-    expect(applyFilePlaces).toHaveBeenCalledWith(1, {});
+    act(() => result.current.applyFilePlaces({}, false));
+    expect(applyFilePlaces).toHaveBeenCalledWith(1, {}, false);
     act(() => listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] }));
     expect(result.current.planning).toBe(true);
     act(() => listeners.plan?.onSettled({ scan_id: 1 }));
@@ -79,7 +90,7 @@ describe("useMovePlanning", () => {
   it("clears the plans for a new destination and waits for the places again", async () => {
     const { result } = await renderPlanning();
     act(() => {
-      result.current.applyFilePlaces({});
+      result.current.applyFilePlaces({}, false);
       listeners.plan?.onFiles({ scan_id: 1, plans: [PLAN], errors: [] });
       listeners.plan?.onSettled({ scan_id: 1 });
     });

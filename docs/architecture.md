@@ -172,7 +172,7 @@ Each layer may depend only on the layers below it.
 
 The destination is the permanent library. Each photo and video goes to the folder of its place, by rules that depend only on the files of the scan. Files already in the destination stay where they are. To lay them out again, open the destination itself.
 
-`detect_file_places(scan_id, file_ids)` returns `PlaceDetection`: `file_places` and `status`. `home_location::detect_file_places` reads the saved home, then `file_places::PlaceScan` looks up each file on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup.
+`detect_file_places(scan_id, file_ids, preview)` returns `PlaceDetection`: `file_places` and `status`. `home_location::detect_file_places` reads the saved home, then `file_places::PlaceScan` looks up each file on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup.
 
 - **Place** of a file is the matched place, else the city, from `geo::resolve`. Different places that share a name get their region, as in `Central Park (New York)`.
 - **Country** is the place's country. The file table shows it in its own column.
@@ -184,8 +184,9 @@ The destination is the permanent library. Each photo and video goes to the folde
 - **Learned home** with no saved home or a `time_zone` home, the scan picks the city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`.
 - **One-off home** a scan under 60 days still uses that city for itself when it has 14 days and 30% of the days. It saves nothing, and a `time_zone` home wins over it.
 - **Status** is `found` when any file has a place, else `no_gps`.
+- **Preview** detection saves no learned home, since the files seen so far can point elsewhere.
 
-`apply_file_places(scan_id, file_places)` gives the places to the scan's session. `planner::PlaceFolders` puts each folder at the date level its files span within one year, counting the files of this scan only:
+`apply_file_places(scan_id, file_places, preview)` gives the places to the scan's session. `planner::PlaceFolders` puts each folder at the date level its files span within one year, counting the files of this scan only:
 
 | Files of the folder            | Level | Example                 |
 | ------------------------------ | ----- | ----------------------- |
@@ -203,13 +204,16 @@ The destination is the permanent library. Each photo and video goes to the folde
 - **Rename in place** renames the other files in their folder. Files with a place still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks use it too.
 - **Plans** carry `place` (`place`, `country`) for files that go to a place folder.
 
-`features/file-places` calls `detect_file_places` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
+`features/file-places` calls `detect_file_places` once per scan and home, 1 s after the last metadata lands, in both destination modes. A reset or a new home drops a late answer.
+
+- **Previews** `usePlacePreview` asks for places every 2 s while the scan and its dates are read, when new dates landed. The table shows the places and destinations they give. Levels and borrowed places can still change, so the final detection replaces them.
+- **Preview plans don't move** `apply_file_places` with `preview` plans the files, and the session keeps its moves waiting for the final places. A file read after a preview waits for the next one.
 
 - **Group by place** is a toolbar checkbox saved as `group_by_place` through `set_group_by_place`. Its tooltip counts the files with a place, or says none has GPS, and credits GeoNames and OpenStreetMap. With **Rename only** on it shows unchecked and disabled. Both lock once moves are confirmed.
-- **Waiting for places** each scan's session plans nothing until the first `apply_file_places`. With the box on, that comes once detection answers, fails, or the scan stops. So no file shows a date folder first, and the status bar says `Checking files` until then.
-- **Country and Place columns** in the file table read `file_places` by file id. Photos and videos show `Locating...` with a spinner until the answer lands, and the Destination column shows `Planning...` the same way, through the design-system `LoadingText`.
+- **Waiting for places** each scan's session plans nothing until the first `apply_file_places`. With the box on, the first preview or the final answer brings it. Moves wait for the final answer, which comes once detection answers, fails, or the scan stops. The status bar says `Checking files` until then.
+- **Country and Place columns** in the file table read `file_places` by file id. Photos and videos with no place yet show `Locating...` with a spinner until the answer lands, and the Destination column shows `Planning...` the same way, through the design-system `LoadingText`.
 
-Each answer goes to `apply_file_places`. With the box off it gets none. Each plan signature in `scan_session` holds the file's place folders and their levels, so only files whose folder changed get planned again. Toggling the box or a new destination calls `clear_scan_plans` and detects again. A new scan starts a new session. After moves are confirmed, a later answer changes no plan.
+Each answer goes to `apply_file_places`. With the box off it gets none. Each plan signature in `scan_session` holds the file's place folders and their levels, so only files whose folder changed get planned again. Toggling the box or a new destination calls `clear_scan_plans` and detects again. A new scan starts a new session. After moves are confirmed and the final places apply, a later answer changes no plan.
 
 Place folders are desktop only. The Android app keeps dated folders.
 

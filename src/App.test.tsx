@@ -72,7 +72,7 @@ describe("App", () => {
     });
     // Plans wait for place detection, so no file shows a date folder first.
     expect(api.applyFilePlaces).not.toHaveBeenCalled();
-    await waitFor(() => expect(api.applyFilePlaces).toHaveBeenCalledWith(1, {}), {
+    await waitFor(() => expect(api.applyFilePlaces).toHaveBeenCalledWith(1, {}, false), {
       timeout: 3000
     });
 

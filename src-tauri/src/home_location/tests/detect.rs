@@ -6,7 +6,7 @@ fn a_saved_home_puts_a_trip_abroad_in_its_country() {
     let (_temp, store) = store_with_home("Sydney", (-33.8679, 151.2073), HomeSource::Manual);
     let (files, metadata) = daily("2025-10-01", 20, HOUSTON);
 
-    let found = detect_file_places(&store, &files, &metadata)
+    let found = detect_file_places(&store, &files, &metadata, true)
         .expect("places")
         .file_places;
 
@@ -24,7 +24,7 @@ fn a_scan_with_60_days_at_home_saves_it_as_learned() {
     let (_temp, store) = empty_store();
     let (files, metadata) = daily("2025-01-01", 60, LIVERPOOL_NSW);
 
-    detect_file_places(&store, &files, &metadata).expect("places");
+    detect_file_places(&store, &files, &metadata, true).expect("places");
 
     let home = saved_home(&store).expect("a learned home");
     assert_eq!(home.name, "Liverpool");
@@ -40,7 +40,7 @@ fn a_smaller_scan_infers_home_for_itself_and_saves_none() {
     files.extend(trip_files);
     metadata.extend(trip_metadata);
 
-    let found = detect_file_places(&store, &files, &metadata)
+    let found = detect_file_places(&store, &files, &metadata, true)
         .expect("places")
         .file_places;
 
@@ -55,7 +55,7 @@ fn a_large_scan_keeps_the_saved_home() {
     let (_temp, store) = store_with_home("Houston", HOUSTON, HomeSource::Manual);
     let (files, metadata) = daily("2025-01-01", 90, LIVERPOOL_NSW);
 
-    detect_file_places(&store, &files, &metadata).expect("places");
+    detect_file_places(&store, &files, &metadata, true).expect("places");
 
     let home = saved_home(&store).expect("the saved home");
     assert_eq!(

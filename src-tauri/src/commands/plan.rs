@@ -9,16 +9,18 @@ use crate::{
 };
 
 /// Plans every file of the scan with a date into its place folder, or a date folder when
-/// `file_places` has none for it. Files read later are planned as they come.
+/// `file_places` has none for it. Files read later are planned as they come. Plans of a
+/// `preview` wait for the final places before any file moves.
 #[tauri::command]
 pub async fn apply_file_places(
     scan_id: u64,
     file_places: HashMap<String, FilePlace>,
+    preview: bool,
     app: AppHandle,
 ) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
     run_blocking(move || {
-        session.set_places(&app, file_places);
+        session.set_places(&app, file_places, preview);
         Ok(())
     })
     .await
