@@ -1,5 +1,6 @@
-import type { ColumnDef, ColumnSizingState } from "@tanstack/react-table";
+import type { ColumnSizingState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
+import type { TableColumnDef } from "./tableFeatures";
 
 export interface TableColumn<TColumnKey extends string> {
   key: TColumnKey;
@@ -21,7 +22,7 @@ export interface ResizableVirtualTableProps<
   rows: TRow[];
   label: string;
   columns: readonly TableColumn<TColumnKey>[];
-  columnDefs: ColumnDef<TRow>[];
+  columnDefs: TableColumnDef<TRow>[];
   defaultColumnSizing: ColumnSizingState;
   onAutoSizeColumns: () => ColumnSizingState;
   virtualized?: boolean;

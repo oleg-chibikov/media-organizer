@@ -1,9 +1,10 @@
-import { flexRender, type Row } from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
+import type { TableRowModel } from "./tableFeatures";
 import type { RowBehavior } from "./types";
 
-interface TableRowProps<TRow> extends RowBehavior<TRow> {
-  row: Row<TRow>;
+interface TableRowProps<TRow extends object> extends RowBehavior<TRow> {
+  row: TableRowModel<TRow>;
   sourceRow: TRow;
   rowIndex: number;
   layoutClassName: string;
@@ -13,7 +14,7 @@ interface TableRowProps<TRow> extends RowBehavior<TRow> {
 // The header is row 1, so data rows start at aria-rowindex 2.
 const FIRST_DATA_ROW_INDEX = 2;
 
-export function TableRow<TRow>({
+export function TableRow<TRow extends object>({
   row,
   sourceRow,
   rowIndex,
@@ -36,7 +37,7 @@ export function TableRow<TRow>({
       onClick={onRowClick ? () => onRowClick(sourceRow, rowIndex) : undefined}
       style={style}
     >
-      {row.getVisibleCells().map((cell) => {
+      {row.getAllCells().map((cell) => {
         const renderedCell = flexRender(cell.column.columnDef.cell, cell.getContext());
         const wrappedCell = renderCellWrapper?.(sourceRow, rowIndex, cell.column.id, renderedCell);
         return (

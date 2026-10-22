@@ -1,12 +1,12 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResizableVirtualTable } from "./ResizableVirtualTable";
+import type { TableColumnDef } from "./tableFeatures";
 
 type Row = { id: string; name: string };
 
 const COLUMNS = [{ key: "name", label: "Name" }] as const;
-const COLUMN_DEFS: ColumnDef<Row>[] = [{ id: "name", header: "Name", accessorKey: "name" }];
+const COLUMN_DEFS: TableColumnDef<Row>[] = [{ id: "name", header: "Name", accessorKey: "name" }];
 const SIZING = { name: 120 };
 
 afterEach(cleanup);

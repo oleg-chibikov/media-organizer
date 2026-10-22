@@ -1,6 +1,8 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
-import { ResizableVirtualTable } from "../../components/design-system/ResizableVirtualTable";
+import {
+  ResizableVirtualTable,
+  type TableColumnDef
+} from "../../components/design-system/ResizableVirtualTable";
 import type { HistoryIndexEntry } from "../../lib/types";
 import {
   buildRecentRunRows,
@@ -30,7 +32,7 @@ export function RecentRunsTable({
 }: RecentRunsTableProps) {
   const rows = useMemo(() => buildRecentRunRows(runs), [runs]);
 
-  const columnDefs = useMemo<ColumnDef<RecentRunTableRow>[]>(
+  const columnDefs = useMemo<TableColumnDef<RecentRunTableRow>[]>(
     () =>
       RECENT_RUN_COLUMNS.map((column) => ({
         id: column.key,

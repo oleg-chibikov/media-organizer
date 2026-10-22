@@ -1,18 +1,18 @@
-import type { Row } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { TableRow } from "./TableRow";
+import type { TableRowModel } from "./tableFeatures";
 import type { RowBehavior } from "./types";
 
-interface TableBodyProps<TRow> {
+interface TableBodyProps<TRow extends object> {
   rows: TRow[];
-  tableRows: Row<TRow>[];
+  tableRows: TableRowModel<TRow>[];
   gridTemplateColumns: string;
   rowBehavior: RowBehavior<TRow>;
   // Renders only the rows in view; without it every row renders.
   rowVirtualizer: Virtualizer<HTMLDivElement, Element> | null;
 }
 
-export function TableBody<TRow>({
+export function TableBody<TRow extends object>({
   rows,
   tableRows,
   gridTemplateColumns,

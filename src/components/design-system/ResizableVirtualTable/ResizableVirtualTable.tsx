@@ -1,9 +1,10 @@
-import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import { useTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 import { TableHeader } from "./TableHeader";
 import { TableBody } from "./TableBody";
 import type { ResizableVirtualTableProps } from "./types";
+import { TABLE_FEATURES } from "./tableFeatures";
 import { useColumnSizing } from "./useColumnSizing";
 
 export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey extends string>({
@@ -24,11 +25,11 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
     onAutoSizeColumns
   });
 
-  const table = useReactTable({
+  const table = useTable({
+    features: TABLE_FEATURES,
     data: rows,
     columns: columnDefs,
     getRowId: (row) => row.id,
-    getCoreRowModel: getCoreRowModel(),
     columnResizeMode: "onChange",
     enableColumnResizing: true,
     state: { columnSizing },
@@ -44,7 +45,7 @@ export function ResizableVirtualTable<TRow extends { id: string }, TColumnKey ex
   });
 
   const gridTemplateColumns = table
-    .getVisibleLeafColumns()
+    .getAllLeafColumns()
     .map((column) => `${column.getSize()}px`)
     .join(" ");
 

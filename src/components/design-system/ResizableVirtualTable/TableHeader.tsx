@@ -1,9 +1,10 @@
-import { flexRender, type Table } from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table";
 import type { KeyboardEvent, MouseEvent, TouchEvent } from "react";
 import { Button } from "../Button";
+import type { TableInstance } from "./tableFeatures";
 
-interface TableHeaderProps<TRow> {
-  table: Table<TRow>;
+interface TableHeaderProps<TRow extends object> {
+  table: TableInstance<TRow>;
   gridTemplateColumns: string;
   onResizeStart: (columnId: string) => void;
   onResizeTo: (columnId: string, width: number) => void;
@@ -11,7 +12,7 @@ interface TableHeaderProps<TRow> {
 
 const RESIZE_KEY_STEPS: Partial<Record<string, number>> = { ArrowLeft: -16, ArrowRight: 16 };
 
-export function TableHeader<TRow>({
+export function TableHeader<TRow extends object>({
   table,
   gridTemplateColumns,
   onResizeStart,
