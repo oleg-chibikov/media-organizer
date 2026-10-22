@@ -24,6 +24,11 @@ export const clearScanPlans = (scanId: number) =>
 export const getMoveConfirmationSummary = (scanId: number, fileIds: string[]) =>
   invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", { scanId, fileIds });
 
+/** Moves earlier days of the scan's places into the places' new folders in the same run,
+ * or leaves them where they are. Every file of the scan plans again. */
+export const setGatherLibrary = (scanId: number, gather: boolean) =>
+  invokeCommand<void>("set_gather_library", { scanId, gather });
+
 export interface PlanListeners {
   onFiles: (payload: PlanFilesEvent) => void;
   onCleared: (payload: PlanClearedEvent) => void;

@@ -82,4 +82,17 @@ pub struct MoveConfirmationSummary {
     pub fallback_warnings: u64,
     pub photos_ready: u64,
     pub videos_ready: u64,
+    /// Earlier days of the scan's places move into their new folders too.
+    pub gather_library: bool,
+    pub library_folders: Vec<LibraryFolderMove>,
+}
+
+/// A folder from an earlier run with files of a place on other days. Its files move into the
+/// place's new folder in the same run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct LibraryFolderMove {
+    pub from: String,
+    pub to: String,
+    pub files: u64,
 }

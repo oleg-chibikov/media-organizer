@@ -26,9 +26,12 @@ impl DaySpan {
         self.0.insert((date.month(), date.day()));
     }
 
+    pub(super) fn months(&self) -> BTreeSet<u32> {
+        self.0.iter().map(|(month, _)| *month).collect()
+    }
+
     pub(super) fn level(&self) -> PlaceLevel {
-        let months: BTreeSet<u32> = self.0.iter().map(|(month, _)| *month).collect();
-        if months.len() > 1 {
+        if self.months().len() > 1 {
             PlaceLevel::Year
         } else if self.0.len() > 1 {
             PlaceLevel::Month

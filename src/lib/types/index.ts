@@ -15,6 +15,7 @@ export type { HistoryRunStatus } from "./generated/HistoryRunStatus";
 export type { HomeCandidate } from "./generated/HomeCandidate";
 export type { HomeLocation } from "./generated/HomeLocation";
 export type { HomeSource } from "./generated/HomeSource";
+export type { LibraryFolderMove } from "./generated/LibraryFolderMove";
 export type { MetadataFinishedEvent } from "./generated/MetadataFinishedEvent";
 export type { MetadataResult } from "./generated/MetadataResult";
 export type { MetadataResultsEvent } from "./generated/MetadataResultsEvent";

@@ -1,6 +1,6 @@
 import type { FileIdMap } from "../../lib/fileIdMap";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { getMoveConfirmationSummary } from "../../lib/api";
+import { getMoveConfirmationSummary, setGatherLibrary } from "../../lib/api";
 import type {
   FileRecord,
   MetadataResult,
@@ -36,11 +36,18 @@ export function useMoveConfirmation({
   onConfirmed
 }: MoveConfirmationOptions) {
   const [pending, setPending] = useState<PendingConfirmation | null>(null);
+  const [gathering, setGathering] = useState(false);
   const askingRef = useRef(false);
   const onConfirmedRef = useRef(onConfirmed);
   useEffect(() => {
     onConfirmedRef.current = onConfirmed;
   });
+
+  const fetchSummary = (scanId: number) =>
+    getMoveConfirmationSummary(
+      scanId,
+      confirmationFileIds(rows, metadataByFileId, movePlansByFileId)
+    );
 
   const request = async () => {
     if (askingRef.current || pending) {
@@ -53,8 +60,7 @@ export function useMoveConfirmation({
       if (scanId === null) {
         return;
       }
-      const fileIds = confirmationFileIds(rows, metadataByFileId, movePlansByFileId);
-      const summary = await getMoveConfirmationSummary(scanId, fileIds);
+      const summary = await fetchSummary(scanId);
       if (rowByIdRef.current === scanSession) {
         setPending({ summary, scanSession });
       }
@@ -62,6 +68,28 @@ export function useMoveConfirmation({
       reportError(`Failed to prepare the move summary: ${String(error)}`);
     } finally {
       askingRef.current = false;
+    }
+  };
+
+  // The box flips at once. The backend plans every file again, then sends the new summary.
+  const gatherLibrary = async (gather: boolean) => {
+    const scanId = scanIdRef.current;
+    if (!pending || scanId === null) {
+      return;
+    }
+    const { scanSession } = pending;
+    setPending({ ...pending, summary: { ...pending.summary, gather_library: gather } });
+    setGathering(true);
+    try {
+      await setGatherLibrary(scanId, gather);
+      const summary = await fetchSummary(scanId);
+      if (rowByIdRef.current === scanSession) {
+        setPending((current) => (current ? { summary, scanSession } : null));
+      }
+    } catch (error) {
+      reportError(`Failed to plan earlier days again: ${String(error)}`);
+    } finally {
+      setGathering(false);
     }
   };
 
@@ -74,5 +102,5 @@ export function useMoveConfirmation({
 
   const cancel = useCallback(() => setPending(null), []);
 
-  return { summary: pending?.summary ?? null, request, confirm, cancel };
+  return { summary: pending?.summary ?? null, gathering, request, gatherLibrary, confirm, cancel };
 }

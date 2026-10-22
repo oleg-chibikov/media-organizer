@@ -132,6 +132,8 @@ export default function App() {
           renamesInPlace={renamesInPlace}
           stillChecking={planning.stillChecking}
           groupByPlace={session.groupByPlace}
+          gathering={moves.confirmation.gathering}
+          onGatherLibraryChange={moves.confirmation.gatherLibrary}
           onConfirm={moves.confirmation.confirm}
           onCancel={moves.confirmation.cancel}
         />

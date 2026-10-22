@@ -99,7 +99,7 @@ flowchart LR
   planF -->|"apply_file_places,<br/>clear_scan_plans,<br/>detect_file_places"| planner
   homeF -->|"search_home_cities,<br/>set_home_location,<br/>use_current_location"| settings
   planner -.->|"plan:* events"| planF
-  movesF -->|"get_move_confirmation_summary,<br/>start_moves, pause_moves,<br/>resume_moves"| mover
+  movesF -->|"get_move_confirmation_summary,<br/>set_gather_library, start_moves,<br/>pause_moves, resume_moves"| mover
   mover -.->|"move:* events"| movesF
   histF -->|"list, get, delete,<br/>undo, redo history run"| hist
   hist -.->|"history:* events"| histF
@@ -138,7 +138,7 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
-- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. It also owns the scan's plans: it plans read files, applies place folders and clears plans for a new destination. It runs the confirmed moves too. `detect_file_places`, `get_move_confirmation_summary` and `start_moves` take the `scan_id`, and look the files and plans up there. A new scan stops the run of the one it replaced after the file moving now. A command for a replaced scan fails.
+- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. It also owns the scan's plans: it plans read files, applies place folders, plans the library moves of earlier days and clears plans for a new destination. It runs the confirmed moves too. `detect_file_places`, `get_move_confirmation_summary` and `start_moves` take the `scan_id`, and look the files and plans up there. A new scan stops the run of the one it replaced after the file moving now. A command for a replaced scan fails.
 - `scan_metadata/`: reader threads that read the dates of a running scan's photos and videos, pause with `set_metadata_paused`, and stop with the scan.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files with a place. A file that already has its planned name gets `already_named` and stays out of the move.
@@ -170,7 +170,7 @@ Each layer may depend only on the layers below it.
 
 ## Place Folders
 
-The destination is the permanent library. Each photo and video goes to the folder of its place, by rules that depend only on the files of the scan. Files already in the destination stay where they are. To lay them out again, open the destination itself.
+The destination is the permanent library. Each photo and video goes to the folder of its place, by rules that depend on the files of the scan and the destination's folders of the same places on nearby days. Other files already in the destination stay where they are. To lay them out again, open the destination itself.
 
 `detect_file_places(scan_id, file_ids, preview)` returns `PlaceDetection`: `file_places` and `status`. `home_location::detect_file_places` reads the saved home, then `file_places::PlaceScan` looks up each file on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup.
 
@@ -202,6 +202,9 @@ The destination is the permanent library. Each photo and video goes to the folde
 - **Other files** keep `<root>/<year>/<month>/<day>`.
 - **Checks** each name must be one plain folder name, and gets the Windows-safe form.
 - **Rename in place** renames the other files in their folder. Files with a place still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks use it too.
+- **Earlier days** of a place count toward its level. `PlaceFolders::gather_nearby` looks for the place in day and month folders of its months and the months next to them, in the same year. Dubai in `2024/3/4/Dubai` plus a scan of March 7 gives `2024/3/Dubai/7`.
+- **Library moves** take the photos and videos of those folders to the folder of their day, with their names and subfolders: `2024/3/4/Dubai/a.jpg` goes to `2024/3/Dubai/4/a.jpg`. `PlaceFolders::library_moves` plans them. Files inside the selected folder are scan files and plan as usual. Other files stay. The session adds them to its records and plans, outside the `plan:files` events, so they move, log and undo in the same run. After the run, `safe_fs::remove_empty_dir_within` removes their emptied folders and parents up to the root.
+- **The confirmation** lists the folders in `MoveConfirmationSummary.library_folders`. Its box calls `set_gather_library(scan_id, gather)`, which keeps earlier days apart for this scan and plans every file again.
 - **Plans** carry `place` (`place`, `country`) for files that go to a place folder.
 
 `features/file-places` calls `detect_file_places` once per scan and home, 1 s after the last metadata lands, in both destination modes. A reset or a new home drops a late answer.

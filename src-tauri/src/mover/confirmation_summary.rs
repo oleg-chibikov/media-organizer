@@ -36,6 +36,8 @@ pub(crate) fn build_move_confirmation_summary(
         fallback_warnings: 0,
         photos_ready: 0,
         videos_ready: 0,
+        gather_library: true,
+        library_folders: Vec::new(),
     };
 
     for plan in &plans {

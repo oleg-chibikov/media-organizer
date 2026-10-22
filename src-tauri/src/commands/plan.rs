@@ -47,9 +47,22 @@ pub fn get_move_confirmation_summary(
     let plans = session.plans(&file_ids)?;
     let files = session.records(&file_ids)?;
     let metadata_results = session.metadata(&file_ids);
-    Ok(mover::build_move_confirmation_summary(
-        &files,
-        &metadata_results,
-        &plans,
-    ))
+    let (gather_library, library_folders) = session.library_folders();
+    Ok(MoveConfirmationSummary {
+        gather_library,
+        library_folders,
+        ..mover::build_move_confirmation_summary(&files, &metadata_results, &plans)
+    })
+}
+
+/// Moves earlier days of the scan's places into the places' new folders, or leaves them
+/// where they are. Every file plans again.
+#[tauri::command]
+pub async fn set_gather_library(scan_id: u64, gather: bool, app: AppHandle) -> Result<(), String> {
+    let session = scan_session(&app, scan_id)?;
+    run_blocking(move || {
+        session.set_gather_library(&app, gather);
+        Ok(())
+    })
+    .await
 }

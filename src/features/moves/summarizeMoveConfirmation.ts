@@ -24,7 +24,10 @@ export function summarizeMoveConfirmation(
     suffix_applied: 0,
     fallback_warnings: 0,
     photos_ready: 0,
-    videos_ready: 0
+    videos_ready: 0,
+    // Only the backend knows the destination's earlier days, in the summary it sends.
+    gather_library: true,
+    library_folders: []
   };
 
   for (const plan of plans) {

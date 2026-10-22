@@ -2,8 +2,11 @@
 
 mod destination_allocation;
 mod destination_layout;
+mod dir_probe;
 mod existing_folders;
 mod file_plan;
+mod library_moves;
+mod nearby_folders;
 mod place_folders;
 mod place_level;
 mod reservations;
@@ -16,6 +19,7 @@ use std::collections::HashMap;
 use crate::models::{FileKind, FileRecord, MetadataResult, MovePlan, PlanFileError};
 pub(crate) use destination_layout::DestinationLayout;
 use file_plan::create_plan_for_file;
+pub(crate) use library_moves::LibraryMoves;
 pub(crate) use place_folders::PlaceFolders;
 pub(crate) use reservations::Reservations;
 

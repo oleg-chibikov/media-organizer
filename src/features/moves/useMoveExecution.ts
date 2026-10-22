@@ -83,6 +83,8 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     canRunExecutionAction: execution.confirmed || canStart,
     confirmation: {
       summary: confirmation.summary,
+      gathering: confirmation.gathering,
+      gatherLibrary: (gather: boolean) => void confirmation.gatherLibrary(gather),
       confirm: confirmation.confirm,
       cancel: confirmation.cancel
     },

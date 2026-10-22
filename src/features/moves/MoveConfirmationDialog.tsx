@@ -1,6 +1,7 @@
 import { Button } from "../../components/design-system/Button";
 import { Dialog } from "../../components/design-system/Dialog";
 import type { MoveConfirmationSummary } from "../../lib/types";
+import { LibraryFolders } from "./LibraryFolders";
 import { fileCountLabel, moveConfirmationNotes } from "./moveConfirmationPrompt";
 
 interface MoveConfirmationDialogProps {
@@ -11,6 +12,9 @@ interface MoveConfirmationDialogProps {
   stillChecking: boolean;
   // Grouped files wait for every date, since their place folders depend on all files.
   groupByPlace: boolean;
+  // The backend is planning again after the person changed the earlier days box.
+  gathering: boolean;
+  onGatherLibraryChange: (gather: boolean) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,6 +25,8 @@ export function MoveConfirmationDialog({
   renamesInPlace,
   stillChecking,
   groupByPlace,
+  gathering,
+  onGatherLibraryChange,
   onConfirm,
   onCancel
 }: MoveConfirmationDialogProps) {
@@ -38,7 +44,12 @@ export function MoveConfirmationDialog({
           <Button variant="secondary" className="px-3 py-1.5 text-sm" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="primary" className="px-3 py-1.5 text-sm" onClick={onConfirm}>
+          <Button
+            variant="primary"
+            className="px-3 py-1.5 text-sm"
+            disabled={gathering}
+            onClick={onConfirm}
+          >
             {verb} {files}
           </Button>
         </>
@@ -68,6 +79,13 @@ export function MoveConfirmationDialog({
           ))}
         </ul>
       ) : null}
+      <LibraryFolders
+        gather={summary.gather_library}
+        folders={summary.library_folders}
+        destinationRoot={destinationRoot}
+        busy={gathering}
+        onChange={onGatherLibraryChange}
+      />
       {stillChecking ? (
         <p className="mt-3 text-amber-200">
           {groupByPlace

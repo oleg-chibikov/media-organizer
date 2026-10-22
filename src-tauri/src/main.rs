@@ -104,6 +104,7 @@ pub fn run() {
             plan::apply_file_places,
             plan::clear_scan_plans,
             plan::get_move_confirmation_summary,
+            plan::set_gather_library,
             places::detect_file_places,
             home::search_home_cities,
             home::set_home_location,

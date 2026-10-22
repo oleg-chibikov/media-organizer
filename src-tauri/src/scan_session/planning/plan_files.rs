@@ -128,19 +128,8 @@ impl ScanSession {
         candidates
     }
 
-    /// Raises place folders to where the destination already has them. A layout error
-    /// shows on the files once they plan.
-    pub(super) fn reuse_existing_folders(&self, planning: &mut Planning) {
-        let Ok(layout) = self.layout(planning) else {
-            return;
-        };
-        if let (Some(root), Some(folders)) = (layout.place_root(), planning.places.as_mut()) {
-            folders.reuse_existing(root);
-        }
-    }
-
     /// The layout is resolved once per set of places, since it reads the settings and the folder.
-    fn layout(&self, planning: &mut Planning) -> Result<DestinationLayout, String> {
+    pub(super) fn layout(&self, planning: &mut Planning) -> Result<DestinationLayout, String> {
         if let Some(layout) = &planning.layout {
             return Ok(layout.clone());
         }

@@ -21,7 +21,7 @@ impl Reservations {
         &mut self.paths
     }
 
-    pub(super) fn release(&mut self, file_id: &str) {
+    pub(crate) fn release(&mut self, file_id: &str) {
         if let Some(path) = self.by_file.remove(file_id) {
             self.paths.remove(&path);
         }

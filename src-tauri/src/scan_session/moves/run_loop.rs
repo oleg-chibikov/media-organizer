@@ -72,6 +72,7 @@ impl ScanSession {
     }
 
     fn clean_source(&self, sink: &impl EventSink) {
+        self.remove_emptied_library_folders();
         let context = &self.context;
         match move_run::remove_empty_source_folders(&context.settings, &context.folder) {
             Ok(removed) => self.report_done(sink, removed, None),

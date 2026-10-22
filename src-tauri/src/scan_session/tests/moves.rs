@@ -14,7 +14,7 @@ use crate::{
 
 const DATE: &str = "2026-03-05 07:20:17";
 
-fn wait_for(sink: &RecordingSink, event: &str) -> Option<serde_json::Value> {
+pub(super) fn wait_for(sink: &RecordingSink, event: &str) -> Option<serde_json::Value> {
     let deadline = Instant::now() + Duration::from_secs(5);
     while Instant::now() < deadline {
         if let Some(payload) = sink.payloads(event).pop() {

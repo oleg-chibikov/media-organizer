@@ -4,6 +4,7 @@ mod file_plan;
 mod home_city;
 mod in_place;
 mod in_place_places;
+mod nearby_folders;
 mod place_levels;
 mod streaming;
 

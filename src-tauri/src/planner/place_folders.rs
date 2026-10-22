@@ -24,7 +24,7 @@ pub(super) type PlaceKey = (i32, Option<String>, String);
 /// city have no place folders.
 #[derive(Debug, Default)]
 pub(crate) struct PlaceFolders {
-    by_file: HashMap<String, (FilePlace, PlaceKey)>,
+    pub(super) by_file: HashMap<String, (FilePlace, PlaceKey)>,
     pub(super) countries: HashMap<CountryKey, FolderSpan>,
     pub(super) places: HashMap<PlaceKey, FolderSpan>,
 }
@@ -98,6 +98,10 @@ impl PlaceFolders {
     /// The country folder, when there is one, then the place folder, each with its level.
     fn folders(&self, file_id: &str) -> Option<Vec<(&str, PlaceLevel)>> {
         let (_, key) = self.by_file.get(file_id)?;
+        Some(self.key_folders(key))
+    }
+
+    pub(super) fn key_folders<'a>(&'a self, key: &'a PlaceKey) -> Vec<(&'a str, PlaceLevel)> {
         let (year, country, place) = key;
         let mut folders = Vec::with_capacity(2);
         if let Some(country) = country {
@@ -105,7 +109,7 @@ impl PlaceFolders {
             folders.push((country.as_str(), span.level));
         }
         folders.push((place.as_str(), self.places[key].level));
-        Some(folders)
+        folders
     }
 }
 

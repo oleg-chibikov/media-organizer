@@ -9,24 +9,41 @@ const SUMMARY = {
   ready_operations: 57,
   skipped_operations: 1,
   fallback_warnings: 5,
-  suffix_applied: 0
-} as MoveConfirmationSummary;
+  suffix_applied: 0,
+  gather_library: true,
+  library_folders: []
+} as unknown as MoveConfirmationSummary;
 
-function renderDialog(stillChecking: boolean, renamesInPlace = false, groupByPlace = false) {
+const WITH_EARLIER_DAY: MoveConfirmationSummary = {
+  ...SUMMARY,
+  library_folders: [
+    { from: "D:\\Media\\2024\\3\\4\\Dubai", to: "D:\\Media\\2024\\3\\Dubai", files: 10 }
+  ]
+};
+
+function renderDialog(
+  stillChecking: boolean,
+  renamesInPlace = false,
+  groupByPlace = false,
+  summary = SUMMARY
+) {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
+  const onGatherLibraryChange = vi.fn();
   render(
     <MoveConfirmationDialog
-      summary={SUMMARY}
+      summary={summary}
       destinationRoot={"D:\\Media"}
       renamesInPlace={renamesInPlace}
       stillChecking={stillChecking}
       groupByPlace={groupByPlace}
+      gathering={false}
+      onGatherLibraryChange={onGatherLibraryChange}
       onConfirm={onConfirm}
       onCancel={onCancel}
     />
   );
-  return { onConfirm, onCancel };
+  return { onConfirm, onCancel, onGatherLibraryChange };
 }
 
 describe("MoveConfirmationDialog", () => {
@@ -39,6 +56,7 @@ describe("MoveConfirmationDialog", () => {
     expect(screen.getByText(/1 file stays where it is/)).toBeInTheDocument();
     expect(screen.queryByText(/number added/)).not.toBeInTheDocument();
     expect(screen.queryByText(/still being checked/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Move 57 files" }));
@@ -73,5 +91,16 @@ describe("MoveConfirmationDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Rename 57 files" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists earlier days that move too, and lets the person leave them", () => {
+    const { onGatherLibraryChange } = renderDialog(false, false, false, WITH_EARLIER_DAY);
+
+    expect(screen.getByText("2024\\3\\4\\Dubai")).toBeInTheDocument();
+    expect(screen.getByText("2024\\3\\Dubai")).toBeInTheDocument();
+    expect(screen.getByText(/10 files/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /earlier days/ }));
+    expect(onGatherLibraryChange).toHaveBeenCalledWith(false);
   });
 });

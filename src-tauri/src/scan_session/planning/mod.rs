@@ -1,6 +1,7 @@
 //! The scan's plans. The backend plans each file once its date is read and the person's
 //! place folders are known, so the webview only mirrors the `plan:*` events.
 
+mod library;
 mod plan_files;
 mod signature;
 
@@ -14,7 +15,7 @@ use super::ScanSession;
 use crate::{
     events::{self, EventSink},
     models::{FilePlace, MetadataResult, MovePlan, PlanClearedEvent, PlanSettledEvent, PlanStatus},
-    planner::{DestinationLayout, PlaceFolders, Reservations},
+    planner::{DestinationLayout, LibraryMoves, PlaceFolders, Reservations},
     settings::SettingsStore,
 };
 
@@ -36,6 +37,12 @@ pub(super) struct Planning {
     signatures: HashMap<String, String>,
     plans: HashMap<String, MovePlan>,
     reservations: Reservations,
+    /// The places last applied, so a new choice about earlier days can plan again.
+    file_places: Option<HashMap<String, FilePlace>>,
+    /// The person chose to leave earlier days of the scan's places where they are.
+    library_apart: bool,
+    /// Files of earlier runs that move into their place's new folder.
+    library: LibraryMoves,
 }
 
 impl ScanSession {
@@ -60,14 +67,17 @@ impl ScanSession {
         let mut planning = self.planning();
         planning.preview = preview;
         let file_ids = self.read_file_ids();
-        match PlaceFolders::new(&file_places, &self.all_metadata()) {
+        let folders = PlaceFolders::new(&file_places, &self.all_metadata());
+        planning.file_places = Some(file_places);
+        match folders {
             Ok(folders) => {
                 planning.places = Some(folders);
                 planning.layout = None;
-                self.reuse_existing_folders(&mut planning);
+                self.fit_destination(&mut planning);
                 self.plan_files(sink, &mut planning, &file_ids);
             }
             Err(error) => {
+                self.drop_library(&mut planning);
                 planning.places = Some(PlaceFolders::default());
                 planning.layout = None;
                 self.fail_all(sink, &file_ids, &error);
@@ -80,7 +90,14 @@ impl ScanSession {
 
     /// Drops every plan, as for a new destination, and waits for the place folders again.
     pub(crate) fn clear_plans(&self, sink: &impl EventSink) {
-        *self.planning() = Planning::default();
+        let mut planning = self.planning();
+        self.drop_library(&mut planning);
+        let library_apart = planning.library_apart;
+        *planning = Planning {
+            library_apart,
+            ..Planning::default()
+        };
+        drop(planning);
         let scan_id = self.scan_id;
         events::plan_cleared(sink, PlanClearedEvent { scan_id });
     }
