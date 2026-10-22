@@ -12,8 +12,8 @@ jobs:
   knip:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
         with:
           install_args: node pnpm
       - run: mise x -- pnpm install --frozen-lockfile
@@ -22,8 +22,8 @@ jobs:
   cargo-shear:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
         with:
           install_args: rust github:Boshen/cargo-shear
       - run: mise x -- cargo shear --deny-warnings src-tauri
