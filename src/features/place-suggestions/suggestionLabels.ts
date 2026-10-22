@@ -25,11 +25,23 @@ export function suggestionSize(suggestion: PlaceSuggestion): string {
   return suggestion.kind === "trip" ? `${files}, ${plural(dayCount(suggestion), "day")}` : files;
 }
 
-export function placePromptLabel(suggestions: PlaceSuggestion[]): string {
-  const [only] = suggestions;
-  if (suggestions.length === 1 && only) {
-    const heading = only.continues ? continuedLabel(only.continues) : suggestionHeading(only);
-    return `${heading}: ${suggestionSize(only)}. Review folders`;
+// How many names the banner lists before it counts the rest.
+const BANNER_NAMES = 3;
+
+function bannerItem(suggestion: PlaceSuggestion): string {
+  if (suggestion.continues) {
+    return continuedLabel(suggestion.continues);
   }
-  return `${plural(suggestions.length, "place folder")} suggested. Review`;
+  const heading = suggestionHeading(suggestion);
+  return suggestion.kind === "trip"
+    ? `${heading} (${plural(dayCount(suggestion), "day")})`
+    : heading;
+}
+
+// One line, for example "Found 2 places: Trip to Italy (5 days), Royal Botanic Gardens."
+export function placeBannerLabel(suggestions: PlaceSuggestion[]): string {
+  const names = suggestions.slice(0, BANNER_NAMES).map(bannerItem);
+  const rest = suggestions.length - names.length;
+  const list = rest > 0 ? `${names.join(", ")} and ${rest} more` : names.join(", ");
+  return `Found ${plural(suggestions.length, "place")}: ${list}.`;
 }

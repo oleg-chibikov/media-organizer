@@ -193,7 +193,13 @@ Each layer may depend only on the layers below it.
 - **Rename in place** renames the other files in their folder. Files in an accepted suggestion still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks and the registry use it too.
 - **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
 
-`features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, in both destination modes. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
+`features/place-suggestions` calls `detect_place_suggestions` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
+
+- **Group by place** sits in the toolbar while a folder is open and no files move. It shows a spinner and `Finding locations… N/M` (photos and videos with metadata read, out of all of them) until the answer lands. Then it opens the review with the count, or stays focusable with the reason from `status`.
+- **Banner** above the table says `Finding locations…` while locating, then lists the places with Review folders and a dismiss button. Dismissing hides the banner only. The toolbar button still opens the review.
+- **Place column** in the file table reads `file_places` by file id. Files with no GPS get an empty cell.
+
+Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
 
 Place folders are desktop only. The Android app keeps dated folders.
 

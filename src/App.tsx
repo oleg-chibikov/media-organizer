@@ -4,7 +4,11 @@ import { EmptyFileList, FileTable } from "./features/file-table";
 import { HistoryMenu } from "./features/history";
 import { HomeLocationSection } from "./features/home-location";
 import { MoveConfirmationDialog } from "./features/moves";
-import { PlaceSuggestionPrompt, PlaceSuggestionsDialog } from "./features/place-suggestions";
+import {
+  GroupByPlaceButton,
+  PlaceSuggestionsBanner,
+  PlaceSuggestionsReview
+} from "./features/place-suggestions";
 import { StatusBar } from "./features/status-bar";
 import { Toolbar } from "./features/toolbar";
 
@@ -41,6 +45,11 @@ export default function App() {
             onOpenLog={history.openLog}
           />
         }
+        placeButton={
+          scan.selectedFolder && !execution.executing ? (
+            <GroupByPlaceButton places={places} />
+          ) : null
+        }
         renameToggle={
           <RenameInPlaceToggle
             checked={renamesInPlace}
@@ -73,6 +82,7 @@ export default function App() {
         onDismissError={session.dismissError}
       />
 
+      <PlaceSuggestionsBanner places={places} />
       <main className="min-h-0 flex-1">
         {scan.rows.length === 0 ? (
           <EmptyFileList
@@ -106,24 +116,9 @@ export default function App() {
         destinationRoot={effectiveDestination.rootPath}
         onExecutionAction={moves.runExecutionAction}
         onOpenDestination={session.openDestination}
-        placePrompt={
-          <PlaceSuggestionPrompt
-            suggestions={places.bannerVisible ? places.suggestions : []}
-            onReview={places.openReview}
-            onDismiss={places.dismiss}
-          />
-        }
       />
 
-      {places.reviewOpen ? (
-        <PlaceSuggestionsDialog
-          suggestions={places.suggestions}
-          choices={places.choices}
-          metadataByFileId={session.metadataByFileId}
-          onApply={places.apply}
-          onCancel={places.closeReview}
-        />
-      ) : null}
+      <PlaceSuggestionsReview places={places} metadataByFileId={session.metadataByFileId} />
 
       {moves.confirmation.summary ? (
         <MoveConfirmationDialog

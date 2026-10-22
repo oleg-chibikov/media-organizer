@@ -64,3 +64,5 @@ export function usePlaceSuggestions({
     reset
   };
 }
+
+export type PlaceSuggestionsState = ReturnType<typeof usePlaceSuggestions>;

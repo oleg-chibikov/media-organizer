@@ -5,7 +5,7 @@ import { FolderPreviewList } from "./FolderPreviewList";
 import { continuedLabel } from "./continuedLabel";
 import { hasEditableTitle, withChoiceNames, type PlaceChoice } from "./placeChoice";
 import { placeFolderPreview } from "./placeFolderPreview";
-import { suggestionHeading, suggestionSize } from "./placePromptLabel";
+import { suggestionHeading, suggestionSize } from "./suggestionLabels";
 
 interface PlaceSuggestionSectionProps {
   suggestion: PlaceSuggestion;

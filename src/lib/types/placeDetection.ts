@@ -1,7 +1,7 @@
 import type { PlaceSuggestion } from "./places";
 
 /** Why detection found suggestions, or the first reason it found none. */
-type DetectionStatus =
+export type DetectionStatus =
   | { kind: "found" }
   | { kind: "no_gps" }
   | { kind: "home_unknown" }

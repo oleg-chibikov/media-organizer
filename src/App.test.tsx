@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import type { MoveListeners, PlanListeners, ScanListeners } from "./lib/api";
@@ -32,6 +32,11 @@ vi.mock("./lib/api", async (importOriginal) => ({
   startScan: vi.fn(async () => undefined),
   readMetadataForFiles: vi.fn(async () => [METADATA]),
   createMovePlan: vi.fn(async () => undefined),
+  detectPlaceSuggestions: vi.fn(async () => ({
+    suggestions: [],
+    file_places: {},
+    status: { kind: "no_gps" }
+  })),
   getMoveConfirmationSummary: vi.fn(async () => ({
     ready_operations: 1,
     skipped_operations: 0,
@@ -74,7 +79,9 @@ describe("App", () => {
       listeners.plan?.onFile({ plan: PLAN });
       listeners.plan?.onFinished({ planned: 1, errors: 0 });
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Ready to move");
+    const statusBar = within(screen.getByRole("contentinfo"));
+    expect(statusBar.getByRole("status")).toHaveTextContent("Ready to move");
+    expect(await screen.findByText("No GPS in these files", {}, { timeout: 3000 })).toBeVisible();
     expect(screen.getByText("Ready: 1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
@@ -95,7 +102,7 @@ describe("App", () => {
       listeners.move?.onFile({ result });
       listeners.move?.onFinished({ moved: 1, copied: 0, skipped: 0, failed: 0, results: [result] });
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Done");
+    expect(statusBar.getByRole("status")).toHaveTextContent("Done");
     expect(screen.getByText("Moved: 1")).toBeInTheDocument();
     expect(screen.getByText(/Moved 1 file\./)).toBeInTheDocument();
     expect(api.removeEmptySourceFolders).toHaveBeenCalledWith("C:\\in");
