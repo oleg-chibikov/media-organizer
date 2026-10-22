@@ -2,6 +2,7 @@ mod continuation;
 mod country_matching;
 mod month_folder;
 mod month_placement;
+mod placed_rescan;
 mod placed_scan;
 mod recording;
 mod storage;

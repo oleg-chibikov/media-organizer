@@ -1,14 +1,16 @@
-use std::collections::HashMap;
-
-use chrono::NaiveDateTime;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use super::{
-    continued_spans::continued_placement, country_scope::CountryScope, place_dates::parse_date,
+    continued_spans::continued_placement, country_scope::CountryScope, place_dates::dates_by_file,
     place_folder::PlaceFolder, suggestion_folders::suggestion_folders,
 };
-use crate::models::{MetadataResult, PlaceSuggestion};
+use crate::models::{MetadataResult, PlaceSuggestion, Placement};
 
-/// Place folders by file id, from the suggestions the person accepted.
+/// Place folders by file id, from the suggestions the person accepted, and the files
+/// earlier runs placed, which stay in their place folder.
 #[derive(Debug, Default)]
 pub(crate) struct PlaceFolders {
     by_file: HashMap<String, PlaceFolder>,
@@ -17,6 +19,7 @@ pub(crate) struct PlaceFolders {
     continued: Vec<PlaceFolder>,
     /// Countries whose placed folders country wide suggestions continue.
     country_scopes: Vec<CountryScope>,
+    placed: HashMap<PathBuf, Placement>,
 }
 
 impl PlaceFolders {
@@ -26,15 +29,7 @@ impl PlaceFolders {
         metadata_results: &[MetadataResult],
     ) -> Result<Self, String> {
         let mut folders = Self::default();
-        let dates: HashMap<&str, NaiveDateTime> = metadata_results
-            .iter()
-            .filter_map(|result| {
-                Some((
-                    result.file_id.as_str(),
-                    parse_date(result.chosen_date.as_deref()?).ok()?,
-                ))
-            })
-            .collect();
+        let dates = dates_by_file(metadata_results);
         for suggestion in suggestions {
             let continued = continued_placement(suggestion);
             for found in suggestion_folders(suggestion, &dates)? {
@@ -71,6 +66,15 @@ impl PlaceFolders {
             }
         }
         Ok(folders)
+    }
+
+    /// Keeps the files at these paths in the place folder they sit in.
+    pub(crate) fn with_placed(self, placed: HashMap<PathBuf, Placement>) -> Self {
+        Self { placed, ..self }
+    }
+
+    pub(super) fn placed(&self, source: &Path) -> Option<&Placement> {
+        self.placed.get(source)
     }
 
     pub(super) fn get(&self, file_id: &str) -> Option<&PlaceFolder> {

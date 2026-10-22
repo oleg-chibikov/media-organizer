@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::NaiveDateTime;
 
 use crate::{
-    models::DayLayout,
+    models::{DayLayout, MetadataResult},
     trips::{day_layout_for_span, CHOSEN_DATE_FORMAT},
 };
 
@@ -33,4 +33,17 @@ pub(super) fn day_layout_for(
 pub(super) fn parse_date(date: &str) -> Result<NaiveDateTime, String> {
     NaiveDateTime::parse_from_str(date, CHOSEN_DATE_FORMAT)
         .map_err(|error| format!("Invalid place suggestion date {date}: {error}"))
+}
+
+/// The parsed `chosen_date` of each file that has one.
+pub(super) fn dates_by_file(metadata_results: &[MetadataResult]) -> HashMap<&str, NaiveDateTime> {
+    metadata_results
+        .iter()
+        .filter_map(|result| {
+            Some((
+                result.file_id.as_str(),
+                parse_date(result.chosen_date.as_deref()?).ok()?,
+            ))
+        })
+        .collect()
 }

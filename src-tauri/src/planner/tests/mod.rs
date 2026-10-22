@@ -9,6 +9,7 @@ mod place_fixtures;
 mod place_folders;
 mod place_validation;
 mod placed_october;
+mod placed_rescan;
 mod streaming;
 
 use std::path::Path;

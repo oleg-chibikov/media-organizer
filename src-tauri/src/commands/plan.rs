@@ -22,14 +22,19 @@ pub async fn create_move_plan(
     app: AppHandle,
 ) -> Result<(), String> {
     let settings = settings_store(&app)?;
+    let placements = placement_store(&app)?;
     let with_places = !place_suggestions.is_empty();
-    let layout = run_blocking(move || {
+    let (layout, placed) = run_blocking(move || {
         let selected_folder = PathBuf::from(selected_path);
         path_safety::validate_selected_folder(&selected_folder)?;
-        planner::DestinationLayout::for_folder(&settings, &selected_folder, with_places)
+        let layout =
+            planner::DestinationLayout::for_folder(&settings, &selected_folder, with_places)?;
+        let placed = planner::placed_files_under(&settings, &placements, &selected_folder);
+        Ok::<_, String>((layout, placed))
     })
     .await?;
-    let place_folders = planner::PlaceFolders::new(&place_suggestions, &metadata_results)?;
+    let place_folders =
+        planner::PlaceFolders::new(&place_suggestions, &metadata_results)?.with_placed(placed);
 
     spawn_job(move || {
         planner::stream_move_plan(&app, &layout, &files, &metadata_results, &place_folders);

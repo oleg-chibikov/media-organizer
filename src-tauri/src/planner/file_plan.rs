@@ -2,9 +2,7 @@ use std::{collections::HashSet, path::Path};
 
 use chrono::NaiveDateTime;
 
-use super::{
-    destination_allocation::allocate_destination_path, place_folder::PlaceFolder, DestinationLayout,
-};
+use super::{destination_allocation::allocate_destination_path, DestinationLayout, PlaceFolders};
 use crate::{
     filename,
     models::{
@@ -14,12 +12,13 @@ use crate::{
     trips::CHOSEN_DATE_FORMAT,
 };
 
-/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file.
+/// Plans `<folder>/<date> (<original>) - <device>.<ext>` for one file. A file in an accepted
+/// place folder goes there, and a file earlier runs placed stays in its folder.
 pub(super) fn create_plan_for_file(
     layout: &DestinationLayout,
     file: &FileRecord,
     metadata: Option<&MetadataResult>,
-    place: Option<&PlaceFolder>,
+    place_folders: &PlaceFolders,
     reserved_paths: &mut HashSet<String>,
 ) -> Result<MovePlan, String> {
     let Some(chosen_date) = plannable_date(file, metadata) else {
@@ -30,7 +29,15 @@ pub(super) fn create_plan_for_file(
         .map_err(|error| format!("Invalid chosen date for {}: {error}", file.source_path))?;
 
     let source_path = Path::new(&file.source_path);
-    let destination_dir = layout.destination_dir(source_path, &parsed_date, place)?;
+    let place = place_folders.get(&file.id);
+    let placed = place
+        .is_none()
+        .then(|| place_folders.placed(source_path))
+        .flatten();
+    let destination_dir = match (placed, source_path.parent()) {
+        (Some(_), Some(folder)) => folder.to_path_buf(),
+        _ => layout.destination_dir(source_path, &parsed_date, place)?,
+    };
     let original_name = filename::sanitize_for_windows_filename(&file.original_name);
     let device_name = metadata.and_then(|metadata| metadata.device_name.as_deref());
     let stem_base = destination_stem(&parsed_date, &original_name, device_name);
@@ -52,7 +59,9 @@ pub(super) fn create_plan_for_file(
         destination_path: destination_path.to_string_lossy().to_string(),
         conflict_status,
         plan_status,
-        placement: place.map(|place| place.placement.clone()),
+        placement: place
+            .map(|place| place.placement.clone())
+            .or_else(|| placed.cloned()),
     })
 }
 

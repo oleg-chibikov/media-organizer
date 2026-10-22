@@ -54,8 +54,15 @@ impl Scan {
 
     pub(super) fn continue_all(&self, suggestions: Vec<PlaceSuggestion>) -> Vec<PlaceSuggestion> {
         let settings = SettingsStore::in_app_data(&self.temp.path().join("app-data"));
-        continue_placed_suggestions(&self.store, &settings, &self.selected(), suggestions)
-            .expect("continued")
+        continue_placed_suggestions(
+            &self.store,
+            &settings,
+            &self.selected(),
+            &[],
+            &[],
+            suggestions,
+        )
+        .expect("continued")
     }
 }
 

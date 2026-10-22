@@ -94,7 +94,7 @@ impl PlacedOctober {
             vec![vancouver],
         );
         let selected = self.temp.path().join("todo");
-        continue_placed_suggestions(&self.store, &self.settings, &selected, vec![trip])
+        continue_placed_suggestions(&self.store, &self.settings, &selected, &[], &[], vec![trip])
             .expect("continued")
             .remove(0)
     }

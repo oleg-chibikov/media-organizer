@@ -31,6 +31,8 @@ pub async fn detect_place_suggestions(
             &placements,
             &settings,
             &selected_folder,
+            &files,
+            &metadata_results,
             detection.suggestions,
         )?;
         Ok(detection)

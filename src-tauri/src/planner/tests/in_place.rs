@@ -1,6 +1,7 @@
 use std::{collections::HashSet, fs, path::Path};
 
 use super::photo_record;
+use crate::planner::PlaceFolders;
 use crate::{
     models::{ConflictStatus, FileRecord, PlanStatus},
     planner::{file_plan::create_plan_for_file, DestinationLayout},
@@ -30,7 +31,7 @@ fn renames_into_the_folder_the_file_is_in() {
         &SAME_FOLDER,
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -50,7 +51,7 @@ fn keeps_a_file_that_already_has_its_planned_name() {
         &SAME_FOLDER,
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -73,7 +74,7 @@ fn keeps_a_file_that_already_has_a_numbered_name() {
         &SAME_FOLDER,
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");

@@ -1,6 +1,7 @@
 use std::{collections::HashSet, path::Path};
 
 use super::{dated, photo_record};
+use crate::planner::PlaceFolders;
 use crate::{
     models::{ConflictStatus, PlanStatus},
     planner::{destination_allocation::allocate_destination_path, file_plan::create_plan_for_file},
@@ -31,7 +32,7 @@ fn applies_suffix_for_existing_destination_file() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -53,7 +54,7 @@ fn blocks_conflict_when_existing_destination_has_identical_content() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");
@@ -77,7 +78,7 @@ fn blocks_conflict_when_a_suffixed_destination_has_identical_content() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut HashSet::new(),
     )
     .expect("plan should be created");

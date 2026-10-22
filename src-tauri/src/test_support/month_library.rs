@@ -97,7 +97,7 @@ impl MonthLibrary {
         selected: &Path,
         suggestions: Vec<PlaceSuggestion>,
     ) -> Vec<PlaceSuggestion> {
-        continue_placed_suggestions(&self.store, &self.settings, selected, suggestions)
+        continue_placed_suggestions(&self.store, &self.settings, selected, &[], &[], suggestions)
             .expect("continued")
     }
 }

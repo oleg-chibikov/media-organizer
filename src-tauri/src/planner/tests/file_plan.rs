@@ -4,6 +4,7 @@ use std::{
 };
 
 use super::{dated, photo_record};
+use crate::planner::PlaceFolders;
 use crate::{
     models::PlanStatus, planner::file_plan::create_plan_for_file,
     test_support::media::dated_metadata,
@@ -16,8 +17,14 @@ fn plans_forced_legacy_processed_root_destination_and_filename() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let root = Path::new("todo").join("Processed");
-    let plan = create_plan_for_file(&dated(&root), &file, Some(&metadata), None, &mut reserved)
-        .expect("plan should be created");
+    let plan = create_plan_for_file(
+        &dated(&root),
+        &file,
+        Some(&metadata),
+        &PlaceFolders::default(),
+        &mut reserved,
+    )
+    .expect("plan should be created");
 
     assert_eq!(
         PathBuf::from(&plan.destination_dir),
@@ -36,8 +43,14 @@ fn plans_custom_root_destination_and_filename() {
     let metadata = dated_metadata("IMG_1001", "2026-03-05 07:20:17");
 
     let root = Path::new("MediaRoot");
-    let plan = create_plan_for_file(&dated(root), &file, Some(&metadata), None, &mut reserved)
-        .expect("plan should be created");
+    let plan = create_plan_for_file(
+        &dated(root),
+        &file,
+        Some(&metadata),
+        &PlaceFolders::default(),
+        &mut reserved,
+    )
+    .expect("plan should be created");
 
     assert_eq!(
         PathBuf::from(&plan.destination_dir),
@@ -58,7 +71,7 @@ fn blocks_plan_when_metadata_not_ready() {
         &dated(Path::new(r"C:\todo")),
         &file,
         None,
-        None,
+        &PlaceFolders::default(),
         &mut reserved,
     )
     .unwrap();
@@ -78,7 +91,7 @@ fn dry_run_planning_does_not_create_destination_directories() {
         &dated(temp_dir.path()),
         &file,
         Some(&metadata),
-        None,
+        &PlaceFolders::default(),
         &mut reserved,
     )
     .expect("plan should be created");

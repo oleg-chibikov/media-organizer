@@ -1,28 +1,35 @@
 use std::path::Path;
 
 use super::{
-    matching::find_continued, month_placement::place_in_month, MonthFolder, PlacedSuggestion,
-    PlacementStore,
+    matching::find_continued, month_placement::place_in_month, placed_files,
+    placed_filter::without_placed_files, MonthFolder, PlacedSuggestion, PlacementStore,
 };
 use crate::{
-    models::{ContinuedPlace, ContinuedPlacement, PlaceGroup, PlaceSuggestion},
+    models::{
+        ContinuedPlace, ContinuedPlacement, FileRecord, MetadataResult, PlaceGroup, PlaceSuggestion,
+    },
     settings::SettingsStore,
 };
 
 /// Marks each suggestion that continues a placed trip or outing under the destination
 /// folder root of `selected_folder`. It takes the record's title, year and place folder names.
 /// A scan of a month folder files its suggestions in that month, see `place_in_month`.
+/// Files already placed leave the suggestions first, see `without_placed_files`.
 pub(crate) fn continue_placed_suggestions(
     store: &PlacementStore,
     settings: &SettingsStore,
     selected_folder: &Path,
-    mut suggestions: Vec<PlaceSuggestion>,
+    files: &[FileRecord],
+    metadata_results: &[MetadataResult],
+    suggestions: Vec<PlaceSuggestion>,
 ) -> Result<Vec<PlaceSuggestion>, String> {
     if suggestions.is_empty() {
         return Ok(suggestions);
     }
     let root = settings.place_folder_root(selected_folder)?;
     let records = store.load_existing()?;
+    let placed = placed_files(&records, &root);
+    let mut suggestions = without_placed_files(suggestions, &placed, files, metadata_results);
     let month = MonthFolder::of(&root, selected_folder);
     for suggestion in &mut suggestions {
         if let Some(month) = &month {
