@@ -17,6 +17,7 @@ function renderConfirmation() {
     useMoveConfirmation({
       rows: [RECORD],
       rowByIdRef,
+      scanIdRef: { current: 1 },
       metadataByFileId: FileIdMap.from({ [RECORD.id]: METADATA }),
       movePlansByFileId: FileIdMap.from({ [RECORD.id]: PLAN }),
       reportError: vi.fn(),
@@ -34,7 +35,7 @@ describe("useMoveConfirmation", () => {
     const { result, onConfirmed } = renderConfirmation();
 
     await act(() => result.current.request());
-    expect(getMoveConfirmationSummary).toHaveBeenCalledWith([RECORD], [METADATA], [PLAN]);
+    expect(getMoveConfirmationSummary).toHaveBeenCalledWith(1, [PLAN]);
     expect(result.current.summary).toBe(SUMMARY);
     act(() => result.current.cancel());
     expect(result.current.summary).toBeNull();

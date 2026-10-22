@@ -7,12 +7,6 @@ import type {
   MoveResult
 } from "../../lib/types";
 
-export interface MoveConfirmationInput {
-  files: FileRecord[];
-  metadata: MetadataResult[];
-  plans: MovePlan[];
-}
-
 export function countPendingExecutableMoves(
   plansByFileId: FileIdMap<MovePlan>,
   resultsByFileId: FileIdMap<MoveResult>
@@ -27,22 +21,20 @@ export function countPendingExecutableMoves(
 }
 
 // Every planned file of the current scan, so the backend can count what it would move or skip.
-export function collectConfirmationInput(
+// The backend has each file's record and date, so only the plans go.
+export function collectConfirmationPlans(
   rows: FileRecord[],
   metadataByFileId: FileIdMap<MetadataResult>,
   plansByFileId: FileIdMap<MovePlan>
-): MoveConfirmationInput {
-  const input: MoveConfirmationInput = { files: [], metadata: [], plans: [] };
+): MovePlan[] {
+  const plans: MovePlan[] = [];
   for (const row of rows) {
-    const metadata = metadataByFileId.get(row.id);
     const plan = plansByFileId.get(row.id);
-    if (metadata && plan) {
-      input.files.push(row);
-      input.metadata.push(metadata);
-      input.plans.push(plan);
+    if (plan && metadataByFileId.has(row.id)) {
+      plans.push(plan);
     }
   }
-  return input;
+  return plans;
 }
 
 export function fileCountLabel(count: number): string {

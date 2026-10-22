@@ -34,6 +34,7 @@ export function useAppSession() {
   });
   const planning = useMovePlanning({
     selectedFolder: scan.selectedFolder,
+    scanIdRef: scan.scanIdRef,
     reportError: setFolderError,
     onPlacedFiles: (added, droppedIds) => {
       // Metadata goes first, so the metadata queue doesn't read the new rows again.
@@ -53,6 +54,7 @@ export function useAppSession() {
   const { completed, cancelled, discovered } = scan.progress;
   const places = usePlaceSuggestions({
     selectedFolder: scan.selectedFolder,
+    scanIdRef: scan.scanIdRef,
     rows: scan.rows,
     metadataByFileId: metadata.metadataByFileId,
     scanCompleted: completed && !cancelled,
@@ -87,6 +89,7 @@ export function useAppSession() {
     selectedFolder: scan.selectedFolder,
     rows: scan.rows,
     rowByIdRef: scan.rowByIdRef,
+    scanIdRef: scan.scanIdRef,
     metadataByFileId: metadata.metadataByFileId,
     movePlansByFileId: planning.movePlansByFileId,
     reportError: setFolderError

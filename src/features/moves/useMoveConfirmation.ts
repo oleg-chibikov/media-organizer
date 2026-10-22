@@ -7,11 +7,12 @@ import type {
   MoveConfirmationSummary,
   MovePlan
 } from "../../lib/types";
-import { collectConfirmationInput } from "./moveConfirmationPrompt";
+import { collectConfirmationPlans } from "./moveConfirmationPrompt";
 
 interface MoveConfirmationOptions {
   rows: FileRecord[];
   rowByIdRef: RefObject<Map<string, FileRecord>>;
+  scanIdRef: RefObject<number | null>;
   metadataByFileId: FileIdMap<MetadataResult>;
   movePlansByFileId: FileIdMap<MovePlan>;
   reportError: (message: string) => void;
@@ -28,6 +29,7 @@ interface PendingConfirmation {
 export function useMoveConfirmation({
   rows,
   rowByIdRef,
+  scanIdRef,
   metadataByFileId,
   movePlansByFileId,
   reportError,
@@ -46,9 +48,13 @@ export function useMoveConfirmation({
     }
     askingRef.current = true;
     const scanSession = rowByIdRef.current;
+    const scanId = scanIdRef.current;
     try {
-      const input = collectConfirmationInput(rows, metadataByFileId, movePlansByFileId);
-      const summary = await getMoveConfirmationSummary(input.files, input.metadata, input.plans);
+      if (scanId === null) {
+        return;
+      }
+      const plans = collectConfirmationPlans(rows, metadataByFileId, movePlansByFileId);
+      const summary = await getMoveConfirmationSummary(scanId, plans);
       if (rowByIdRef.current === scanSession) {
         setPending({ summary, scanSession });
       }

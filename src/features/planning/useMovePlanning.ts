@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 import { createMovePlan } from "../../lib/api";
 import type { FileRecord, MetadataResult, PlaceSuggestion, PlacedMove } from "../../lib/types";
 import { claimPlanCandidates, restorePlanSignatures } from "./planCandidates";
@@ -11,12 +11,15 @@ import { withoutFileIds } from "./withoutFileIds";
 
 interface MovePlanningOptions {
   selectedFolder: string | null;
+  // The backend plans the files of this scan by id.
+  scanIdRef: RefObject<number | null>;
   reportError: (message: string) => void;
   onPlacedFiles: (added: PlacedMove[], droppedIds: string[]) => void;
 }
 
 export function useMovePlanning({
   selectedFolder,
+  scanIdRef,
   reportError,
   onPlacedFiles
 }: MovePlanningOptions) {
@@ -30,6 +33,7 @@ export function useMovePlanning({
   const placesRef = useRef<AcceptedPlaces | null>(acceptPlaces([]));
   const { planPlaced, dropPlaced, isPlaced, resetPlaced } = usePlacedMoves({
     selectedFolder,
+    scanIdRef,
     addPlan,
     flushPlans,
     dropPlansFor,
@@ -42,7 +46,8 @@ export function useMovePlanning({
   const requestPlans = useCallback(
     (rows: FileRecord[], metadataResults: MetadataResult[]) => {
       const places = placesRef.current;
-      if (!selectedFolder || !places) {
+      const scanId = scanIdRef.current;
+      if (!selectedFolder || !places || scanId === null) {
         return;
       }
       const candidates = claimPlanCandidates(
@@ -59,8 +64,7 @@ export function useMovePlanning({
       dropPlansFor(fileIds);
       setPlanErrorsByFileId((previous) => withoutFileIds(previous, fileIds));
       const requestId = startRequest();
-      const { files, metadata } = candidates;
-      void createMovePlan(requestId, selectedFolder, files, metadata, places.suggestions).catch(
+      void createMovePlan(requestId, selectedFolder, scanId, fileIds, places.suggestions).catch(
         (error: unknown) => {
           // After a reset the signatures belong to the new folder.
           if (!isActive(requestId)) {
@@ -72,7 +76,16 @@ export function useMovePlanning({
         }
       );
     },
-    [dropPlansFor, finishRequest, isActive, isPlaced, reportError, selectedFolder, startRequest]
+    [
+      dropPlansFor,
+      finishRequest,
+      isActive,
+      isPlaced,
+      reportError,
+      scanIdRef,
+      selectedFolder,
+      startRequest
+    ]
   );
 
   // Plans again only the files whose place folder changed, plus the placed files that move.

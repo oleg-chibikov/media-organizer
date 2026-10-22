@@ -1,8 +1,8 @@
 import type { FileIdMap } from "../../lib/fileIdMap";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
 import type { FileRecord, HomeLocation, MetadataResult, PlaceDetection } from "../../lib/types";
-import { metadataProgress, metadataResultsFor } from "../metadata";
+import { metadataProgress } from "../metadata";
 
 // Lets the last metadata batches land before the backend looks at every file.
 const DETECTION_DELAY_MS = 1000;
@@ -10,6 +10,8 @@ const DETECTION_DELAY_MS = 1000;
 export interface PlaceDetectionOptions {
   // Continued trips are matched under this folder's destination.
   selectedFolder: string | null;
+  // The backend reads the files and dates of this scan by id.
+  scanIdRef: RefObject<number | null>;
   rows: FileRecord[];
   metadataByFileId: FileIdMap<MetadataResult>;
   scanCompleted: boolean;
@@ -51,14 +53,15 @@ export function usePlaceDetection(options: PlaceDetectionOptions) {
     const timer = setTimeout(() => {
       detectedKeyRef.current = key;
       const latest = latestRef.current;
-      const results = metadataResultsFor(latest.rows, latest.metadataByFileId);
       // A reset or a new home while the backend works makes the answer out of date.
       const isCurrent = () =>
         detectedKeyRef.current === key && generationRef.current === generation;
-      if (latest.selectedFolder === null) {
+      const scanId = latest.scanIdRef.current;
+      if (latest.selectedFolder === null || scanId === null) {
         return;
       }
-      detectPlaceSuggestions(latest.selectedFolder, latest.rows, results).then(
+      const fileIds = latest.rows.map((row) => row.id);
+      detectPlaceSuggestions(latest.selectedFolder, scanId, fileIds).then(
         (found) => {
           if (isCurrent()) {
             setDetection(found);

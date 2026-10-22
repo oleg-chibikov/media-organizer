@@ -19,7 +19,12 @@ const lastRequestId = () => vi.mocked(createMovePlan).mock.lastCall?.[0] ?? 0;
 function renderPlanning() {
   const reportError = vi.fn();
   const hook = renderHook(() =>
-    useMovePlanning({ selectedFolder: "C:\\in", reportError, onPlacedFiles: vi.fn() })
+    useMovePlanning({
+      selectedFolder: "C:\\in",
+      scanIdRef: { current: 1 },
+      reportError,
+      onPlacedFiles: vi.fn()
+    })
   );
   return { ...hook, reportError };
 }
@@ -154,8 +159,8 @@ describe("useMovePlanning place folders", () => {
     expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
       expect.any(Number),
       "C:\\in",
-      [RECORD],
-      [METADATA],
+      1,
+      [RECORD.id],
       [outing]
     );
     expect(result.current.movePlansByFileId).toEqual(FileIdMap.empty());
@@ -166,8 +171,8 @@ describe("useMovePlanning place folders", () => {
     expect(createMovePlan).toHaveBeenCalledExactlyOnceWith(
       expect.any(Number),
       "C:\\in",
-      [RECORD],
-      [METADATA],
+      1,
+      [RECORD.id],
       []
     );
   });

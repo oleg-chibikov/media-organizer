@@ -5,21 +5,25 @@ use tauri::{AppHandle, Manager, State};
 use super::{
     app_dirs::{history_store, placement_store, settings_store},
     background::{run_blocking, spawn_job},
+    session::scan_session,
 };
 use crate::{
     app_state::AppState,
-    models::{FileRecord, MetadataResult, MovePlan},
+    models::MovePlan,
     move_run::{self, MoveBatch},
 };
 
 #[tauri::command]
 pub async fn execute_move_plan(
     selected_path: String,
-    files: Vec<FileRecord>,
-    metadata_results: Vec<MetadataResult>,
+    scan_id: u64,
     plans: Vec<MovePlan>,
     app: AppHandle,
 ) -> Result<(), String> {
+    let session = scan_session(&app, scan_id)?;
+    let file_ids: Vec<String> = plans.iter().map(|plan| plan.file_id.clone()).collect();
+    let files = session.records(&file_ids)?;
+    let metadata_results = session.metadata(&file_ids);
     let selected_folder = PathBuf::from(selected_path);
     let state = app.state::<AppState>();
     state.picked_folders.ensure_picked(&selected_folder)?;

@@ -111,6 +111,7 @@ flowchart LR
 - **Solid arrows** are commands, sent with `invokeCommand` in `lib/api/`.
 - **Dotted arrows** are what comes back. Events arrive through `listenAll` and `useBackendEvents`. Move events and metadata results go through `lib/useBufferedFlush.ts`. Scan rows and plans have their own buffers. A large folder costs a few renders a second instead of one per file.
 - **Arrows inside the frontend** pass data between features through `app/useAppSession.ts`.
+- **Ids, not records** the backend keeps each scan's records and dates in `scan_session`, so commands get file ids or plans. A folder of 100,000 files doesn't cross IPC again on every plan or move.
 - **Startup** `app/useBackendBootstrap.ts` calls `health_check` and `get_destination_settings`.
 
 ## Layering
@@ -137,6 +138,7 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
+- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. `create_move_plan`, `plan_continued_moves`, `detect_place_suggestions`, `get_move_confirmation_summary` and `execute_move_plan` take the `scan_id` and file ids or plans, and look the files up there. A command for a replaced scan fails.
 - `scan_metadata/`: reader threads that read the dates of a running scan's photos and videos, pause with `set_metadata_paused`, and stop with the scan.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files in an accepted place folder. A file that already has its planned name gets `already_named` and stays out of the move.

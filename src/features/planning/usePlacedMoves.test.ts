@@ -32,7 +32,12 @@ const CONTINUED = {
 async function renderPlanning() {
   const onPlacedFiles = vi.fn();
   const hook = renderHook(() =>
-    useMovePlanning({ selectedFolder: "C:\\in", reportError: vi.fn(), onPlacedFiles })
+    useMovePlanning({
+      selectedFolder: "C:\\in",
+      scanIdRef: { current: 1 },
+      reportError: vi.fn(),
+      onPlacedFiles
+    })
   );
   await waitFor(() => expect(listeners.plan).not.toBeNull());
   return { ...hook, onPlacedFiles };
@@ -45,7 +50,7 @@ describe("useMovePlanning placed files", () => {
 
     await act(async () => result.current.applyPlaceSuggestions([CONTINUED], [RECORD], [METADATA]));
 
-    expect(planContinuedMoves).toHaveBeenCalledWith("C:\\in", [CONTINUED], [METADATA]);
+    expect(planContinuedMoves).toHaveBeenCalledWith("C:\\in", 1, [METADATA.file_id], [CONTINUED]);
     expect(onPlacedFiles).toHaveBeenCalledWith([PLACED], []);
     expect(result.current.movePlansByFileId.get(PLACED_RECORD.id)).toEqual(PLACED.plan);
 

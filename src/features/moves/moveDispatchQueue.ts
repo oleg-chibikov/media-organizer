@@ -14,10 +14,9 @@ export interface MoveDispatchQueue {
   awaitingPlans: boolean;
 }
 
+// The backend looks each plan's file and date up in the scan, so a batch carries plans only.
 export interface MoveBatch {
   fileIds: string[];
-  files: FileRecord[];
-  metadata: MetadataResult[];
   plans: MovePlan[];
 }
 
@@ -61,7 +60,7 @@ export function takeMoveBatch(
   metadataByFileId: FileIdMap<MetadataResult>,
   plansByFileId: FileIdMap<MovePlan>
 ): MoveBatch {
-  const batch: MoveBatch = { fileIds: [], files: [], metadata: [], plans: [] };
+  const batch: MoveBatch = { fileIds: [], plans: [] };
   const pending = queue.pending;
   queue.pending = [];
   for (const fileId of pending) {
@@ -69,16 +68,17 @@ export function takeMoveBatch(
     if (queue.inflightIds.has(fileId) || queue.completedIds.has(fileId)) {
       continue;
     }
-    const row = rowById.get(fileId);
-    const metadata = metadataByFileId.get(fileId);
     const plan = plansByFileId.get(fileId);
-    if (!row || !metadata || !plan || plan.plan_status !== "ready") {
+    if (
+      !rowById.has(fileId) ||
+      !metadataByFileId.has(fileId) ||
+      !plan ||
+      plan.plan_status !== "ready"
+    ) {
       queue.trackedIds.delete(fileId);
       continue;
     }
     batch.fileIds.push(fileId);
-    batch.files.push(row);
-    batch.metadata.push(metadata);
     batch.plans.push(plan);
   }
   if (batch.fileIds.length > 0) {

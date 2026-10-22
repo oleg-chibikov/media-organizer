@@ -1,6 +1,4 @@
 import type {
-  FileRecord,
-  MetadataResult,
   MoveConfirmationSummary,
   MovePlan,
   PlaceSuggestion,
@@ -12,20 +10,21 @@ import type {
 import { listenAll } from "./listenAll";
 import { invokeCommand } from "./tauriRuntime";
 
-/** Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders.
+/** Plans the files of scan `scanId` by id. The backend kept their records and dates.
+ * Files in `placeSuggestions`, the accepted ones, go to place folders instead of date folders.
  * Every `plan:*` event of the request carries `requestId`. */
 export const createMovePlan = (
   requestId: number,
   selectedPath: string,
-  files: FileRecord[],
-  metadataResults: MetadataResult[],
+  scanId: number,
+  fileIds: string[],
   placeSuggestions: PlaceSuggestion[]
 ) =>
   invokeCommand<void>("create_move_plan", {
     requestId,
     selectedPath,
-    files,
-    metadataResults,
+    scanId,
+    fileIds,
     placeSuggestions
   });
 
@@ -33,25 +32,19 @@ export const createMovePlan = (
  * new day folders those folders get. Files that stay where they are are left out. */
 export const planContinuedMoves = (
   selectedPath: string,
-  placeSuggestions: PlaceSuggestion[],
-  metadataResults: MetadataResult[]
+  scanId: number,
+  fileIds: string[],
+  placeSuggestions: PlaceSuggestion[]
 ) =>
   invokeCommand<PlacedMove[]>("plan_continued_moves", {
     selectedPath,
-    placeSuggestions,
-    metadataResults
+    scanId,
+    fileIds,
+    placeSuggestions
   });
 
-export const getMoveConfirmationSummary = (
-  files: FileRecord[],
-  metadataResults: MetadataResult[],
-  plans: MovePlan[]
-) =>
-  invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", {
-    files,
-    metadataResults,
-    plans
-  });
+export const getMoveConfirmationSummary = (scanId: number, plans: MovePlan[]) =>
+  invokeCommand<MoveConfirmationSummary>("get_move_confirmation_summary", { scanId, plans });
 
 export interface PlanListeners {
   onFile: (payload: PlanFileEvent) => void;

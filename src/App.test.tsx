@@ -80,8 +80,8 @@ describe("App", () => {
         expect(api.createMovePlan).toHaveBeenCalledWith(
           expect.any(Number),
           "C:\\in",
-          [RECORD],
-          [METADATA],
+          1,
+          [RECORD.id],
           []
         ),
       { timeout: 3000 }
@@ -100,9 +100,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
     fireEvent.click(await screen.findByRole("button", { name: "Move 1 file" }));
-    await waitFor(() =>
-      expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA], [PLAN])
-    );
+    await waitFor(() => expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", 1, [PLAN]));
 
     const result = {
       file_id: "f1",

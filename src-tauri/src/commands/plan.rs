@@ -5,11 +5,10 @@ use tauri::AppHandle;
 use super::{
     app_dirs::{placement_store, settings_store},
     background::{run_blocking, spawn_job},
+    session::scan_session,
 };
 use crate::{
-    models::{
-        FileRecord, MetadataResult, MoveConfirmationSummary, MovePlan, PlaceSuggestion, PlacedMove,
-    },
+    models::{MoveConfirmationSummary, MovePlan, PlaceSuggestion, PlacedMove},
     mover, path_safety, planner,
 };
 
@@ -17,11 +16,14 @@ use crate::{
 pub async fn create_move_plan(
     request_id: u64,
     selected_path: String,
-    files: Vec<FileRecord>,
-    metadata_results: Vec<MetadataResult>,
+    scan_id: u64,
+    file_ids: Vec<String>,
     place_suggestions: Vec<PlaceSuggestion>,
     app: AppHandle,
 ) -> Result<(), String> {
+    let session = scan_session(&app, scan_id)?;
+    let files = session.records(&file_ids)?;
+    let metadata_results = session.metadata(&file_ids);
     let settings = settings_store(&app)?;
     let placements = placement_store(&app)?;
     let with_places = !place_suggestions.is_empty();
@@ -55,13 +57,16 @@ pub async fn create_move_plan(
 #[tauri::command]
 pub async fn plan_continued_moves(
     selected_path: String,
+    scan_id: u64,
+    file_ids: Vec<String>,
     place_suggestions: Vec<PlaceSuggestion>,
-    metadata_results: Vec<MetadataResult>,
     app: AppHandle,
 ) -> Result<Vec<PlacedMove>, String> {
+    let session = scan_session(&app, scan_id)?;
+    let metadata_results = session.metadata(&file_ids);
     let settings = settings_store(&app)?;
     let placements = placement_store(&app)?;
-    run_blocking(move || {
+    let moves = run_blocking(move || {
         planner::plan_continued_moves(
             &settings,
             &placements,
@@ -70,14 +75,28 @@ pub async fn plan_continued_moves(
             &metadata_results,
         )
     })
-    .await
+    .await?;
+    // Placed files join the scan, so later plans and moves can find them by id.
+    let records: Vec<_> = moves.iter().map(|placed| placed.record.clone()).collect();
+    let metadata: Vec<_> = moves.iter().map(|placed| placed.metadata.clone()).collect();
+    session.add_records(&records);
+    session.add_metadata(&metadata);
+    Ok(moves)
 }
 
 #[tauri::command]
 pub fn get_move_confirmation_summary(
-    files: Vec<FileRecord>,
-    metadata_results: Vec<MetadataResult>,
+    scan_id: u64,
     plans: Vec<MovePlan>,
-) -> MoveConfirmationSummary {
-    mover::build_move_confirmation_summary(&files, &metadata_results, &plans)
+    app: AppHandle,
+) -> Result<MoveConfirmationSummary, String> {
+    let session = scan_session(&app, scan_id)?;
+    let file_ids: Vec<String> = plans.iter().map(|plan| plan.file_id.clone()).collect();
+    let files = session.records(&file_ids)?;
+    let metadata_results = session.metadata(&file_ids);
+    Ok(mover::build_move_confirmation_summary(
+        &files,
+        &metadata_results,
+        &plans,
+    ))
 }

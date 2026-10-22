@@ -28,6 +28,7 @@ function renderDetection(initial: DetectionProps) {
     ({ metadataBusy, home = null }: DetectionProps) =>
       usePlaceDetection({
         selectedFolder: "C:\\in",
+        scanIdRef: { current: 1 },
         rows: [RECORD],
         metadataByFileId: FileIdMap.from(metadataBusy ? {} : { f1: METADATA }),
         scanCompleted: true,
@@ -58,7 +59,7 @@ describe("usePlaceDetection", () => {
     expect(detect).not.toHaveBeenCalled();
     await act(async () => vi.advanceTimersByTimeAsync(1));
 
-    expect(detect).toHaveBeenCalledWith("C:\\in", [RECORD], [METADATA]);
+    expect(detect).toHaveBeenCalledWith("C:\\in", 1, [RECORD.id]);
     expect(result.current.detection?.suggestions).toEqual([SUGGESTION]);
     rerender({ metadataBusy: false });
     act(() => vi.advanceTimersByTime(2000));

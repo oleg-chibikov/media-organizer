@@ -22,6 +22,7 @@ mod placements;
 mod planner;
 mod safe_fs;
 mod scan_metadata;
+mod scan_session;
 mod scanner;
 mod settings;
 mod system_explorer;

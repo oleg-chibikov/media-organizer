@@ -10,6 +10,7 @@ use crate::{
     app_state::AppState,
     path_safety, scan_metadata,
     scan_metadata::{QueueReader, ReadOptions},
+    scan_session::SessionReader,
     scanner,
 };
 
@@ -25,9 +26,13 @@ pub async fn start_scan(
 
     let active_scan = state.active_scan.clone();
     let ticket = active_scan.begin();
-    let reader = QueueReader {
-        queue: state.metadata_queue.clone(),
-        resource_dir: resource_dir(&app),
+    let session = state.current_scan.begin(ticket.scan_id());
+    let reader = SessionReader {
+        inner: QueueReader {
+            queue: state.metadata_queue.clone(),
+            resource_dir: resource_dir(&app),
+        },
+        session: session.clone(),
     };
     let feed = scan_metadata::start_reading(
         app.clone(),
@@ -42,7 +47,8 @@ pub async fn start_scan(
     spawn_job(move || {
         active_scan.run(&ticket, |token| {
             scanner::scan_folder(&app, &selected_folder, token, ticket.scan_id(), |records| {
-                feed.push(records)
+                session.add_records(records);
+                feed.push(records);
             });
         });
     });

@@ -16,13 +16,15 @@ interface MoveExecutionOptions {
   selectedFolder: string | null;
   rows: FileRecord[];
   rowByIdRef: RefObject<Map<string, FileRecord>>;
+  // The backend looks files and dates up in this scan, so only plans cross over.
+  scanIdRef: RefObject<number | null>;
   metadataByFileId: FileIdMap<MetadataResult>;
   movePlansByFileId: FileIdMap<MovePlan>;
   reportError: (message: string) => void;
 }
 
 export function useMoveExecution(options: MoveExecutionOptions) {
-  const { stillChecking, filesFound, selectedFolder, rowByIdRef, reportError } = options;
+  const { stillChecking, filesFound, selectedFolder, rowByIdRef, scanIdRef, reportError } = options;
   const { rows, metadataByFileId, movePlansByFileId } = options;
   const status = useMoveStatus();
   const { execution, moveResultsByFileId, updateExecution, clearStatus } = status;
@@ -30,6 +32,7 @@ export function useMoveExecution(options: MoveExecutionOptions) {
     stillChecking,
     selectedFolder,
     rowByIdRef,
+    scanIdRef,
     metadataByFileId,
     movePlansByFileId,
     moveResultsByFileId,

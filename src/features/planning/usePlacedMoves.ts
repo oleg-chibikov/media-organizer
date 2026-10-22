@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { planContinuedMoves } from "../../lib/api";
 import type { MetadataResult, MovePlan, PlaceSuggestion, PlacedMove } from "../../lib/types";
 
 export interface PlacedMovesOptions {
   selectedFolder: string | null;
+  scanIdRef: RefObject<number | null>;
   addPlan: (plan: MovePlan) => void;
   flushPlans: () => void;
   dropPlansFor: (fileIds: string[]) => void;
@@ -38,14 +39,20 @@ export function usePlacedMoves(options: PlacedMovesOptions) {
   const planPlaced = useCallback(
     (suggestions: PlaceSuggestion[], metadataResults: MetadataResult[]) => {
       dropPlaced();
-      const { selectedFolder, startRequest } = optionsRef.current;
-      if (!selectedFolder || !suggestions.some((suggestion) => suggestion.continues)) {
+      const { selectedFolder, scanIdRef, startRequest } = optionsRef.current;
+      const scanId = scanIdRef.current;
+      if (
+        !selectedFolder ||
+        scanId === null ||
+        !suggestions.some((suggestion) => suggestion.continues)
+      ) {
         return;
       }
       const request = requestRef.current;
       const isCurrent = () => request === requestRef.current;
       const requestId = startRequest();
-      planContinuedMoves(selectedFolder, suggestions, metadataResults)
+      const fileIds = metadataResults.map((result) => result.file_id);
+      planContinuedMoves(selectedFolder, scanId, fileIds, suggestions)
         .then((moves) => {
           if (!isCurrent()) {
             return;

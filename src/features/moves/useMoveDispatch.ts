@@ -15,6 +15,7 @@ interface MoveDispatchOptions {
   stillChecking: boolean;
   selectedFolder: string | null;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
+  scanIdRef: RefObject<number | null>;
   metadataByFileId: FileIdMap<MetadataResult>;
   movePlansByFileId: FileIdMap<MovePlan>;
   moveResultsByFileId: FileIdMap<MoveResult>;
@@ -28,6 +29,7 @@ export function useMoveDispatch({
   stillChecking,
   selectedFolder,
   rowByIdRef,
+  scanIdRef,
   metadataByFileId,
   movePlansByFileId,
   moveResultsByFileId,
@@ -41,7 +43,8 @@ export function useMoveDispatch({
   const pumpRef = useRef<() => void>(() => undefined);
 
   const pump = useCallback(() => {
-    if (!confirmedRef.current || !selectedFolder || pausedRef.current) {
+    const scanId = scanIdRef.current;
+    if (!confirmedRef.current || !selectedFolder || scanId === null || pausedRef.current) {
       return;
     }
     const queue = queueRef.current;
@@ -51,19 +54,18 @@ export function useMoveDispatch({
         continue;
       }
       updateExecution({ executing: true, completed: false });
-      void executeMovePlan(selectedFolder, batch.files, batch.metadata, batch.plans).catch(
-        (error: unknown) => {
-          reportError(`Failed to execute move plan: ${String(error)}`);
-          updateExecution(releaseFailedBatch(queueRef.current, batch.fileIds, error));
-          queueMicrotask(() => pumpRef.current());
-        }
-      );
+      void executeMovePlan(selectedFolder, scanId, batch.plans).catch((error: unknown) => {
+        reportError(`Failed to execute move plan: ${String(error)}`);
+        updateExecution(releaseFailedBatch(queueRef.current, batch.fileIds, error));
+        queueMicrotask(() => pumpRef.current());
+      });
     }
   }, [
     metadataByFileId,
     movePlansByFileId,
     reportError,
     rowByIdRef,
+    scanIdRef,
     selectedFolder,
     updateExecution
   ]);
