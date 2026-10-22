@@ -29,5 +29,6 @@ export const PLAN: MovePlan = {
   destination_filename: "a.jpg",
   destination_path: "C:\\in\\Processed\\2026\\a.jpg",
   conflict_status: "none",
-  plan_status: "ready"
+  plan_status: "ready",
+  placement: null
 };

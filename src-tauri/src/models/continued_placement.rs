@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// A trip or outing folder an earlier run filled, as a later suggestion continues it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ContinuedPlacement {
     pub title: String,
     pub year: i32,
@@ -20,12 +21,14 @@ pub struct ContinuedPlacement {
 
 /// A month folder holding placed files of a country that move up to the year folder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct LiftedMonth {
     pub month_folder: String,
     pub file_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ContinuedPlace {
     pub name: String,
     pub start: String,

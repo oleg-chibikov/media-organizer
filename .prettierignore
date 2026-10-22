@@ -9,3 +9,4 @@ android/.tools
 android/app/build
 android/.gradle
 scripts/geodata/.cache
+src/lib/types/generated

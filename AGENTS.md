@@ -47,7 +47,7 @@
 - Keep `src/App.tsx` to layout. Put state that crosses features in `src/app/`.
 - Put frontend features in `src/features/<feature>/` and expose them only through its `index.ts`.
 - Keep Tauri command wrappers and event subscriptions in `src/lib/api/`.
-- Keep shared frontend payload types in `src/lib/types/` aligned with `src-tauri/src/models/`.
+- Shared frontend payload types in `src/lib/types/generated/` come from `src-tauri/src/models/` through ts-rs. After a model changes, run `mise x -- cargo test --manifest-path src-tauri/Cargo.toml export_bindings` and commit the result.
 - Keep Tauri types in `main.rs`, `commands/` and `events.rs`. Domain modules take paths, stores and an `EventSink`.
 - Keep command handlers thin and async; put validation and orchestration in the domain module.
 - Put backend behavior in focused Rust modules; create a folder module when one backend feature needs multiple files.

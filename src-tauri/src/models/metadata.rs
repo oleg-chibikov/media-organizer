@@ -4,6 +4,7 @@ use super::{FileKind, GpsPoint};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum DateKind {
     TimezoneAware,
     TimezoneUnknown,
@@ -12,6 +13,7 @@ pub enum DateKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum MetadataStatus {
     Pending,
     Ready,
@@ -21,6 +23,7 @@ pub enum MetadataStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MetadataResult {
     pub file_id: String,
     pub chosen_date: Option<String>,
@@ -34,6 +37,7 @@ pub struct MetadataResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MetadataReadRequest {
     pub file_id: String,
     pub source_path: String,
@@ -41,6 +45,7 @@ pub struct MetadataReadRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ProcessingConfig {
     pub metadata_concurrency: usize,
     pub metadata_queue_capacity: usize,

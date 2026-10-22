@@ -45,3 +45,8 @@ jobs:
       - run: mise x -- cargo fmt --manifest-path src-tauri/Cargo.toml --all --check
       - run: mise x -- pnpm lint:rust
       - run: mise x -- cargo test --manifest-path src-tauri/Cargo.toml
+      # cargo test rewrites the ts-rs types, so a diff means a model changed without them.
+      - name: Generated TypeScript types are current
+        run: |
+          git add --intent-to-add src/lib/types/generated
+          git diff --exit-code src/lib/types/generated

@@ -20,7 +20,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "mise x -- pnpm exec eslint --max-warnings 0 --fix",
+      "mise x -- pnpm exec eslint --max-warnings 0 --no-warn-ignored --fix",
       "mise x -- pnpm exec prettier --write"
     ],
     "*.{css,scss,html,json,md,yml,yaml}": [

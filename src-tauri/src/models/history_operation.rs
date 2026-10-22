@@ -4,6 +4,7 @@ use super::MoveStrategy;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum HistoryOperationKind {
     Process,
     Undo,
@@ -12,6 +13,7 @@ pub enum HistoryOperationKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum HistoryOperationStatus {
     Succeeded,
     Skipped,
@@ -20,6 +22,7 @@ pub enum HistoryOperationStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct HistoryOperation {
     pub operation_id: String,
     pub run_id: String,
@@ -39,6 +42,7 @@ pub struct HistoryOperation {
 
 /// Payload of both `history:undo-progress` and `history:redo-progress`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct HistoryReplayProgressEvent {
     pub run_id: String,
     pub total_operations: u64,

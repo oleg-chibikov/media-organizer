@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum FileKind {
     Photo,
     Video,
@@ -11,6 +12,7 @@ pub enum FileKind {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum ScanStatus {
     Discovered,
     SkippedProcessed,
@@ -19,6 +21,7 @@ pub enum ScanStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct FileRecord {
     pub id: String,
     pub source_path: String,
@@ -30,22 +33,26 @@ pub struct FileRecord {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ScanStartedEvent {
     pub root: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ScanFilesEvent {
     pub records: Vec<FileRecord>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ScanErrorEvent {
     pub path: String,
     pub error: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct ScanFinishedEvent {
     pub discovered: u64,
     pub skipped: u64,

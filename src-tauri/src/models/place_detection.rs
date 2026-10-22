@@ -6,6 +6,7 @@ use super::PlaceSuggestion;
 
 /// What `detect_place_suggestions` found for one scan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlaceDetection {
     pub suggestions: Vec<PlaceSuggestion>,
     /// A short place label per geotagged photo or video, by file id.
@@ -16,6 +17,7 @@ pub struct PlaceDetection {
 /// Why detection found suggestions, or the first reason it found none.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum DetectionStatus {
     Found,
     /// No photo or video with a date has GPS.

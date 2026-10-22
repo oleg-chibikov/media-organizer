@@ -4,6 +4,7 @@ use super::HomeLocation;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum DestinationRootMode {
     CustomRoot,
     ProcessedFolder,
@@ -12,6 +13,7 @@ pub enum DestinationRootMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct DestinationSettings {
     pub version: u32,
     pub root_media_folder: Option<String>,
@@ -32,6 +34,7 @@ const fn group_by_place_default() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct EffectiveDestinationRoot {
     pub mode: DestinationRootMode,
     pub root_path: String,

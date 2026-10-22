@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum MoveStrategy {
     Rename,
     CopyKeepSource,
@@ -10,6 +11,7 @@ pub enum MoveStrategy {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum MoveResultStatus {
     Moved,
     Copied,
@@ -18,6 +20,7 @@ pub enum MoveResultStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MoveResult {
     pub file_id: String,
     pub attempted_source_path: String,
@@ -28,12 +31,14 @@ pub struct MoveResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MoveFileEvent {
     pub result: MoveResult,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum MoveProgressPhase {
     Starting,
     Preparing,
@@ -42,6 +47,7 @@ pub enum MoveProgressPhase {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MoveProgressEvent {
     pub phase: MoveProgressPhase,
     pub file_id: Option<String>,
@@ -51,6 +57,7 @@ pub struct MoveProgressEvent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct MoveFinishedEvent {
     pub moved: u64,
     pub copied: u64,

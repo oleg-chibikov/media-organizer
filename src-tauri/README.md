@@ -16,7 +16,7 @@ Each layer uses only the layers below it.
 | Shared   | `models/`, `events.rs`, `path_safety.rs`, `file_ops/`, `safe_fs/`, `filename/`                                       | Payloads, event names, path checks and file mutations    |
 
 - **Tauri stays at the edge.** Only `main.rs`, `commands/` and `events.rs` see `AppHandle`. Tests pass a `RecordingSink` where the app passes the window.
-- **Payloads match the React app.** `models/` and the event names in `events.rs` match `src/lib/types/` and `src/lib/api/` in the React app.
+- **Payloads match the React app.** `cargo test` writes `models/` as TypeScript into `src/lib/types/generated/`. Event names in `events.rs` match `src/lib/api/`.
 - **Errors cross as text.** A command returns `Result<_, String>`. Enums exist only where code branches on the error kind.
 
 ## Main flows

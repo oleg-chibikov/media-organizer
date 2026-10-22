@@ -7,7 +7,7 @@ The React app shows what the Rust backend reports and asks the backend to act. O
 - **App shell** `main.tsx` mounts `App.tsx`. `App.tsx` lays out the toolbar, the file table and the status bar.
 - **Wiring** `app/useAppSession.ts` builds each feature hook and passes data between them. A new scan resets metadata, plans and moves there.
 - **Features** each folder in `features/` owns one pipeline step or one screen. `moves` is a step and `file-table` is a screen.
-- **Bridge** `lib/api/` wraps every Tauri command and event name. `lib/types/` copies the Rust payloads in `src-tauri/src/models/`. Change them together with the backend.
+- **Bridge** `lib/api/` wraps every Tauri command and event name. `lib/types/` re-exports the payloads ts-rs generates from `src-tauri/src/models/`. Regenerate them with `mise x -- cargo test --manifest-path src-tauri/Cargo.toml export_bindings`.
 - **Primitives** `components/design-system/` holds the button, the dialog, the pane and the resizable virtual table.
 
 ## How backend events drive state

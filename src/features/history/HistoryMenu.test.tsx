@@ -8,9 +8,11 @@ const RUNS: HistoryIndexEntry[] = [
     run_id: "run-a",
     folder_label: "TODO Camera",
     selected_folder: "C:\\TODO\\Camera",
+    destination_root_path: null,
     started_at: "2026-05-24T00:00:00Z",
     completed_at: "2026-05-24T00:05:00Z",
     run_status: "completed",
+    files_migrated: 0,
     undo_available: true,
     redo_available: false,
     history_file_path: "C:\\history\\run-a.jsonl"
@@ -19,9 +21,11 @@ const RUNS: HistoryIndexEntry[] = [
     run_id: "run-b",
     folder_label: "TODO Drone",
     selected_folder: "C:\\TODO\\Drone",
+    destination_root_path: null,
     started_at: "2026-05-23T00:00:00Z",
     completed_at: "2026-05-23T00:10:00Z",
     run_status: "undone",
+    files_migrated: 0,
     undo_available: false,
     redo_available: true,
     history_file_path: "C:\\history\\run-b.jsonl"

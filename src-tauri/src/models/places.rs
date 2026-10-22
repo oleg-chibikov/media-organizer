@@ -4,6 +4,7 @@ use super::ContinuedPlacement;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum SuggestionKind {
     /// Far from home, possibly across several places and countries.
     Trip,
@@ -14,6 +15,7 @@ pub enum SuggestionKind {
 /// How a place folder splits its files by day.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub enum DayLayout {
     /// One day: files sit in the place folder itself.
     Single,
@@ -24,6 +26,7 @@ pub enum DayLayout {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlaceGroup {
     pub name: String,
     pub place_kind: String,
@@ -35,6 +38,7 @@ pub struct PlaceGroup {
 
 /// A suggested place folder. Dates use the `chosen_date` format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct PlaceSuggestion {
     pub id: String,
     pub kind: SuggestionKind,
@@ -61,6 +65,7 @@ pub struct PlaceSuggestion {
 
 /// The place folder a planned file goes to, so a finished run can record it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
 pub struct Placement {
     pub kind: SuggestionKind,
     pub year: i32,

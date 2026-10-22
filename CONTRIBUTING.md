@@ -12,7 +12,7 @@
 - Follow the module map and layering rules in `docs/architecture.md`.
 - Put cross-feature UI wiring in `src/app/` and feature state in `src/features/<feature>/`.
 - Put Tauri command wrappers and event subscriptions in `src/lib/api/`.
-- Keep shared frontend payload types in `src/lib/types/` aligned with Rust `src-tauri/src/models/`.
+- Regenerate `src/lib/types/generated/` with `mise x -- cargo test --manifest-path src-tauri/Cargo.toml export_bindings` after a Rust model changes. CI fails when it is stale.
 - Put filesystem behavior in Rust domain modules, not the frontend or the command handlers.
 - Add or update tests around path safety, conflict handling, history, metadata date selection, and queue behavior when changing those areas.
 

@@ -244,7 +244,7 @@ A library already sorted by date has `<root>/<year>/<month>/<day>` folders, as t
 - `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `home-location`, `toolbar`.
 - `features/home-location`: the Home section in the settings menu. It shows where home came from, such as `from your location`. It searches cities 200 ms after typing stops. Use current location calls `use_current_location` and shows `Locating…` until the fix or the error. Opening the menu reloads settings, so a learned or device home shows up. A new home makes `features/place-suggestions` detect again.
 - `lib/api/`: typed command wrappers, `listenAll` event subscriptions and `useBackendEvents`.
-- `lib/types/`: TypeScript copies of the Rust payloads.
+- `lib/types/`: re-exports the TypeScript payloads ts-rs generates from `src-tauri/src/models/` into `lib/types/generated/`.
 
 The frontend doesn't decide filesystem outcomes. It renders streamed events, derives tallies from them and prevents duplicate dispatch by file id.
 

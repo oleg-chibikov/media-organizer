@@ -1,0 +1,4 @@
+# `cargo test` writes the TypeScript copies of src-tauri/src/models here through ts-rs.
+[env]
+TS_RS_EXPORT_DIR = { value = "src/lib/types/generated", relative = true }
+TS_RS_LARGE_INT = "number"
