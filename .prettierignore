@@ -5,3 +5,7 @@ src-tauri/binaries
 src-tauri/gen
 pnpm-lock.yaml
 src-tauri/Cargo.lock
+android/.tools
+android/app/build
+android/.gradle
+scripts/geodata/.cache

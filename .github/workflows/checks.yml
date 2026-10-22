@@ -1,0 +1,47 @@
+name: Checks
+
+# Runs the desktop tests and linters on every pull request and on main.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["android/**", "**/*.md"]
+  pull_request:
+    paths-ignore: ["android/**", "**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: node pnpm
+      - run: mise x -- pnpm install --frozen-lockfile
+      - run: mise x -- pnpm lint
+      - run: mise x -- pnpm format:check
+      - run: mise x -- pnpm test
+      - run: mise x -- pnpm build
+
+  # macOS needs no extra system packages for Tauri, and the ExifTool sidecar ships for it.
+  rust:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: rust node pnpm
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # tauri::generate_context! needs the built frontend folder.
+      - run: mise x -- pnpm install --frozen-lockfile
+      - run: mise x -- pnpm build
+      - run: mise x -- rustup component add clippy rustfmt
+      - run: mise x -- cargo fmt --manifest-path src-tauri/Cargo.toml --all --check
+      - run: mise x -- pnpm lint:rust
+      - run: mise x -- cargo test --manifest-path src-tauri/Cargo.toml

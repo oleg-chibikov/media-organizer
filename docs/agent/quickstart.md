@@ -58,6 +58,8 @@ mise x -- cargo test --manifest-path src-tauri/Cargo.toml
 mise x -- pnpm build
 ```
 
+The `Checks` CI workflow runs these on every pull request, plus `pnpm format:check`, `cargo fmt --check` and `pnpm lint:rust`.
+
 Find unused code, as the `Unused code` CI workflow does:
 
 ```powershell
