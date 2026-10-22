@@ -98,7 +98,7 @@ flowchart LR
   metaF -->|read_metadata_for_files| metaQ
   metaQ -.->|"capture dates, as the result"| metaF
   planF -->|"create_move_plan,<br/>detect_place_suggestions,<br/>plan_continued_moves"| planner
-  homeF -->|"search_home_cities,<br/>set_home_location"| settings
+  homeF -->|"search_home_cities,<br/>set_home_location,<br/>use_current_location"| settings
   planner -.->|"plan:* events"| planF
   movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan, pause_move_run,<br/>remove_empty_source_folders"| mover
   mover -.->|"move:* events"| movesF
@@ -145,7 +145,7 @@ Each layer may depend only on the layers below it.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes.
-- `home_location/`: reads the saved home for place suggestions, learns it from large scans, and finds cities by name.
+- `home_location/`: reads the saved home for place suggestions, finds it on the device, learns it from large scans, and finds cities by name. `device/` holds the `DeviceLocator` trait. `SystemLocator` asks CoreLocation on macOS and reads the time zone with `iana-time-zone`. Tests use a fake locator.
 - `placements/`: the registry of trip and outing folders that runs filled. Detection matches new suggestions against it. See Continued Place Folders.
 - `safe_fs/`: the only code that renames, links, copies into or deletes files. See File Safety Guarantees.
 - `geo/`: offline reverse geocoding. See Offline Places.
@@ -168,9 +168,11 @@ Each layer may depend only on the layers below it.
 
 `detect_place_suggestions(selected_path, files, metadata_results)` returns `PlaceDetection`: `suggestions`, `file_places` and `status`. `home_location::detect_place_suggestions` reads the saved home, then `trips::PlaceScan` groups the files on the blocking pool, with no filesystem calls. Each GPS point is geocoded once, and points 0.001 degrees apart share a lookup. The thresholds sit in `trips/thresholds.rs`.
 
-- **Home** is the saved home when settings hold one. The scan files don't change it.
-- **Learned home** with no saved home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`. A saved home stays until the person changes or clears it.
-- **One-off home** a scan under 60 days still uses that city for itself when it has 14 days and 30% of the days. It saves nothing. Below that, home is unknown.
+- **Home** is the saved home when settings hold one. The scan files only replace a `time_zone` home.
+- **Source ranking** `manual` beats `device`, `device` beats `learned`, `learned` beats `time_zone`. `settings::offer_home_location` saves a found home only over a weaker source. Use current location and picking a city replace any home.
+- **Device home** on start, with no home or a `time_zone` home saved, `home::find_home_on_start` runs one background job. On macOS it asks for when-in-use location access and waits up to 10 s for one fix, on that thread's run loop. The nearest city becomes home as `device`. Without a fix (denied, off, timed out, or not macOS) the system time zone names home as `time_zone`: `Australia/Sydney` gives the biggest city starting with `Sydney` in the zone's country from `/usr/share/zoneinfo/zone.tab`. Detection doesn't wait for this job.
+- **Learned home** with no saved home or a `time_zone` home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`.
+- **One-off home** a scan under 60 days still uses that city for itself when it has 14 days and 30% of the days. It saves nothing, and a `time_zone` home wins over it, since a small scan is often one trip. Below that, home is unknown.
 - **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them.
 - **Country folders** `trips/country_split.rs` splits each trip into one suggestion per country outside home's country, plus one for home's country. A foreign part gets `country` and is titled after it. The home part keeps a title from its countries. Trip root files go to the country they were shot in, or the trip's main country with no GPS. An outing abroad gets `country` too. With no known home every country is foreign.
 - **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
@@ -222,7 +224,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - `app/useBackendBootstrap.ts`: loads health, processing limits and settings at startup.
 - `app/useDestinationChange.ts`: applies a destination change and replans before any move starts.
 - `features/`: `scan`, `metadata`, `planning`, `place-suggestions`, `moves`, `history`, `file-table`, `status-bar`, `destination-settings`, `home-location`, `toolbar`.
-- `features/home-location`: the Home section in the settings menu. It searches cities 200 ms after typing stops. Opening the menu reloads settings, so a learned home shows up. A new home makes `features/place-suggestions` detect again.
+- `features/home-location`: the Home section in the settings menu. It shows where home came from, such as `from your location`. It searches cities 200 ms after typing stops. Use current location calls `use_current_location` and shows `Locating…` until the fix or the error. Opening the menu reloads settings, so a learned or device home shows up. A new home makes `features/place-suggestions` detect again.
 - `lib/api/`: typed command wrappers, `listenAll` event subscriptions and `useBackendEvents`.
 - `lib/types/`: TypeScript copies of the Rust payloads.
 
@@ -241,7 +243,7 @@ The frontend doesn't decide filesystem outcomes. It renders streamed events, der
 ## Data And Persistence
 
 - **Placed suggestions** are `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. See Continued Place Folders.
-- **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`. `home` holds `name`, `country`, `latitude`, `longitude` and `source` (`learned` or `manual`). Files saved before `home` existed load with no home.
+- **Settings** are `<appData>/settings/destination-settings.json`, written by `SettingsStore`. `home` holds `name`, `country`, `latitude`, `longitude` and `source` (`manual`, `device`, `learned` or `time_zone`). Files saved before `home` existed load with no home.
 - **History** is `<appData>/history/runs/*.jsonl` plus `index.json`, written by `HistoryStore`.
 - **App log** goes to stdout and the OS log folder through `tauri-plugin-log`, set up in `main.rs`. The emit helpers in `events.rs` and `events/log_lines.rs` write one line per event. Per-file scan and plan lines are `debug` and stay out of the default `info` level.
 - **Writes** to settings, placed suggestions and the history index take a process lock and replace the file through a temp file.

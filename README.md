@@ -106,7 +106,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - Suggests trip and outing folders from GPS and dates. The Group by place button in the toolbar shows progress while it looks up locations, then opens the review, or says why it found none. Rename the folders, then apply. The Place column in the table shows where each photo was taken.
 - Continues a trip or outing folder an earlier run filled when the next scan starts within 3 days of it. The new files get the same folder name and year, and placed files move to new day folders when the span grows.
 - Puts places abroad in a country folder: `<year>/<country>/<place>`. A trip across two countries becomes one folder per country. Places in home's country keep `<year>/<trip>/<place>` or `<year>/<place>`.
-- Measures trips from home. A scan with 60 or more days in one city saves that city as home. Change or clear it under Home in Settings.
+- Measures trips from home. On first start with no home, the app reads the device location once on macOS and saves the nearest city. macOS asks for location access. Without access the app guesses home from the system time zone, such as Sydney for `Australia/Sydney`. A scan with 60 or more days in one city replaces that guess. Change it, clear it or press Use current location under Home in Settings. The Android app has no place folders, so it doesn't ask for location.
 
 ## User Flow
 
