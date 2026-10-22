@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    file_ops::files_have_same_bytes,
+    file_ops::files_have_same_bytes_cached,
     models::{ConflictStatus, PlanStatus},
     path_safety::{normalized_path_string, paths_equal_case_insensitive},
 };
@@ -49,7 +49,7 @@ pub(super) fn allocate_destination_path(
         let exists_in_run = reserved_paths.contains(&path_key);
 
         if exists_on_disk
-            && files_have_same_bytes(source_path, &destination_path)
+            && files_have_same_bytes_cached(source_path, &destination_path)
                 .map_err(|error| format!("Failed to compare files for conflict check: {error}"))?
         {
             return Ok((
