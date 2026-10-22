@@ -10,11 +10,18 @@ function textCell(value: string) {
   return { value, title: value, className: TEXT_CELL };
 }
 
+// Only photos and videos get a place, so other rows stay blank while locating.
+function placeCell(record: FileRowState["record"], place: string | undefined, locating: boolean) {
+  const media = record.kind === "photo" || record.kind === "video";
+  return locating && media ? { ...textCell("Locating..."), loading: true } : textCell(place ?? "");
+}
+
 export function buildFileTableRow(
   state: FileRowState,
   activeMoveFileId: string | null,
   destinationRoot: string | null,
-  place: string | undefined
+  place: string | undefined,
+  locatingPlace: boolean
 ): FileTableRow {
   const { record, metadata, movePlan } = state;
   const metadataDate =
@@ -40,7 +47,7 @@ export function buildFileTableRow(
     },
     status: textCell(fileStatusLabel(state, activeMoveFileId)),
     date: textCell(metadataDate),
-    place: textCell(place ?? ""),
+    place: placeCell(record, place, locatingPlace),
     kind: textCell(record.kind),
     notes: textCell(fileNotesLabel(state))
   };

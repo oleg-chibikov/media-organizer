@@ -102,6 +102,7 @@ export default function App() {
             activeMoveFileId={execution.activeFileId}
             destinationRoot={effectiveDestination.rootPath}
             filePlaces={places.filePlaces}
+            locatingPlaces={places.locating}
           />
         )}
       </main>

@@ -3,6 +3,8 @@ import { FILE_TABLE_COLUMNS, type FileColumnKey, type FileTableRow } from "./fil
 
 const COLUMN_HORIZONTAL_PADDING = 28;
 const MIN_COLUMN_WIDTH = 50;
+// The spinner and its gap in a loading cell.
+const SPINNER_WIDTH = 20;
 const MONO_CELL_FONT = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 const BODY_CELL_FONT =
   "14px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif";
@@ -79,9 +81,10 @@ export function measureAutoSizedColumns(rows: FileTableRow[]): Record<FileColumn
       (maxWidth, value) => Math.max(maxWidth, measureText(context, value, font)),
       0
     );
+    const spinnerWidth = rows.some((row) => row[column.key].loading) ? SPINNER_WIDTH : 0;
     widths[column.key] = Math.max(
       HEADER_MIN_WIDTHS[column.key],
-      cellMaxWidth + COLUMN_HORIZONTAL_PADDING
+      cellMaxWidth + spinnerWidth + COLUMN_HORIZONTAL_PADDING
     );
   }
   return widths;

@@ -199,7 +199,7 @@ Each layer may depend only on the layers below it.
 
 - **Group by place** sits in the toolbar while a folder is open and no files move. It shows a spinner and `Finding locations… N/M` (photos and videos with metadata read, out of all of them) until the answer lands. Then it opens the review with the count, or stays focusable with the reason from `status`.
 - **Banner** above the table says `Finding locations…` while locating, then lists the places with Review folders and a dismiss button. Dismissing hides the banner only. The toolbar button still opens the review.
-- **Place column** in the file table reads `file_places` by file id. Files with no GPS get an empty cell.
+- **Place column** in the file table reads `file_places` by file id. Photos and videos show a spinner and `Locating...` until the answer lands. Files with no GPS get an empty cell.
 
 Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
 

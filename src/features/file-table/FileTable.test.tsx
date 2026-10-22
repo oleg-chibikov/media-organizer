@@ -65,6 +65,7 @@ function renderTable(props: Partial<FileTableProps>) {
       activeMoveFileId={null}
       destinationRoot={null}
       filePlaces={{}}
+      locatingPlaces={false}
       {...props}
     />
   );

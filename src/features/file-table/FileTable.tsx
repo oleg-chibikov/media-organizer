@@ -22,6 +22,7 @@ interface FileTableProps {
   destinationRoot: string | null;
   // Place labels by file id, empty until detection answers.
   filePlaces: Record<string, string>;
+  locatingPlaces: boolean;
 }
 
 const EMPTY_FILTER_MESSAGES: Record<FileFilter, string> = {
@@ -38,7 +39,8 @@ export function FileTable({
   moveResultsByFileId,
   activeMoveFileId,
   destinationRoot,
-  filePlaces
+  filePlaces,
+  locatingPlaces
 }: FileTableProps) {
   const [filter, setFilter] = useState<FileFilter>("all");
   const sortedRows = useMemo(() => sortFileRecords(rows), [rows]);
@@ -60,9 +62,15 @@ export function FileTable({
   const tableRows = useMemo(
     () =>
       sorted.states.map((state) =>
-        buildFileTableRow(state, activeMoveFileId, destinationRoot, filePlaces[state.record.id])
+        buildFileTableRow(
+          state,
+          activeMoveFileId,
+          destinationRoot,
+          filePlaces[state.record.id],
+          locatingPlaces
+        )
       ),
-    [sorted, activeMoveFileId, destinationRoot, filePlaces]
+    [sorted, activeMoveFileId, destinationRoot, filePlaces, locatingPlaces]
   );
 
   // Columns fit every row, so switching the filter doesn't change their widths.

@@ -14,6 +14,8 @@ export interface FileCell {
   value: string;
   title: string;
   className: string;
+  // Shows a spinner before the text while the value is still on its way.
+  loading?: boolean;
 }
 
 export type FileTableRow = { id: string } & Record<FileColumnKey, FileCell>;
