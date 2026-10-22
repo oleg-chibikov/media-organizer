@@ -11,6 +11,13 @@ use super::{
 };
 use crate::geo::{Coordinates, Place};
 
+/// Where trips are measured from. Places in its country get no country folder.
+#[derive(Debug, Clone)]
+pub(crate) struct Home {
+    pub(crate) point: Coordinates,
+    pub(crate) country: String,
+}
+
 /// The city with the most distinct geotagged days.
 #[derive(Debug, Clone)]
 pub(crate) struct HomeCity {
@@ -19,8 +26,11 @@ pub(crate) struct HomeCity {
 }
 
 impl HomeCity {
-    pub(crate) fn coordinates(&self) -> Coordinates {
-        Coordinates::new(self.place.latitude, self.place.longitude)
+    pub(crate) fn home(&self) -> Home {
+        Home {
+            point: Coordinates::new(self.place.latitude, self.place.longitude),
+            country: self.place.country_name.clone(),
+        }
     }
 
     /// Enough days to keep as home for later scans, such as one month folder.

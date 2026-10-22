@@ -57,4 +57,14 @@ describe("placeFolderPreview", () => {
       "2024/United States/10-30"
     ]);
   });
+
+  it("files a trip abroad under its country and an outing abroad inside it", () => {
+    const trip = { ...TRIP, title: "Holiday", country: "USA" };
+    const outing = { ...OUTING, country: "Australia" };
+
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES))[0]?.path).toBe("2025/USA/Yosemite/10-28");
+    expect(placeFolderPreview(outing, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/Australia/Royal Botanic Gardens", count: 2 }
+    ]);
+  });
 });

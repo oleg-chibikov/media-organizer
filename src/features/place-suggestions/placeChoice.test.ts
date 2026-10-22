@@ -28,4 +28,12 @@ describe("placeChoice", () => {
     expect(renamedTrip.continues).toBeNull();
     expect(renamedPlace.continues).toEqual(CONTINUED_TRIP.continues);
   });
+
+  it("keeps the country as the folder of a trip abroad", () => {
+    const abroad = { ...TRIP, country: "United States" };
+    const choice = { ...freshChoice(abroad), title: "a/b" };
+
+    expect(isChoiceValid(abroad, choice)).toBe(true);
+    expect(withChoiceNames(abroad, choice).title).toBe(TRIP.title);
+  });
 });

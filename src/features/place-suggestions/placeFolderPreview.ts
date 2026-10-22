@@ -48,12 +48,21 @@ function foldersFor(base: string, fileIds: string[], spanDates: string[], dateOf
   return [...countByPath].map(([path, count]) => ({ path, count }));
 }
 
+// A trip abroad is filed under its country; an outing abroad sits inside its country.
+function topFolder(suggestion: PlaceSuggestion, year: string): string {
+  const { kind, country, title } = suggestion;
+  if (kind === "trip") {
+    return `${year}/${country ?? title}`;
+  }
+  return country ? `${year}/${country}` : year;
+}
+
 // The folders the files of one suggestion go to, relative to the destination root.
 // A continued suggestion keeps the placed year folder.
 export function placeFolderPreview(suggestion: PlaceSuggestion, dateOf: DateOf): PreviewFolder[] {
   const { continues } = suggestion;
   const year = continues ? String(continues.year) : suggestion.start.slice(0, 4);
-  const base = suggestion.kind === "trip" ? `${year}/${suggestion.title}` : year;
+  const base = topFolder(suggestion, year);
   const placedSpan = (name: string) => {
     const placed = continues?.places.find((place) => place.name === name);
     return placed ? [placed.start, placed.end] : [];

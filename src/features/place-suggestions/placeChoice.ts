@@ -20,12 +20,16 @@ export function freshChoice(suggestion: PlaceSuggestion): PlaceChoice {
 const sharedFolder = (suggestion: PlaceSuggestion) =>
   suggestion.kind === "trip" ? suggestion.title : suggestion.places[0]?.name;
 
+// A trip abroad is filed under its country, so only a trip at home has a title to edit.
+export const hasEditableTitle = (suggestion: PlaceSuggestion) =>
+  suggestion.kind === "trip" && suggestion.country === null;
+
 // The suggestion with the edited names, as the backend plans it. A renamed trip or outing
 // no longer continues the placed folder, so it starts a new one.
 export function withChoiceNames(suggestion: PlaceSuggestion, choice: PlaceChoice): PlaceSuggestion {
   const edited = {
     ...suggestion,
-    title: suggestion.kind === "trip" ? choice.title.trim() : suggestion.title,
+    title: hasEditableTitle(suggestion) ? choice.title.trim() : suggestion.title,
     places: suggestion.places.map((place, index) => ({
       ...place,
       name: (choice.placeNames[index] ?? place.name).trim()
@@ -39,8 +43,9 @@ export function isChoiceValid(suggestion: PlaceSuggestion, choice: PlaceChoice):
   if (!choice.use) {
     return true;
   }
-  const names =
-    suggestion.kind === "trip" ? [choice.title, ...choice.placeNames] : choice.placeNames;
+  const names = hasEditableTitle(suggestion)
+    ? [choice.title, ...choice.placeNames]
+    : choice.placeNames;
   return names.every((name) => folderNameError(name) === null);
 }
 

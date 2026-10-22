@@ -40,6 +40,9 @@ export interface PlaceSuggestion {
   places: PlaceGroup[];
   /** Trip files that belong to no place folder. */
   root_file_ids: string[];
+  /** The country folder outside home's country. A trip is then filed under this country
+   * instead of its title, and an outing's place folder sits inside it. */
+  country: string | null;
   /** The placed trip or outing this one continues. Its title and year win. */
   continues: ContinuedPlacement | null;
 }
@@ -50,4 +53,5 @@ export interface Placement {
   year: number;
   title: string;
   place: string | null;
+  country?: string | null;
 }

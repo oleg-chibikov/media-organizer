@@ -3,7 +3,7 @@ import type { PlaceSuggestion } from "../../lib/types";
 import { FolderNameField } from "./FolderNameField";
 import { FolderPreviewList } from "./FolderPreviewList";
 import { continuedLabel } from "./continuedLabel";
-import { withChoiceNames, type PlaceChoice } from "./placeChoice";
+import { hasEditableTitle, withChoiceNames, type PlaceChoice } from "./placeChoice";
 import { placeFolderPreview } from "./placeFolderPreview";
 import { suggestionHeading, suggestionSize } from "./placePromptLabel";
 
@@ -53,7 +53,7 @@ export function PlaceSuggestionSection({
       {choice.use ? (
         <>
           <div className="mt-2 grid gap-2">
-            {suggestion.kind === "trip" ? (
+            {hasEditableTitle(suggestion) ? (
               <FolderNameField
                 label="Trip folder"
                 value={choice.title}

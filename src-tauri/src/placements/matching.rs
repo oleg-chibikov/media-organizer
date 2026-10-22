@@ -8,8 +8,8 @@ use crate::{
     trips::{CHOSEN_DATE_FORMAT, TRIP_MAX_GAP},
 };
 
-/// The record `suggestion` continues: same root and kind, at most `TRIP_MAX_GAP`
-/// apart, and for an outing the same place. The closest record wins.
+/// The record `suggestion` continues: same root, kind and country folder, at most
+/// `TRIP_MAX_GAP` apart, and for an outing the same place. The closest record wins.
 pub(super) fn find_continued<'a>(
     records: &'a [PlacedSuggestion],
     root: &Path,
@@ -19,7 +19,7 @@ pub(super) fn find_continued<'a>(
     records
         .iter()
         .filter(|record| record.is_in(root) && record.kind == suggestion.kind)
-        .filter(|record| same_outing_place(record, suggestion))
+        .filter(|record| same_country(record, suggestion) && same_outing_place(record, suggestion))
         .filter_map(|record| {
             let gap = gap_between((start, end), (parse(&record.start)?, parse(&record.end)?));
             (gap <= TRIP_MAX_GAP).then_some((gap, record))
@@ -36,6 +36,13 @@ fn gap_between(
     (start - placed_end)
         .max(placed_start - end)
         .max(TimeDelta::zero())
+}
+
+fn same_country(record: &PlacedSuggestion, suggestion: &PlaceSuggestion) -> bool {
+    match (&record.country, &suggestion.country) {
+        (Some(placed), Some(found)) => placed.eq_ignore_ascii_case(found),
+        (placed, found) => placed.is_none() && found.is_none(),
+    }
 }
 
 fn same_outing_place(record: &PlacedSuggestion, suggestion: &PlaceSuggestion) -> bool {

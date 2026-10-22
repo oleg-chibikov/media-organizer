@@ -36,15 +36,21 @@ fn an_unknown_home_gives_no_trips() {
 }
 
 #[test]
-fn the_trip_title_and_year_come_from_its_files() {
+fn a_trip_abroad_splits_into_one_suggestion_per_country() {
     let mut media = Media::default();
     media
         .burst("de", "2024-12-31 20:00:00", 6, 60, Some(FRECHEN))
         .burst("fr", "2025-01-01 03:00:00", 5, 60, Some(super::RILLIEUX));
 
-    let trip = &media.detect(Some(SYDNEY))[0];
+    let trips = media.detect(Some(SYDNEY));
 
-    assert_eq!(trip.title, "Germany & France");
-    assert_eq!(trip.year, 2024);
-    assert!(trip.id.starts_with("trip-"), "{}", trip.id);
+    let titles: Vec<_> = trips
+        .iter()
+        .map(|trip| (trip.title.as_str(), trip.year))
+        .collect();
+    assert_eq!(titles, [("Germany", 2024), ("France", 2025)]);
+    assert_eq!(trips[0].country.as_deref(), Some("Germany"));
+    assert_eq!(trips[1].country.as_deref(), Some("France"));
+    assert_ne!(trips[0].id, trips[1].id);
+    assert!(trips[0].id.starts_with("trip-"), "{}", trips[0].id);
 }

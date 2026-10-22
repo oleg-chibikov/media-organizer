@@ -1,3 +1,4 @@
+mod country_folders;
 mod day_layout;
 mod home;
 mod names;
@@ -12,7 +13,7 @@ use crate::{
     geo::Coordinates,
     models::{FileKind, FileRecord, GpsPoint, MetadataResult, PlaceSuggestion},
     test_support::media::{dated_metadata, file_record},
-    trips::{shots::CHOSEN_DATE_FORMAT, PlaceScan},
+    trips::{shots::CHOSEN_DATE_FORMAT, Home, PlaceScan},
 };
 
 /// Points that resolve to a city with no point of interest around them.
@@ -57,10 +58,16 @@ impl Media {
         self
     }
 
+    /// Every home the tests pass is in Australia.
     fn detect(&self, home: Option<Coordinates>) -> Vec<PlaceSuggestion> {
         let scan = PlaceScan::new(&self.files, &self.metadata);
-        let home = home.or_else(|| scan.home_city().map(|city| city.coordinates()));
-        scan.suggestions(home)
+        let home = home
+            .map(|point| Home {
+                point,
+                country: "Australia".to_owned(),
+            })
+            .or_else(|| scan.home_city().map(|city| city.home()));
+        scan.suggestions(home.as_ref())
     }
 }
 

@@ -26,6 +26,10 @@ impl Scan {
         self.temp.path().join("todo")
     }
 
+    pub(super) fn store(&self) -> PlacementStore {
+        self.store.clone()
+    }
+
     pub(super) fn root(&self) -> PathBuf {
         self.selected().join("Processed")
     }

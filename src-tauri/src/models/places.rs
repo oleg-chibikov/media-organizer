@@ -44,6 +44,10 @@ pub struct PlaceSuggestion {
     pub places: Vec<PlaceGroup>,
     /// Trip files that belong to no place folder.
     pub root_file_ids: Vec<String>,
+    /// The country folder of a suggestion outside home's country. A trip's title is then
+    /// this country, and an outing's place folder sits inside it.
+    #[serde(default)]
+    pub country: Option<String>,
     /// The placed trip or outing this one continues. Its title and year win.
     #[serde(default)]
     pub continues: Option<ContinuedPlacement>,
@@ -76,4 +80,7 @@ pub struct Placement {
     pub title: String,
     /// The place folder inside a trip, or the outing's place. `None` for trip root files.
     pub place: Option<String>,
+    /// The suggestion's `country`: the folder above an outing, or a trip's title.
+    #[serde(default)]
+    pub country: Option<String>,
 }

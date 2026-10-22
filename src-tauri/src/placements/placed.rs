@@ -23,6 +23,9 @@ pub(crate) struct PlacedSuggestion {
     /// Trip files in no place folder.
     #[serde(default)]
     pub(crate) root_files: Vec<PlacedFile>,
+    /// The country folder outside home's country, as in `Placement::country`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) country: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,11 +45,15 @@ pub(crate) struct PlacedFile {
 }
 
 impl PlacedSuggestion {
-    /// `<root>/<year>/<title>`: the trip folder, or the outing's place folder.
+    /// The trip folder, or the outing's place folder.
     pub(crate) fn folder(&self) -> PathBuf {
-        Path::new(&self.root)
-            .join(self.year.to_string())
-            .join(&self.title)
+        top_folder(
+            Path::new(&self.root),
+            self.kind,
+            self.year,
+            self.country.as_deref(),
+            &self.title,
+        )
     }
 
     pub(crate) fn is_in(&self, root: &Path) -> bool {
@@ -59,6 +66,7 @@ impl PlacedSuggestion {
             && self.kind == placement.kind
             && self.year == placement.year
             && self.title == placement.title
+            && self.country == placement.country
     }
 
     /// The files of one place folder, or the trip root files for `None`.
@@ -71,5 +79,21 @@ impl PlacedSuggestion {
                 .map_or(&[], |placed| placed.files.as_slice()),
             None => &self.root_files,
         }
+    }
+}
+
+/// `<root>/<year>/<title>`, with an outing abroad inside `<country>`. A trip abroad is
+/// titled after its country already.
+pub(crate) fn top_folder(
+    root: &Path,
+    kind: SuggestionKind,
+    year: i32,
+    country: Option<&str>,
+    title: &str,
+) -> PathBuf {
+    let year_folder = root.join(year.to_string());
+    match (kind, country) {
+        (SuggestionKind::Outing, Some(country)) => year_folder.join(country).join(title),
+        _ => year_folder.join(title),
     }
 }

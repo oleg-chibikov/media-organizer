@@ -6,6 +6,7 @@ use std::{
 use super::request::MoveRunRequest;
 use crate::{
     models::{MoveResult, MoveResultStatus, Placement, SuggestionKind},
+    placements::top_folder,
     safe_fs,
 };
 
@@ -42,7 +43,13 @@ pub(super) fn remove_emptied_place_folders(request: &MoveRunRequest, results: &[
 }
 
 fn place_folder(root: &Path, placement: &Placement) -> PathBuf {
-    let folder = root.join(placement.year.to_string()).join(&placement.title);
+    let folder = top_folder(
+        root,
+        placement.kind,
+        placement.year,
+        placement.country.as_deref(),
+        &placement.title,
+    );
     match (placement.kind, &placement.place) {
         (SuggestionKind::Trip, Some(place)) => folder.join(place),
         _ => folder,

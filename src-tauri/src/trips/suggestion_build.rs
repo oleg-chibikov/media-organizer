@@ -3,8 +3,8 @@
 use chrono::Datelike;
 
 use super::{
+    country_split::CountryPart,
     day_layout::day_layout_for_span,
-    draft::Draft,
     place_names::place_folder_names,
     place_table::PlaceTable,
     shots::{Shot, CHOSEN_DATE_FORMAT},
@@ -18,10 +18,12 @@ use crate::{
 
 /// `None` only for an empty draft, which grouping doesn't produce.
 pub(super) fn build_suggestion(
-    draft: &Draft,
+    part: CountryPart,
     shots: &[Shot],
     places: &PlaceTable,
 ) -> Option<PlaceSuggestion> {
+    let CountryPart { country, draft } = part;
+    let draft = &draft;
     let group_places: Vec<_> = draft.groups.iter().map(|group| group.place).collect();
     let names = place_folder_names(&group_places, places);
     let mut groups = Vec::with_capacity(draft.groups.len());
@@ -42,15 +44,16 @@ pub(super) fn build_suggestion(
         &shots[*members.iter().min()?],
         &shots[*members.iter().max()?],
     );
-    let title = match draft.kind {
-        SuggestionKind::Trip => {
+    let title = match (draft.kind, &country) {
+        (SuggestionKind::Trip, Some(country)) => sanitize_for_windows_filename(country),
+        (SuggestionKind::Trip, None) => {
             let countries = members.iter().filter_map(|&index| {
                 let place = shots[index].location?.resolved.place?;
                 Some(places.get(place).country_name.as_str())
             });
             sanitize_for_windows_filename(&trip_title(countries))
         }
-        SuggestionKind::Outing => groups.first()?.name.clone(),
+        (SuggestionKind::Outing, _) => groups.first()?.name.clone(),
     };
     let start = first.taken.format(CHOSEN_DATE_FORMAT).to_string();
     Some(PlaceSuggestion {
@@ -63,6 +66,7 @@ pub(super) fn build_suggestion(
         file_count: u32::try_from(members.len()).unwrap_or(u32::MAX),
         places: groups,
         root_file_ids: file_ids(&draft.root, shots),
+        country: country.map(|country| sanitize_for_windows_filename(&country)),
         continues: None,
     })
 }

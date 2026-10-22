@@ -27,6 +27,7 @@ export const TRIP: PlaceSuggestion = {
     }
   ],
   root_file_ids: ["r1"],
+  country: null,
   continues: null
 };
 
@@ -61,6 +62,7 @@ export const OUTING: PlaceSuggestion = {
     }
   ],
   root_file_ids: [],
+  country: null,
   continues: null
 };
 

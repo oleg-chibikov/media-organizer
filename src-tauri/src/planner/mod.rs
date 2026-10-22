@@ -1,6 +1,7 @@
 //! Destination planning: dated, place or same folders, original-name filenames and conflict suffixes.
 
 mod continued_moves;
+mod continued_spans;
 mod destination_allocation;
 mod destination_layout;
 mod file_plan;

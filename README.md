@@ -105,6 +105,7 @@ Each push to `main` publishes a new GitHub release. Pushes that change only `*.m
 - Renames files where they are, with **Rename only** in the toolbar. Files keep their folder and get the dated name.
 - Suggests trip and outing folders from GPS and dates. Review them from the status bar, rename the folders, then apply.
 - Continues a trip or outing folder an earlier run filled when the next scan starts within 3 days of it. The new files get the same folder name and year, and placed files move to new day folders when the span grows.
+- Puts places abroad in a country folder: `<year>/<country>/<place>`. A trip across two countries becomes one folder per country. Places in home's country keep `<year>/<trip>/<place>` or `<year>/<place>`.
 - Measures trips from home. A scan with 60 or more days in one city saves that city as home. Change or clear it under Home in Settings.
 
 ## User Flow

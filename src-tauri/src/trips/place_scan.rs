@@ -1,10 +1,10 @@
 //! One scan's files geocoded once, ready for home inference and grouping.
 
-use super::{home, outings, place_table::PlaceTable, shots, suggestion_build, trip_runs, untagged};
-use crate::{
-    geo::Coordinates,
-    models::{FileRecord, MetadataResult, PlaceSuggestion},
+use super::{
+    country_split::split_by_country, home, outings, place_table::PlaceTable, shots,
+    suggestion_build, trip_runs, untagged,
 };
+use crate::models::{FileRecord, MetadataResult, PlaceSuggestion};
 
 pub(crate) struct PlaceScan<'a> {
     shots: Vec<shots::Shot<'a>>,
@@ -23,11 +23,12 @@ impl<'a> PlaceScan<'a> {
         home::infer_home(&self.shots, &self.places)
     }
 
-    /// Trips and outings in time order. With no `home` there are only outings.
-    pub(crate) fn suggestions(&self, home: Option<Coordinates>) -> Vec<PlaceSuggestion> {
+    /// Trips and outings in time order, one per country folder. With no `home` there
+    /// are only outings.
+    pub(crate) fn suggestions(&self, home: Option<&home::Home>) -> Vec<PlaceSuggestion> {
         let (shots, places) = (&self.shots, &self.places);
         let mut drafts = home
-            .map(|home| trip_runs::find_trips(shots, home, places))
+            .map(|home| trip_runs::find_trips(shots, home.point, places))
             .unwrap_or_default();
         let mut in_trip = vec![false; shots.len()];
         for trip in &drafts {
@@ -38,9 +39,11 @@ impl<'a> PlaceScan<'a> {
         }
         drafts.extend(outings::find_outings(shots, &in_trip, places));
         untagged::attach_untagged(shots, &mut drafts);
+        let home_country = home.map(|home| home.country.as_str());
         let mut suggestions: Vec<PlaceSuggestion> = drafts
-            .iter()
-            .filter_map(|draft| suggestion_build::build_suggestion(draft, shots, places))
+            .into_iter()
+            .flat_map(|draft| split_by_country(draft, shots, places, home_country))
+            .filter_map(|part| suggestion_build::build_suggestion(part, shots, places))
             .collect();
         suggestions.sort_by(|a, b| a.start.cmp(&b.start));
         suggestions

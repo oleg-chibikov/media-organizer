@@ -171,22 +171,24 @@ Each layer may depend only on the layers below it.
 - **Home** is the saved home when settings hold one. The scan files don't change it.
 - **Learned home** with no saved home, the scan picks the nearest city with the most distinct geotagged days. With 60 days and 30% of all geotagged days, settings save it as `learned`. A saved home stays until the person changes or clears it.
 - **One-off home** a scan under 60 days still uses that city for itself when it has 14 days and 30% of the days. It saves nothing. Below that, home is unknown.
-- **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them. Its title is the top country, the top two joined with " & ", or the top one and " & more".
+- **Trips** need a known home. A trip is a run of 5 or more files over 100 km from home, with at most 3 days between them.
+- **Country folders** `trips/country_split.rs` splits each trip into one suggestion per country outside home's country, plus one for home's country. A foreign part gets `country` and is titled after it. The home part keeps a title from its countries. Trip root files go to the country they were shot in, or the trip's main country with no GPS. An outing abroad gets `country` too. With no known home every country is foreign.
 - **Trip places** group files by resolved place across the trip. A point of interest with under 5 files falls back to its city. A city with under 5 files falls back to the trip root.
 - **Outings** are 5 or more files at one point of interest outside trips, merged per year. A city makes no outing.
 - **Files with no GPS** join the trip place of a geotagged file within 3 hours, else the trip root. Outside trips they join an outing with a file within 1 hour on the same day.
 
-`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids` and `continues`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
+`PlaceSuggestion` holds `id`, `kind` (`trip` or `outing`), `year`, `title`, `start`, `end`, `file_count`, `places`, `root_file_ids`, `country` and `continues`. Each `PlaceGroup` holds `name`, `place_kind`, `day_layout`, `start`, `end` and `file_ids`. Dates use the `chosen_date` format.
 
 `create_move_plan` takes the accepted suggestions as `place_suggestions`. `planner::PlaceFolders` maps each file to its folder:
 
 - **Trip place** `<root>/<year>/<title>/<place>/<days>`. Trip files in no place go to `<root>/<year>/<title>/<days>`.
-- **Outing** `<root>/<year>/<place>/<days>`.
+- **Trip abroad** `<root>/<year>/<country>/<place>/<days>`. The planner uses `country` as the folder whatever the title says, so the review dialog only lets the person rename places.
+- **Outing** `<root>/<year>/<place>/<days>`, or `<root>/<year>/<country>/<place>/<days>` abroad.
 - **Days** follow the group's date span: no folder for one day, `MM-DD` up to 31 days, `<month>/<day>` past that. The trip root uses the span of the whole trip.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
 - **Other files** keep `<root>/<year>/<month>/<day>`.
 - **Rename in place** renames the other files in their folder. Files in an accepted suggestion still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks and the registry use it too.
-- **Plans** carry `placement` (`kind`, `year`, `title`, `place`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
+- **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
 
 `features/place-suggestions` calls `detect_place_suggestions` once per scan, 1 s after the last metadata lands, in both destination modes. A status bar button opens a review dialog with editable names and a folder preview. Apply hands the accepted suggestions to `features/planning`, which sends them with every `create_move_plan` call. Each plan signature holds the file's place folder, so only files whose folder changed lose their plan and get planned again. A new scan or destination clears the suggestions.
 
@@ -196,10 +198,10 @@ Place folders are desktop only. The Android app keeps dated folders.
 
 A person who sorted files by month scans one month folder at a time. A trip from Oct 28 to Nov 2 then shows up in two scans. The registry lets the second scan add to the folder the first one filled.
 
-- **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`) and `root_files`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
+- **Registry** is `<appData>/placements/placed-suggestions.json`, written by `PlacementStore`. Each record holds `root`, `kind`, `year`, `title`, `start`, `end`, `places` (`name`, `start`, `end`, `files`), `root_files` and `country`. A file is `relative_path` from the root plus `chosen_date`. A missing file loads as an empty registry.
 - **Recording** happens when a move run ends. Files that moved or copied with a `placement` join the record of their folder. Skipped and failed files stay out. A file moved inside the root replaces its old entry.
 - **Undo** drops the undone files, and records left empty. Redo doesn't add them back.
-- **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name.
+- **Matching** `detect_place_suggestions` loads the records under the place folder root and drops records whose folder is gone, with one check per record. A suggestion continues the closest record of the same kind and `country` at most 3 days apart (`TRIP_MAX_GAP`). An outing also needs the same place name. Records from before `country` count as home's country.
 - **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
