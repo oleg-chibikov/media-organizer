@@ -46,6 +46,7 @@ impl ScanSession {
                 for plan in plans {
                     planning.plans.insert(plan.file_id.clone(), plan);
                 }
+                self.moves_changed.notify_all();
             }
             Err(error) => self.fail(sink, planning, candidates, &error),
         }

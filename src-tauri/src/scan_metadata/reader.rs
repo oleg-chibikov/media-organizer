@@ -8,6 +8,9 @@ use crate::{
 /// Reads one batch and answers every request, with an error result where the read failed.
 pub(crate) trait BatchReader: Send + Sync + 'static {
     fn read(&self, requests: Vec<MetadataReadRequest>) -> Vec<MetadataResult>;
+
+    /// Called once every reader of the scan has stopped.
+    fn finished(&self) {}
 }
 
 /// Reads through the shared ExifTool workers.

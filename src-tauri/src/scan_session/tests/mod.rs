@@ -1,4 +1,5 @@
 mod lookups;
+mod moves;
 mod planning;
 
 use std::{path::Path, sync::Arc};

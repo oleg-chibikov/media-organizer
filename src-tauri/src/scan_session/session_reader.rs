@@ -22,4 +22,8 @@ impl<R: BatchReader, S: EventSink + Send + Sync + 'static> BatchReader for Sessi
         self.session.plan_read(&self.sink, &results);
         results
     }
+
+    fn finished(&self) {
+        self.session.mark_dates_read();
+    }
 }

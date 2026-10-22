@@ -48,10 +48,10 @@ sequenceDiagram
   UI->>Rust: apply_place_suggestions, once places are known
   Rust-->>UI: plan:file events with destinations, then plan:settled
   Person->>UI: Confirms the move
-  UI->>Rust: execute_move_plan
+  UI->>Rust: start_moves
   Rust->>Disk: checks, moves and logs each file
   Rust-->>UI: move:file and move:progress events
-  UI->>Rust: remove_empty_source_folders, once the run ends
+  Rust-->>UI: move:done, once the run ends and the source is cleaned
   Rust->>Disk: removes empty source folders
   Person->>UI: Undoes or redoes a run in History
   UI->>Rust: undo_history_run or redo_history_run
@@ -63,7 +63,7 @@ sequenceDiagram
 2. `scanner` walks the folder on the blocking pool and streams `scan:*` events.
 3. `scan_metadata` takes each batch of photos and videos right after its `scan:files` event and reads them through the persistent ExifTool workers of `metadata_queue`. It streams `metadata:results` and ends with `metadata:finished`. Both carry the `scan_id` from `scan:started`, so `features/metadata` drops dates of a replaced scan. The same request reads `GPSLatitude#`, `GPSLongitude#` and `GPSCoordinates#`, so each `MetadataResult` carries `gps` in signed decimal degrees, or `null`.
 4. `scan_session` plans each file once its date is read and the place folders are known. `apply_place_suggestions` tells it the folders the person accepted, see Place Suggestions. `planner` streams `plan:*` events with destination previews and the `scan_id`. One lock orders every planning pass of a scan, so `features/planning` mirrors the events as they land. Every plan of a scan shares one set of reserved names, so two files planned in different passes don't get the same destination.
-5. After the user confirms, `features/moves` sends ready plans to `execute_move_plan`. `move_run` checks, moves and records each file and streams `move:*` events. When the last batch is done, `features/moves` calls `remove_empty_source_folders` once.
+5. After the user confirms, `features/moves` calls `start_moves`. A thread of `scan_session` moves every ready file through `move_run`, then the files that become ready while the scan, its reads or its place folders are still going. `move_run` checks, moves and records each file and streams `move:*` events. Once nothing is left to check, the session removes the empty source folders and sends `move:done`.
 6. `history` keeps a JSONL log per run in appData. `undo_redo` replays a run in either direction and streams `history:*` events.
 
 ## How Frontend And Backend Talk
@@ -99,7 +99,7 @@ flowchart LR
   planF -->|"apply_place_suggestions,<br/>clear_scan_plans,<br/>detect_place_suggestions"| planner
   homeF -->|"search_home_cities,<br/>set_home_location,<br/>use_current_location"| settings
   planner -.->|"plan:* events"| planF
-  movesF -->|"get_move_confirmation_summary,<br/>execute_move_plan, pause_move_run,<br/>remove_empty_source_folders"| mover
+  movesF -->|"get_move_confirmation_summary,<br/>start_moves, pause_moves,<br/>resume_moves"| mover
   mover -.->|"move:* events"| movesF
   histF -->|"list, get, delete,<br/>undo, redo history run"| hist
   hist -.->|"history:* events"| histF
@@ -138,12 +138,12 @@ Each layer may depend only on the layers below it.
 - `events.rs`: event names, the `EventSink` trait and typed emit helpers. Tests use `test_support::events::RecordingSink`.
 - `scanner/`: recursive walk, media classification, `Processed` skipping and the `ActiveScan` cancel handle. A file with no usable extension, such as `name(IMG_1.jpg)`, is identified by its first bytes and gets the matching extension when it moves.
 - `metadata/`: ExifTool sidecar lookup, worker lifecycle, JSON parsing, capture-date selection and GPS parsing.
-- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. It also owns the scan's plans: it plans read files, applies place folders, swaps placed files and clears plans for a new destination. `detect_place_suggestions`, `get_move_confirmation_summary` and `execute_move_plan` take the `scan_id` and file ids, and look the files and plans up there. A command for a replaced scan fails.
+- `scan_session/`: the records and dates of the scan on screen, in `AppState::current_scan`. It also owns the scan's plans: it plans read files, applies place folders, swaps placed files and clears plans for a new destination. It runs the confirmed moves too. `detect_place_suggestions`, `get_move_confirmation_summary` and `start_moves` take the `scan_id`, and look the files and plans up there. A new scan stops the run of the one it replaced after the file moving now. A command for a replaced scan fails.
 - `scan_metadata/`: reader threads that read the dates of a running scan's photos and videos, pause with `set_metadata_paused`, and stop with the scan.
 - `metadata_queue/`: bounded batch queue over the worker pool, with env-configurable limits. The workers run at low priority on half the cores by default, so a large read leaves the desktop responsive.
 - `planner/`: dated destination paths, original-name filenames and conflict suffixes. Planning is a dry run. With `rename_in_place` on, `DestinationLayout::SameFolder` keeps each file in its folder, except files in an accepted place folder. A file that already has its planned name gets `already_named` and stays out of the move.
 - `mover/`: move preparation, root safety checks, conflict recheck, rename with verified copy fallback, and the confirmation summary.
-- `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run.
+- `move_run/`: one confirmed batch from start to finish: history run, per-file progress and results. `remove_empty_source_folders` cleans the source after the whole run, called by `scan_session`.
 - `history/`: `HistoryStore` over run logs and the bounded index, crash recovery, undo/redo candidates, the `RunLease` that lets one job work on a run, and the listing cache.
 - `undo_redo/`: `ReplayDirection` eligibility, per-operation checks and the `ReplayJob` that logs each step.
 - `settings/`: `SettingsStore` and effective destination root resolution. `rename_in_place` wins over the custom root and the Processed folder, and resolves to the selected folder. `place_folder_root` resolves the root as if `rename_in_place` were off: place folders go there in both modes. `group_by_place` (default on) turns place folders on. The toolbar treats `rename_in_place` as turning it off.
@@ -199,7 +199,7 @@ Each layer may depend only on the layers below it.
 - **Checks** run on every call. Edited names must be one plain folder name, and get the Windows-safe form. A file in two folders is an error. The year comes from `start`. Day layouts come from `start`, `end` and the file dates, so the sent `day_layout` is ignored.
 - **Other files** keep `<root>/<year>/<month>/<day>`.
 - **Rename in place** renames the other files in their folder. Files in an accepted suggestion still go to their place folder under `place_folder_root`: the custom root, else `<selected>/Processed`. The move run allows that root as a second destination. The history run records it as `place_root_path`, so undo checks and the registry use it too.
-- **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`, `month_folder`) for files that go to a place folder. The frontend sends it back unchanged with `execute_move_plan`.
+- **Plans** carry `placement` (`kind`, `year`, `title`, `place`, `country`, `month_folder`) for files that go to a place folder. The move run reads it from the plans `scan_session` keeps.
 
 `features/place-suggestions` calls `detect_place_suggestions` once per scan and home, 1 s after the last metadata lands, in both destination modes. A new metadata batch only updates the progress count. A reset or a new home drops a late answer.
 
@@ -282,7 +282,7 @@ When a step can't be done safely, the source stays in place and the step reports
 - **App files stay app files.** Settings and the history index are replaced through a unique `create_new` temp file (`replace_app_file`). Run log appends and deletes need a `.jsonl` file directly in `history/runs` (`history::paths::checked_run_log_path`).
 - **Roots.** Moves start only from a folder picked this session (`picked_folders`). Sources must be plain files inside it, or inside the effective root for a placed file that moves to a new day folder. Destinations must sit inside the effective root, checked again right before each move (`mover::safety`, `mover::conflict_recheck`). Replay steps must stay inside the run's recorded folders (`undo_redo::recorded_roots`).
 - **Undo and redo** check the recorded size, refuse links and taken paths, and use the same no-replace move and verified copy. A move run or a replay stops moving files once its log can't record a step. One move, replay or delete works on a run at a time (`history::RunLease`).
-- **Pause stops between files.** `pause_move_run` cancels the running batch after the file moving now. The files it didn't reach keep no result and stay at the source. The frontend queues them again and calls `set_metadata_paused`, so `scan_metadata` starts no new reads until the person resumes. A paused run doesn't finish, so source cleanup waits for the resume.
+- **Pause stops between files.** `pause_moves` cancels the running batch after the file moving now. The files it didn't reach keep no result and stay at the source until `resume_moves`. The frontend also calls `set_metadata_paused`, so `scan_metadata` starts no new reads until the person resumes. A paused run doesn't finish, so source cleanup waits for the resume.
 - **ExifTool is read-only.** Requests carry only `-charset filename=utf8`, `-json`, read tags, `-execute` and absolute single-line paths (`metadata::argfile_path`).
 - **The user confirms.** Moves, undo, redo and history delete all ask first. The webview holds only `core:default` permissions, with no fs or shell plugin.
 - **Crashes lose nothing.** An interrupted move leaves the file at the source, at the destination, or under both names of one hard link. An interrupted copy leaves a hidden `.media-organizer-copying-*.tmp` file and the source. History recovery only reads logs.

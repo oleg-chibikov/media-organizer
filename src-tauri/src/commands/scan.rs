@@ -56,6 +56,7 @@ pub async fn start_scan(
                 session.add_records(records);
                 feed.push(records);
             });
+            session.mark_scanned();
         });
     });
     Ok(())

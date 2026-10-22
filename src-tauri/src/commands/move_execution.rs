@@ -1,74 +1,27 @@
-use std::path::PathBuf;
+use tauri::{AppHandle, Manager};
 
-use tauri::{AppHandle, Manager, State};
+use super::{app_dirs::history_store, session::scan_session};
+use crate::app_state::AppState;
 
-use super::{
-    app_dirs::{history_store, placement_store, settings_store},
-    background::{run_blocking, spawn_job},
-    session::scan_session,
-};
-use crate::{
-    app_state::AppState,
-    move_run::{self, MoveBatch},
-};
-
+/// Moves the scan's ready files, then the ones that become ready while it's still checked.
+/// Ends with `move:done` once the source folders are cleaned.
 #[tauri::command]
-pub async fn execute_move_plan(
-    selected_path: String,
-    scan_id: u64,
-    file_ids: Vec<String>,
-    app: AppHandle,
-) -> Result<(), String> {
+pub async fn start_moves(scan_id: u64, app: AppHandle) -> Result<(), String> {
     let session = scan_session(&app, scan_id)?;
-    let plans = session.plans(&file_ids)?;
-    let files = session.records(&file_ids)?;
-    let metadata_results = session.metadata(&file_ids);
-    let selected_folder = PathBuf::from(selected_path);
-    let state = app.state::<AppState>();
-    state.picked_folders.ensure_picked(&selected_folder)?;
-    let pause = state.move_pause.begin();
-    let settings = settings_store(&app)?;
-    let history = history_store(&app)?;
-    let placements = placement_store(&app)?;
-    let batch = MoveBatch {
-        files,
-        metadata_results,
-        plans,
-    };
-    let sink = app.clone();
-    let run = run_blocking(move || {
-        move_run::start_move_run(
-            &sink,
-            &settings,
-            &history,
-            &placements,
-            &selected_folder,
-            batch,
-        )
-    })
-    .await?;
-
-    spawn_job(move || run.execute(&app, &pause));
-    Ok(())
-}
-
-/// Stops the running move after the file moving now. Unreached files keep no result.
-#[tauri::command]
-pub fn pause_move_run(state: State<'_, AppState>) {
-    state.move_pause.pause();
-}
-
-/// Removes the empty folders a finished run left behind, the picked folder included.
-/// Returns whether the picked folder itself was removed.
-#[tauri::command]
-pub async fn remove_empty_source_folders(
-    selected_path: String,
-    app: AppHandle,
-) -> Result<bool, String> {
-    let selected_folder = PathBuf::from(selected_path);
     app.state::<AppState>()
         .picked_folders
-        .ensure_picked(&selected_folder)?;
-    let settings = settings_store(&app)?;
-    run_blocking(move || move_run::remove_empty_source_folders(&settings, &selected_folder)).await
+        .ensure_picked(session.folder())?;
+    let history = history_store(&app)?;
+    session.start_moves(app.clone(), history)
+}
+
+/// Stops the run after the file moving now. Unreached files keep no result.
+#[tauri::command]
+pub fn pause_moves(scan_id: u64, app: AppHandle) -> Result<(), String> {
+    scan_session(&app, scan_id).map(|session| session.pause_moves())
+}
+
+#[tauri::command]
+pub fn resume_moves(scan_id: u64, app: AppHandle) -> Result<(), String> {
+    scan_session(&app, scan_id).map(|session| session.resume_moves())
 }

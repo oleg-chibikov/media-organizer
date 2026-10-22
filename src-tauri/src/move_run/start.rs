@@ -75,7 +75,8 @@ fn place_root(
 
 impl StartedMoveRun {
     /// Moves every ready file until `pause` is cancelled; blocks until the run is recorded.
-    pub(crate) fn execute(self, sink: &impl EventSink, pause: &CancellationToken) {
-        run_move_plan(sink, self.request, self.history_run, pause);
+    /// Returns the ids of the files that got a result.
+    pub(crate) fn execute(self, sink: &impl EventSink, pause: &CancellationToken) -> Vec<String> {
+        run_move_plan(sink, self.request, self.history_run, pause)
     }
 }

@@ -13,8 +13,8 @@ pub(crate) use plan_events::*;
 
 use crate::models::{
     HistoryIndexUpdatedEvent, HistoryReplayProgressEvent, MetadataFinishedEvent,
-    MetadataResultsEvent, MoveFileEvent, MoveFinishedEvent, MoveProgressEvent, ScanErrorEvent,
-    ScanFilesEvent, ScanFinishedEvent, ScanStartedEvent,
+    MetadataResultsEvent, MoveFileEvent, MoveFinishedEvent, MoveProgressEvent, MovesDoneEvent,
+    ScanErrorEvent, ScanFilesEvent, ScanFinishedEvent, ScanStartedEvent,
 };
 
 pub const SCAN_STARTED: &str = "scan:started";
@@ -32,6 +32,7 @@ pub const PLAN_SETTLED: &str = "plan:settled";
 pub const MOVE_FILE: &str = "move:file";
 pub const MOVE_PROGRESS: &str = "move:progress";
 pub const MOVE_FINISHED: &str = "move:finished";
+pub const MOVES_DONE: &str = "move:done";
 pub const HISTORY_INDEX_UPDATED: &str = "history:index-updated";
 pub const HISTORY_UNDO_PROGRESS: &str = "history:undo-progress";
 pub const HISTORY_REDO_PROGRESS: &str = "history:redo-progress";
@@ -111,6 +112,14 @@ pub(crate) fn move_finished(sink: &impl EventSink, payload: MoveFinishedEvent) {
         payload.failed
     );
     sink.emit(MOVE_FINISHED, payload);
+}
+
+pub(crate) fn moves_done(sink: &impl EventSink, payload: MovesDoneEvent) {
+    match &payload.error {
+        Some(error) => log::warn!("Moves of scan {} stopped: {error}", payload.scan_id),
+        None => log::info!("Moves of scan {} done", payload.scan_id),
+    }
+    sink.emit(MOVES_DONE, payload);
 }
 
 pub(crate) fn history_index_updated(sink: &impl EventSink, run_id: &str) {

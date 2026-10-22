@@ -6,7 +6,7 @@ use crate::{
     events,
     history::HistoryStore,
     models::{DateKind, FileKind, FileRecord},
-    move_run::{start_move_run, MoveBatch, MovePause},
+    move_run::{start_move_run, MoveBatch},
     placements::PlacementStore,
     settings::SettingsStore,
     test_support::{
@@ -34,11 +34,10 @@ fn a_paused_run_leaves_unreached_files_at_the_source() {
     };
     let sink = RecordingSink::default();
     let history = HistoryStore::in_app_data(&app_data);
-    let pause = MovePause::default();
-    let token = pause.begin();
-    pause.pause();
+    let token = tokio_util::sync::CancellationToken::new();
+    token.cancel();
 
-    start_move_run(
+    let reached = start_move_run(
         &sink,
         &SettingsStore::in_app_data(&app_data),
         &history,
@@ -49,6 +48,7 @@ fn a_paused_run_leaves_unreached_files_at_the_source() {
     .expect("move run should start")
     .execute(&sink, &token);
 
+    assert!(reached.is_empty());
     assert!(source.exists() && !destination.exists());
     assert!(sink.payloads(events::MOVE_FILE).is_empty());
     let finished = &sink.payloads(events::MOVE_FINISHED)[0];
@@ -56,18 +56,4 @@ fn a_paused_run_leaves_unreached_files_at_the_source() {
     let run_id = &history.list_runs().expect("list runs")[0].run_id;
     let details = history.require_run(run_id).expect("run details");
     assert!(details.operations.is_empty());
-}
-
-#[test]
-fn a_new_run_ignores_the_pause_of_the_one_before() {
-    let pause = MovePause::default();
-    let paused = pause.begin();
-    pause.pause();
-
-    let next = pause.begin();
-
-    assert!(paused.is_cancelled());
-    assert!(!next.is_cancelled());
-    pause.pause();
-    assert!(next.is_cancelled());
 }

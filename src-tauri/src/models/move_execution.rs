@@ -65,3 +65,15 @@ pub struct MoveFinishedEvent {
     pub failed: u64,
     pub results: Vec<MoveResult>,
 }
+
+/// The confirmed run moved every ready file and the scan has nothing left to check.
+/// Empty source folders are gone by now.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(export))]
+pub struct MovesDoneEvent {
+    pub scan_id: u64,
+    /// The picked folder itself was empty and got removed.
+    pub removed_selected_folder: bool,
+    /// Why the run stopped early, or why the source folders stayed.
+    pub error: Option<String>,
+}

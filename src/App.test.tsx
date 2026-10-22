@@ -40,9 +40,7 @@ vi.mock("./lib/api", async (importOriginal) => ({
     fallback_warnings: 0,
     suffix_applied: 0
   })),
-  executeMovePlan: vi.fn(async () => undefined),
-  pauseMoveRun: vi.fn(async () => undefined),
-  removeEmptySourceFolders: vi.fn(async () => false),
+  startMoves: vi.fn(async () => undefined),
   revealFileInExplorer: vi.fn(async () => undefined),
   attachScanListeners: vi.fn(async (handlers: ScanListeners) => ((listeners.scan = handlers), [])),
   attachMetadataListeners: vi.fn(
@@ -91,7 +89,7 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Move Files..." }));
     fireEvent.click(await screen.findByRole("button", { name: "Move 1 file" }));
-    await waitFor(() => expect(api.executeMovePlan).toHaveBeenCalledWith("C:\\in", 1, [RECORD.id]));
+    await waitFor(() => expect(api.startMoves).toHaveBeenCalledWith(1));
 
     const result = {
       file_id: "f1",
@@ -104,11 +102,11 @@ describe("App", () => {
     act(() => {
       listeners.move?.onFile({ result });
       listeners.move?.onFinished({ moved: 1, copied: 0, skipped: 0, failed: 0, results: [result] });
+      listeners.move?.onDone({ scan_id: 1, removed_selected_folder: false, error: null });
     });
     expect(statusBar.getByRole("status")).toHaveTextContent("Done");
     expect(screen.getByText("Moved: 1")).toBeInTheDocument();
     expect(screen.getByText(/Moved 1 file\./)).toBeInTheDocument();
-    expect(api.removeEmptySourceFolders).toHaveBeenCalledWith("C:\\in");
     fireEvent.click(screen.getByRole("button", { name: "Open Destination" }));
     expect(api.revealFileInExplorer).toHaveBeenCalledWith("C:\\in\\Processed");
   });

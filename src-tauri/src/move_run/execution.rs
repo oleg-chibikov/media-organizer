@@ -14,13 +14,14 @@ const UNLOGGED_MOVE_REASON: &str =
     "Not moved: the history log stopped recording, so this move couldn't be undone.";
 
 /// Checks, moves and records every operation of one batch, until `pause` is cancelled.
-/// Files the run didn't reach get no result and stay at the source.
+/// Files the run didn't reach get no result and stay at the source. Returns the ids of the
+/// files that got one.
 pub(super) fn run_move_plan(
     sink: &impl EventSink,
     request: MoveRunRequest,
     history_run: ActiveHistoryRun,
     pause: &CancellationToken,
-) {
+) -> Vec<String> {
     let batch = &request.batch;
     let total = batch.plans.len() as u64;
     let progress = |phase, file_id: Option<&str>, message: &str, completed| {
@@ -72,5 +73,11 @@ pub(super) fn run_move_plan(
     );
     record_placements(&request, recorder.results());
     remove_emptied_place_folders(&request, recorder.results());
+    let finished = recorder
+        .results()
+        .iter()
+        .map(|r| r.file_id.clone())
+        .collect();
     recorder.finish();
+    finished
 }

@@ -113,9 +113,9 @@ pub fn run() {
             history_commands::get_history_run,
             undo_redo_commands::undo_history_run,
             undo_redo_commands::redo_history_run,
-            move_execution::execute_move_plan,
-            move_execution::pause_move_run,
-            move_execution::remove_empty_source_folders,
+            move_execution::start_moves,
+            move_execution::pause_moves,
+            move_execution::resume_moves,
             system::reveal_file_in_explorer,
             system::open_file
         ])

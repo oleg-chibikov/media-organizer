@@ -69,7 +69,7 @@ flowchart TD
   scanHook["features/scan<br/>starts the scan, adds rows every 50 ms"] -->|rows| plan
   meta["features/metadata<br/>keeps the dates the backend reads during the scan"] -->|dates| plan
   plan["features/planning<br/>mirrors the plans the backend makes"] -->|plans| moves
-  moves["features/moves<br/>backend summary, confirm, dispatch queue"] -->|confirmed batch| api
+  moves["features/moves<br/>backend summary, confirm, pause and resume"] -->|start_moves| api
   history["features/history<br/>confirm, then undo, redo or delete"] -->|run id| api
   toolbar -->|opens Settings| settings["features/destination-settings<br/>media root, a Processed folder<br/>or rename only"]
   settings -->|new destination| destChange["app/useDestinationChange<br/>saves it, replans before any move"]

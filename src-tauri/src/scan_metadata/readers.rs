@@ -64,6 +64,7 @@ impl<S: EventSink, R: BatchReader> Readers<S, R> {
     }
 
     fn finish(&self) {
+        self.reader.finished();
         let cancelled = self.token.is_cancelled();
         if !cancelled {
             self.buffer.flush(&self.sink);

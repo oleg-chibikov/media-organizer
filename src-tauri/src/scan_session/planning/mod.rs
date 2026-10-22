@@ -16,7 +16,7 @@ use crate::{
     events::{self, EventSink},
     models::{
         MetadataResult, MovePlan, PlaceSuggestion, PlacedFilesEvent, PlanClearedEvent,
-        PlanSettledEvent,
+        PlanSettledEvent, PlanStatus,
     },
     placements::PlacementStore,
     planner::Reservations,
@@ -68,6 +68,7 @@ impl ScanSession {
         self.plan_files(sink, &mut planning, &file_ids);
         let scan_id = self.scan_id;
         events::plan_settled(sink, PlanSettledEvent { scan_id });
+        self.moves_changed.notify_all();
         placed
     }
 
@@ -104,6 +105,20 @@ impl ScanSession {
                     .cloned()
                     .ok_or_else(|| format!("File {file_id} has no plan."))
             })
+            .collect()
+    }
+
+    pub(super) fn waiting_for_places(&self) -> bool {
+        self.planning().places.is_none()
+    }
+
+    pub(super) fn plan_ids_with(&self, keep: impl Fn(&PlanStatus) -> bool) -> Vec<String> {
+        let planning = self.planning();
+        planning
+            .plans
+            .values()
+            .filter(|plan| keep(&plan.plan_status))
+            .map(|plan| plan.file_id.clone())
             .collect()
     }
 

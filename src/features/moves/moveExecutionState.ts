@@ -16,6 +16,13 @@ export const IDLE_MOVE_EXECUTION: MoveExecutionState = {
   statusMessage: null
 };
 
+export const FINISHED_RUN: Partial<MoveExecutionState> = {
+  executing: false,
+  activeFileId: null,
+  statusMessage: null,
+  completed: true
+};
+
 // Keeps the previous object when nothing changes so React can skip the render.
 export function patchMoveExecution(
   previous: MoveExecutionState,

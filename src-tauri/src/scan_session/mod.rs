@@ -1,6 +1,7 @@
 //! The records, dates and plans of the scan on screen. Commands take file ids and look the
 //! files up here, so the webview doesn't send every record and date back over IPC.
 
+mod moves;
 mod planning;
 mod session_reader;
 
@@ -9,10 +10,14 @@ mod tests;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, PoisonError, RwLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Condvar, Mutex, PoisonError, RwLock,
+    },
 };
 
-use crate::models::{FileRecord, MetadataResult};
+use crate::models::{FileRecord, MetadataResult, PlanStatus};
+use moves::Moves;
 pub(crate) use planning::PlanContext;
 use planning::Planning;
 pub(crate) use session_reader::SessionReader;
@@ -25,6 +30,11 @@ pub(crate) struct ScanSession {
     records: RwLock<HashMap<String, FileRecord>>,
     metadata: RwLock<HashMap<String, MetadataResult>>,
     planning: Mutex<Planning>,
+    moves: Mutex<Moves>,
+    /// Wakes a waiting move run when plans, dates or the scan change.
+    moves_changed: Condvar,
+    scanned: AtomicBool,
+    dates_read: AtomicBool,
 }
 
 impl ScanSession {
@@ -35,7 +45,41 @@ impl ScanSession {
             records: RwLock::default(),
             metadata: RwLock::default(),
             planning: Mutex::default(),
+            moves: Mutex::default(),
+            moves_changed: Condvar::new(),
+            scanned: AtomicBool::new(false),
+            dates_read: AtomicBool::new(false),
         }
+    }
+
+    pub(crate) fn folder(&self) -> &std::path::Path {
+        &self.context.folder
+    }
+
+    /// The scan walked the whole folder, or stopped.
+    pub(crate) fn mark_scanned(&self) {
+        self.scanned.store(true, Ordering::SeqCst);
+        self.moves_changed.notify_all();
+    }
+
+    /// Every photo and video of the scan has a date, or the reads stopped.
+    pub(crate) fn mark_dates_read(&self) {
+        self.dates_read.store(true, Ordering::SeqCst);
+        self.moves_changed.notify_all();
+    }
+
+    /// Files can still become ready: the scan, its reads or its place folders aren't done.
+    fn still_checking(&self) -> bool {
+        !self.scanned.load(Ordering::SeqCst)
+            || !self.dates_read.load(Ordering::SeqCst)
+            || self.waiting_for_places()
+    }
+
+    /// The files whose plan is ready to move, in a stable order.
+    fn ready_plan_ids(&self) -> Vec<String> {
+        let mut ids = self.plan_ids_with(|status| matches!(status, PlanStatus::Ready));
+        ids.sort();
+        ids
     }
 
     pub(crate) fn add_records(&self, records: &[FileRecord]) {
@@ -126,7 +170,9 @@ pub(crate) struct CurrentScan {
 impl CurrentScan {
     pub(crate) fn begin(&self, scan_id: u64, context: PlanContext) -> Arc<ScanSession> {
         let session = Arc::new(ScanSession::new(scan_id, context));
-        *self.lock() = Some((scan_id, session.clone()));
+        if let Some((_, replaced)) = self.lock().replace((scan_id, session.clone())) {
+            replaced.stop_moves();
+        }
         session
     }
 

@@ -38,3 +38,4 @@ export type { ScanStartedEvent } from "./generated/ScanStartedEvent";
 export type { PlacedFilesEvent } from "./generated/PlacedFilesEvent";
 export type { PlanClearedEvent } from "./generated/PlanClearedEvent";
 export type { PlanSettledEvent } from "./generated/PlanSettledEvent";
+export type { MovesDoneEvent } from "./generated/MovesDoneEvent";

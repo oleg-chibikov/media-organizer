@@ -2,14 +2,8 @@ import type { RefObject } from "react";
 import { attachMoveListeners, useBackendEvents } from "../../lib/api";
 import type { FileRecord, MoveProgressEvent, MoveResult } from "../../lib/types";
 import { useBufferedFlush } from "../../lib/useBufferedFlush";
-import {
-  finishBatch,
-  FINISHED_RUN,
-  isDispatchDrained,
-  recordMoveResult
-} from "./moveDispatchCompletion";
-import type { MoveDispatchQueue } from "./moveDispatchQueue";
 import { formatMoveProgress } from "./formatMoveProgress";
+import { FINISHED_RUN } from "./moveExecutionState";
 import type { MoveStatus } from "./useMoveStatus";
 
 // A run sends 3 events per file; the table redraws at most this often.
@@ -18,21 +12,14 @@ const MOVE_FLUSH_MS = 200;
 type MoveEvent = { result: MoveResult } | { progress: MoveProgressEvent };
 
 interface MoveEventsOptions {
-  queueRef: RefObject<MoveDispatchQueue>;
-  pumpRef: RefObject<() => void>;
+  scanIdRef: RefObject<number | null>;
   rowByIdRef: RefObject<Map<string, FileRecord>>;
   status: Pick<MoveStatus, "recordResults" | "updateExecution">;
   reportError: (message: string) => void;
 }
 
-// Applies backend move progress and results to the dispatch queue and the visible status.
-export function useMoveEvents({
-  queueRef,
-  pumpRef,
-  rowByIdRef,
-  status,
-  reportError
-}: MoveEventsOptions) {
+// Applies the backend's move progress and results to the visible status.
+export function useMoveEvents({ scanIdRef, rowByIdRef, status, reportError }: MoveEventsOptions) {
   const { recordResults, updateExecution } = status;
 
   // Progress goes first, so a file that finished in the same flush isn't shown as moving.
@@ -63,20 +50,21 @@ export function useMoveEvents({
     attachMoveListeners,
     {
       onProgress: (payload) => buffer.add({ progress: payload }),
-      onFile: ({ result }) => {
-        recordMoveResult(queueRef.current, result.file_id);
-        buffer.add({ result });
-      },
+      onFile: ({ result }) => buffer.add({ result }),
       onFinished: ({ results }) => {
         buffer.flush();
-        const queue = queueRef.current;
-        results.forEach((result) => recordMoveResult(queue, result.file_id));
         recordResults(results);
-        finishBatch(queue);
-        if (isDispatchDrained(queue)) {
-          updateExecution(FINISHED_RUN);
+        updateExecution({ activeFileId: null });
+      },
+      onDone: ({ scan_id, error }) => {
+        if (scan_id !== scanIdRef.current) {
+          return;
         }
-        queueMicrotask(() => pumpRef.current());
+        buffer.flush();
+        updateExecution(FINISHED_RUN);
+        if (error) {
+          reportError(error);
+        }
       }
     },
     (error) => reportError(`Failed to attach move listeners: ${String(error)}`)
