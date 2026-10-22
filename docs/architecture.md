@@ -202,6 +202,7 @@ A person who sorted files by month scans one month folder at a time. A trip from
 - **Continuation** sets `continues` (`title`, `year`, `start`, `end` and the placed `places`). The suggestion takes the record's title, year and place folder names. The person can rename it in the review dialog, which drops `continues` and starts a new folder.
 - **Day layouts** of a continued place span its placed files and the new ones. The trip root spans the whole record too.
 - **Placed moves** `plan_continued_moves(selected_path, place_suggestions, metadata_results)` returns `PlacedMove[]` (`record`, `metadata`, `plan`) for placed files whose day folder changes. A file no longer on disk is left out. `features/planning` adds them to the rows, so the table, the confirmation and the run treat them like scanned files. Normal planning skips them.
+- **Emptied day folders** a run removes the folders placed files moved out of once they are empty, walking up parent by parent. It stops below the place folder, or the trip or outing folder for files in no place (`safe_fs::remove_empty_parents`).
 
 ## Frontend Modules
 
