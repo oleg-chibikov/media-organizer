@@ -1,9 +1,11 @@
 import type { MoveConfirmationSummary } from "../../lib/types";
 import { hasMoveResults, type MoveCounts } from "../moves";
+import type { MetadataProgress } from "../metadata";
 import type { ScanProgress } from "../scan";
 
 interface StatusCountsProps {
   scan: ScanProgress;
+  dates: MetadataProgress;
   planErrors: number;
   summary: MoveConfirmationSummary;
   showReady: boolean;
@@ -12,6 +14,7 @@ interface StatusCountsProps {
 
 export function StatusCounts({
   scan,
+  dates,
   planErrors,
   summary,
   showReady,
@@ -20,6 +23,11 @@ export function StatusCounts({
   return (
     <>
       <span>Files: {scan.discovered}</span>
+      {dates.read < dates.total ? (
+        <span>
+          Dates read: {dates.read}/{dates.total}
+        </span>
+      ) : null}
       {scan.skipped > 0 ? <span>Skipped: {scan.skipped}</span> : null}
       {scan.errors > 0 ? <span className="text-amber-300">Unreadable: {scan.errors}</span> : null}
       {planErrors > 0 ? <span className="text-amber-300">Can't plan: {planErrors}</span> : null}

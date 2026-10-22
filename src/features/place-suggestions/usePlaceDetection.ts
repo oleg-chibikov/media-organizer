@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { detectPlaceSuggestions } from "../../lib/api";
 import type { FileRecord, HomeLocation, MetadataResult, PlaceDetection } from "../../lib/types";
-import { metadataResultsFor } from "../metadata";
-import { metadataProgress } from "./metadataProgress";
+import { metadataProgress, metadataResultsFor } from "../metadata";
 
 // Lets the last metadata batches land before the backend looks at every file.
 const DETECTION_DELAY_MS = 1000;

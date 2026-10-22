@@ -1,5 +1,6 @@
 import { Button } from "../../components/design-system/Button";
 import type { MoveConfirmationSummary } from "../../lib/types";
+import type { MetadataProgress } from "../metadata";
 import type { MoveCounts, MoveExecutionState } from "../moves";
 import type { ScanProgress } from "../scan";
 import { finishSummary } from "./finishSummary";
@@ -10,6 +11,7 @@ import { StatusCounts } from "./StatusCounts";
 interface StatusBarProps {
   health: string;
   scan: ScanProgress;
+  dates: MetadataProgress;
   planning: PlanningStatus;
   summary: MoveConfirmationSummary;
   execution: MoveExecutionState;
@@ -23,6 +25,7 @@ interface StatusBarProps {
 export function StatusBar({
   health,
   scan,
+  dates,
   planning,
   summary,
   execution,
@@ -40,6 +43,7 @@ export function StatusBar({
         </span>
         <StatusCounts
           scan={scan}
+          dates={dates}
           planErrors={planning.planErrors}
           summary={summary}
           showReady={!execution.completed}

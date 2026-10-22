@@ -109,6 +109,7 @@ export default function App() {
       <StatusBar
         health={session.health}
         scan={scan.progress}
+        dates={places.progress}
         planning={planning}
         summary={moves.confirmationSummary}
         execution={execution}
