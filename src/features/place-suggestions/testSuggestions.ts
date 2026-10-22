@@ -28,7 +28,8 @@ export const TRIP: PlaceSuggestion = {
   ],
   root_file_ids: ["r1"],
   country: null,
-  continues: null
+  continues: null,
+  month_folder: null
 };
 
 // The trip above, continuing a placed trip whose San Francisco folder holds Oct 27.
@@ -39,7 +40,30 @@ export const CONTINUED_TRIP: PlaceSuggestion = {
     year: 2025,
     start: "2025-10-20 10:00:00",
     end: "2025-10-27 18:00:00",
-    places: [{ name: "San Francisco", start: "2025-10-27 10:00:00", end: "2025-10-27 18:00:00" }]
+    places: [{ name: "San Francisco", start: "2025-10-27 10:00:00", end: "2025-10-27 18:00:00" }],
+    country_wide: false,
+    lifted: []
+  }
+};
+
+// An April trip to the USA scanned from 2026/4, lifting the USA folder of May to the year.
+export const LIFTED_TRIP: PlaceSuggestion = {
+  ...TRIP,
+  year: 2026,
+  title: "USA",
+  country: "USA",
+  start: "2026-04-01 10:00:00",
+  end: "2026-04-01 12:00:00",
+  places: [{ ...TRIP.places[0]!, start: "2026-04-01 10:00:00", end: "2026-04-01 12:00:00" }],
+  root_file_ids: [],
+  continues: {
+    title: "USA",
+    year: 2026,
+    start: "2026-05-03 10:00:00",
+    end: "2026-05-05 10:00:00",
+    places: [{ name: "Yosemite", start: "2026-05-03 10:00:00", end: "2026-05-04 10:00:00" }],
+    country_wide: true,
+    lifted: [{ month_folder: "5", file_count: 34 }]
   }
 };
 
@@ -63,7 +87,8 @@ export const OUTING: PlaceSuggestion = {
   ],
   root_file_ids: [],
   country: null,
-  continues: null
+  continues: null,
+  month_folder: null
 };
 
 export const TRIP_DATES: Record<string, string> = {

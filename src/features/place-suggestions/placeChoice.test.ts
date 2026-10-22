@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { acceptedSuggestions, freshChoice, isChoiceValid, withChoiceNames } from "./placeChoice";
-import { CONTINUED_TRIP, OUTING, TRIP } from "./testSuggestions";
+import { CONTINUED_TRIP, LIFTED_TRIP, OUTING, TRIP } from "./testSuggestions";
 
 describe("placeChoice", () => {
   it("accepts used suggestions with trimmed edited names", () => {
@@ -35,5 +35,18 @@ describe("placeChoice", () => {
 
     expect(isChoiceValid(abroad, choice)).toBe(true);
     expect(withChoiceNames(abroad, choice).title).toBe(TRIP.title);
+  });
+
+  it("keeps a country wide continuation for a renamed outing abroad", () => {
+    const outing = {
+      ...OUTING,
+      country: "USA",
+      title: "Zoo",
+      places: [{ ...OUTING.places[0]!, name: "Zoo" }],
+      continues: LIFTED_TRIP.continues
+    };
+    const renamed = withChoiceNames(outing, { ...freshChoice(outing), placeNames: ["City Zoo"] });
+
+    expect(renamed.continues).toEqual(LIFTED_TRIP.continues);
   });
 });

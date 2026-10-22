@@ -2,7 +2,7 @@ import { useId, useMemo } from "react";
 import type { PlaceSuggestion } from "../../lib/types";
 import { FolderNameField } from "./FolderNameField";
 import { FolderPreviewList } from "./FolderPreviewList";
-import { continuedLabel } from "./continuedLabel";
+import { continuedLabel, liftedLabels } from "./continuedLabel";
 import { hasEditableTitle, withChoiceNames, type PlaceChoice } from "./placeChoice";
 import { placeFolderPreview } from "./placeFolderPreview";
 import { suggestionHeading, suggestionSize } from "./suggestionLabels";
@@ -39,7 +39,14 @@ export function PlaceSuggestionSection({
       </h3>
       <p className="text-xs text-slate-400">{suggestionSize(suggestion)}</p>
       {choice.use && edited.continues ? (
-        <p className="text-xs text-sky-300">{continuedLabel(edited.continues)}</p>
+        <>
+          <p className="text-xs text-sky-300">{continuedLabel(edited.continues)}</p>
+          {liftedLabels(edited.continues).map((label) => (
+            <p key={label} className="text-xs text-sky-300">
+              {label}
+            </p>
+          ))}
+        </>
       ) : null}
       <label className="mt-2 flex cursor-pointer items-center gap-2 text-slate-200">
         <input

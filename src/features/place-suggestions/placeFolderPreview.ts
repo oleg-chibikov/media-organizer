@@ -48,21 +48,28 @@ function foldersFor(base: string, fileIds: string[], spanDates: string[], dateOf
   return [...countByPath].map(([path, count]) => ({ path, count }));
 }
 
+// The year folder, then the month folder of a scan of one. A continued suggestion keeps
+// the placed year, and one in a month folder takes that folder's year.
+function levelFolder(suggestion: PlaceSuggestion): string {
+  const { continues, month_folder: month } = suggestion;
+  const year = continues ? continues.year : month ? suggestion.year : suggestion.start.slice(0, 4);
+  return month ? `${year}/${month}` : String(year);
+}
+
 // A trip abroad is filed under its country; an outing abroad sits inside its country.
-function topFolder(suggestion: PlaceSuggestion, year: string): string {
+function topFolder(suggestion: PlaceSuggestion): string {
   const { kind, country, title } = suggestion;
+  const level = levelFolder(suggestion);
   if (kind === "trip") {
-    return `${year}/${country ?? title}`;
+    return `${level}/${country ?? title}`;
   }
-  return country ? `${year}/${country}` : year;
+  return country ? `${level}/${country}` : level;
 }
 
 // The folders the files of one suggestion go to, relative to the destination root.
-// A continued suggestion keeps the placed year folder.
 export function placeFolderPreview(suggestion: PlaceSuggestion, dateOf: DateOf): PreviewFolder[] {
   const { continues } = suggestion;
-  const year = continues ? String(continues.year) : suggestion.start.slice(0, 4);
-  const base = topFolder(suggestion, year);
+  const base = topFolder(suggestion);
   const placedSpan = (name: string) => {
     const placed = continues?.places.find((place) => place.name === name);
     return placed ? [placed.start, placed.end] : [];

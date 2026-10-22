@@ -25,7 +25,8 @@ export const hasEditableTitle = (suggestion: PlaceSuggestion) =>
   suggestion.kind === "trip" && suggestion.country === null;
 
 // The suggestion with the edited names, as the backend plans it. A renamed trip or outing
-// no longer continues the placed folder, so it starts a new one.
+// no longer continues the placed folder, so it starts a new one. A country wide continuation
+// stays, since the country folder keeps its name.
 export function withChoiceNames(suggestion: PlaceSuggestion, choice: PlaceChoice): PlaceSuggestion {
   const edited = {
     ...suggestion,
@@ -36,7 +37,7 @@ export function withChoiceNames(suggestion: PlaceSuggestion, choice: PlaceChoice
     }))
   };
   const renamed = sharedFolder(edited) !== sharedFolder(suggestion);
-  return renamed ? { ...edited, continues: null } : edited;
+  return renamed && !suggestion.continues?.country_wide ? { ...edited, continues: null } : edited;
 }
 
 export function isChoiceValid(suggestion: PlaceSuggestion, choice: PlaceChoice): boolean {

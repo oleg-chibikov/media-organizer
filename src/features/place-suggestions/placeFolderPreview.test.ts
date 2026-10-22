@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ContinuedPlacement } from "../../lib/types";
 import { placeFolderPreview } from "./placeFolderPreview";
-import { CONTINUED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
+import { CONTINUED_TRIP, LIFTED_TRIP, OUTING, TRIP, TRIP_DATES } from "./testSuggestions";
 
 const dateOf = (dates: Record<string, string>) => (fileId: string) => dates[fileId];
 
@@ -65,6 +65,26 @@ describe("placeFolderPreview", () => {
     expect(placeFolderPreview(trip, dateOf(TRIP_DATES))[0]?.path).toBe("2025/USA/Yosemite/10-28");
     expect(placeFolderPreview(outing, dateOf(TRIP_DATES))).toEqual([
       { path: "2025/Australia/Royal Botanic Gardens", count: 2 }
+    ]);
+  });
+
+  it("files a suggestion of a month folder scan inside that month", () => {
+    const outing = { ...OUTING, month_folder: "03" };
+    const trip = { ...TRIP, country: "USA", month_folder: "10" };
+
+    expect(placeFolderPreview(outing, dateOf(TRIP_DATES))).toEqual([
+      { path: "2025/03/Royal Botanic Gardens", count: 2 }
+    ]);
+    expect(placeFolderPreview(trip, dateOf(TRIP_DATES))[0]?.path).toBe(
+      "2025/10/USA/Yosemite/10-28"
+    );
+  });
+
+  it("files a lifted country at year level over the span of every month", () => {
+    const dates = { y1: "2026-04-01 10:00:00", y2: "2026-04-01 12:00:00" };
+
+    expect(placeFolderPreview(LIFTED_TRIP, dateOf(dates))).toEqual([
+      { path: "2026/USA/Yosemite/4/1", count: 2 }
     ]);
   });
 });
