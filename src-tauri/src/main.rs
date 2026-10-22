@@ -81,6 +81,7 @@ pub fn run() {
         .setup(|app| {
             log_startup(app);
             show_version(app);
+            home::find_home_on_start(app.handle());
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -104,6 +105,7 @@ pub fn run() {
             places::detect_place_suggestions,
             home::search_home_cities,
             home::set_home_location,
+            home::use_current_location,
             history_commands::delete_history_run,
             history_commands::list_history_runs,
             history_commands::get_history_run,

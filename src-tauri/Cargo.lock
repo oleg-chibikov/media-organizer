@@ -1770,8 +1770,11 @@ version = "0.2.0"
 dependencies = [
  "chrono",
  "flate2",
+ "iana-time-zone",
  "libc",
  "log",
+ "objc2-core-location",
+ "objc2-foundation",
  "same-file",
  "serde",
  "serde_json",

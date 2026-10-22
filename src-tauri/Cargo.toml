@@ -11,6 +11,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 chrono = { version = "0.4", features = ["clock"] }
 flate2 = "1"
+iana-time-zone = "0.1"
 log = "0.4.34"
 same-file = "1"
 serde = { version = "1", features = ["derive"] }
@@ -27,6 +28,10 @@ libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Console"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-location = { version = "0.3", default-features = false, features = ["std", "CLLocation", "CLLocationManager"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSDate", "NSRunLoop"] }
 
 [dev-dependencies]
 tempfile = "3"

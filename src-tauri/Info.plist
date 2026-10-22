@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSLocationUsageDescription</key>
+  <string>Media Organizer reads your location once to set your home city. Files taken far from home are suggested as trip folders.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Media Organizer reads your location once to set your home city. Files taken far from home are suggested as trip folders.</string>
+</dict>
+</plist>
