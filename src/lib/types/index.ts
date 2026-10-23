@@ -3,6 +3,7 @@ export type { DestinationSettings } from "./generated/DestinationSettings";
 export type { DetectionStatus } from "./generated/DetectionStatus";
 export type { EffectiveDestinationRoot } from "./generated/EffectiveDestinationRoot";
 export type { FilePlace } from "./generated/FilePlace";
+export type { HomeMatch } from "./generated/HomeMatch";
 export type { FileRecord } from "./generated/FileRecord";
 export type { GpsPoint } from "./generated/GpsPoint";
 export type { HistoryIndexEntry } from "./generated/HistoryIndexEntry";

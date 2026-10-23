@@ -1,4 +1,5 @@
-import type { FilePlace } from "../../lib/types";
+import type { PlaceIconKind } from "../../components/design-system/PlaceIcon";
+import type { FilePlace, HomeMatch } from "../../lib/types";
 import type { FileCell, FileTableRow } from "./fileTableColumns";
 import { fileNotesLabel } from "./fileNotesLabel";
 import type { FileRowState } from "./fileRowState";
@@ -17,9 +18,15 @@ function loadingCell(value: string): FileCell {
   return { value, title: `${value}...`, className: TEXT_CELL, loading: true };
 }
 
-function placeCell(value: string | undefined, atHome: boolean): FileCell {
-  return value ? { ...textCell(value), icon: atHome ? "home" : "away" } : textCell("");
+function placeCell(value: string | undefined, icon: PlaceIconKind): FileCell {
+  return value ? { ...textCell(value), icon } : textCell("");
 }
+
+const PLACE_ICONS: Record<HomeMatch, PlaceIconKind> = {
+  city: "home",
+  country: "road",
+  away: "away"
+};
 
 // The folder the plan puts the file in, or what the plan still waits for.
 function destinationCell(
@@ -65,8 +72,10 @@ export function buildFileTableRow(
     destination: destinationCell(state, destinationRoot),
     status: status.busy ? loadingCell(status.label) : textCell(status.label),
     date,
-    country: placeCell(place?.country, place?.home !== "away"),
-    place: locating ? loadingCell("Locating") : placeCell(place?.place, place?.home === "city"),
+    country: placeCell(place?.country, place?.home === "away" ? "away" : "home"),
+    place: locating
+      ? loadingCell("Locating")
+      : placeCell(place?.place, PLACE_ICONS[place?.home ?? "away"]),
     kind: textCell(record.kind),
     notes: textCell(fileNotesLabel(state))
   };

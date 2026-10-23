@@ -44,7 +44,7 @@ describe("buildFileTableRow", () => {
     expect(row(RECORD).place.value).toBe("");
   });
 
-  it("marks home with a house and the rest with a plane", () => {
+  it("marks home with a house, the home country with a car and abroad with a plane", () => {
     const icons = (place: FilePlace) => {
       const cells = row(RECORD, undefined, place);
       return [cells.country.icon, cells.place.icon];
@@ -55,7 +55,7 @@ describe("buildFileTableRow", () => {
     ]);
     expect(icons({ place: "Perth", country: "Australia", home: "country" })).toEqual([
       "home",
-      "away"
+      "road"
     ]);
     expect(icons({ place: "Kyoto", country: "Japan", home: "away" })).toEqual(["away", "away"]);
     expect(row(RECORD).country.icon).toBeUndefined();
