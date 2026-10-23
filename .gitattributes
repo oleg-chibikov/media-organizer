@@ -1,0 +1,2 @@
+# Bundled ExifTool sources, kept out of GitHub language stats.
+src-tauri/binaries/** linguist-vendored
