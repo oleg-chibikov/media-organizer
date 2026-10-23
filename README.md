@@ -185,6 +185,8 @@ Place names come from [GeoNames](https://www.geonames.org/), licensed under [CC 
 
 ## Docs
 
+- Start here, the whole app on one page: `docs/overview.md`
+- Each feature with user flows and diagrams: `docs/features/`
 - Architecture, and the commands and events between frontend and backend: `docs/architecture.md`
 - Place folders, home and how a trip lifts its folder, every use case with diagrams: `docs/places.md`
 - Frontend overview, flows and diagrams: `src/README.md`

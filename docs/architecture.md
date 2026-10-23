@@ -2,6 +2,8 @@
 
 Media Organizer is a Tauri 2 desktop app. The Rust backend owns every filesystem decision: scanning, metadata, planning, moves, history, settings and safety checks. The React frontend renders backend state, queues work and sends confirmed batches.
 
+[overview.md](./overview.md) explains the app without code. [features/](./features/README.md) has one page per feature with user flows.
+
 ## Big Picture
 
 ```mermaid
@@ -130,6 +132,44 @@ Each layer may depend only on the layers below it.
 - **No blocking on the UI thread.** Commands that touch the filesystem are `async`. Long jobs use `spawn_job` and report through events. Folder pickers use the callback dialog.
 - **Features talk through indexes.** ESLint rejects deep imports into another feature, feature imports of `app/`, and `lib/` or design-system imports of features.
 - **Errors cross the boundary as `String`.** Internal enums such as `WorkerError` and `OperationOutcome` exist only where code branches on the error kind.
+
+## Threads And State
+
+The backend runs each long job off the UI thread and keeps the state of one scan at a time.
+
+```mermaid
+flowchart LR
+  subgraph state["AppState, one per process"]
+    active["active_scan<br/>cancel token"]
+    queue["metadata_queue<br/>ExifTool pool"]
+    pause["metadata_pause"]
+    current["current_scan<br/>records, dates, plans, run"]
+    picked["picked_folders"]
+  end
+  cmds["Async commands"] -->|run_blocking| pool["Blocking pool"]
+  cmds -->|spawn_job| walk["Scan walk"]
+  cmds -->|spawn_job| replay["Undo or redo job"]
+  cmds -->|spawn_job| home["Home on start"]
+  readers["Metadata reader thread"] --> queue
+  queue --> exif[["ExifTool processes<br/>low priority"]]
+  runThread["Move run thread"] --> current
+  walk --> active
+  readers --> current
+```
+
+| Job              | Where it runs                                             | Stops when                                    |
+| ---------------- | --------------------------------------------------------- | --------------------------------------------- |
+| Scan walk        | `spawn_job` in `commands/scan.rs`                         | The walk ends, or `cancel_scan` or a new scan |
+| Metadata readers | A thread from `scan_metadata/`                            | Every file is read, or the scan is cancelled  |
+| ExifTool workers | Long-lived processes in `metadata_queue/`                 | The app quits                                 |
+| Planning passes  | The reader thread or the blocking pool, one lock per scan | The pass ends                                 |
+| Move run         | A thread from `scan_session/moves`                        | Checks are done and no ready file is left     |
+| Undo, redo       | `spawn_job` in `commands/undo_redo.rs`                    | Every eligible step is replayed               |
+| Self update      | The async runtime, from `commands/app_update.rs`          | Up to date, deferred, or restarted            |
+
+- **One scan** `current_scan` holds the session of the scan on screen. A new scan replaces it and stops the old run after the file moving now.
+- **Picked folders** only folders from the native picker this session may start a move.
+- **Per-feature pages** in [features/](./features/README.md) show each job from the person's side.
 
 ## Backend Modules
 

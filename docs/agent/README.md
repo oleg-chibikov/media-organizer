@@ -6,6 +6,8 @@ This folder keeps repo-specific guidance short enough for agents to load only wh
 
 - `AGENTS.md`: always-on rules for tooling, workflow, repo invariants, quality, and verification.
 - `docs/agent/quickstart.md`: compact project conventions for day-to-day code changes.
+- `docs/overview.md`: the app on one page, for a first read.
+- `docs/features/`: one page per feature with user flows, sequences and code paths.
 - `docs/places.md`: the place, home and trip rules of both apps, with diagrams and every use case.
 - `docs/agent/android-parity.md`: which desktop code the Android app copies, and how to carry a change over.
 - `docs/architecture.md`: system behavior, data flow, backend/frontend boundaries, and safety invariants.
